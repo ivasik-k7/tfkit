@@ -31,6 +31,7 @@ dependencies = [
     "python-hcl2>=4.3.0",
     "rich>=13.0.0",
     "pyyaml>=6.0.0",
+    "pyinstaller>=6.16.0",
 ]
 
 [project.optional-dependencies]
