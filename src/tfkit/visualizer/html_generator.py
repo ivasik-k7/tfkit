@@ -1535,6 +1535,47 @@ class HTMLVisualizer:
             const graphData = {{ graph_data|safe }};
             let simulation, physicsEnabled = true, animationsEnabled = true;
             let currentTransform = d3.zoomIdentity;
+            let hoveredNode = null;
+            let highlightedNodes = new Set();
+            let highlightedEdges = new Set();
+            
+            // Enhanced configuration
+            const config = {
+                physics: {
+                    charge: {
+                        healthy: -400,
+                        unused: -150,
+                        orphan: -100,
+                        warning: -200,
+                        external: -250,
+                        leaf: -180
+                    },
+                    link: {
+                        healthy: 120,
+                        unused: 60,
+                        orphan: 80,
+                        warning: 100,
+                        external: 140,
+                        leaf: 90
+                    },
+                    collision: {
+                        base: 8,
+                        module: 12,
+                        resource: 10,
+                        multiplier: 0.8
+                    },
+                    force: {
+                        center: 0.1,
+                        unusedAttraction: 0.05,
+                        stateGrouping: 0.02
+                    }
+                },
+                animation: {
+                    particleInterval: 200,
+                    transitionDuration: 300,
+                    hoverGlow: true
+                }
+            };
             
             const summary = {
                 total_nodes: graphData.nodes.length,
@@ -1549,15 +1590,35 @@ class HTMLVisualizer:
                 }
             };
             
-            // Calculate connected components
-            function calculateConnectedComponents() {
-                const graph = {};
-                graphData.nodes.forEach(node => graph[node.id] = []);
-                graphData.edges.forEach(edge => {
-                    graph[edge.source].push(edge.target);
-                    graph[edge.target].push(edge.source);
+            // Pre-calculate node relationships for faster access
+            function buildNodeGraph() {
+                const nodeMap = new Map();
+                const adjacencyList = new Map();
+                
+                graphData.nodes.forEach(node => {
+                    nodeMap.set(node.id, node);
+                    adjacencyList.set(node.id, { in: [], out: [] });
                 });
                 
+                graphData.edges.forEach(edge => {
+                    const sourceId = edge.source.id || edge.source;
+                    const targetId = edge.target.id || edge.target;
+                    
+                    if (adjacencyList.has(sourceId)) {
+                        adjacencyList.get(sourceId).out.push(targetId);
+                    }
+                    if (adjacencyList.has(targetId)) {
+                        adjacencyList.get(targetId).in.push(sourceId);
+                    }
+                });
+                
+                return { nodeMap, adjacencyList };
+            }
+            
+            const { nodeMap, adjacencyList } = buildNodeGraph();
+            
+            // Calculate connected components with state awareness
+            function calculateConnectedComponents() {
                 const visited = new Set();
                 let components = 0;
                 
@@ -1567,14 +1628,21 @@ class HTMLVisualizer:
                         const current = stack.pop();
                         if (!visited.has(current)) {
                             visited.add(current);
-                            graph[current].forEach(neighbor => {
+                            const neighbors = [...adjacencyList.get(current).in, ...adjacencyList.get(current).out];
+                            neighbors.forEach(neighbor => {
                                 if (!visited.has(neighbor)) stack.push(neighbor);
                             });
                         }
                     }
                 }
                 
-                graphData.nodes.forEach(node => {
+                // Start with healthy nodes first for better grouping
+                const sortedNodes = [...graphData.nodes].sort((a, b) => {
+                    const statePriority = { healthy: 0, external: 1, leaf: 2, warning: 3, orphan: 4, unused: 5 };
+                    return (statePriority[a.state] || 6) - (statePriority[b.state] || 6);
+                });
+                
+                sortedNodes.forEach(node => {
                     if (!visited.has(node.id)) {
                         dfs(node.id);
                         components++;
@@ -1598,11 +1666,13 @@ class HTMLVisualizer:
                     indicator.className = `state-indicator state-${state}`;
                     indicator.textContent = `${state}: ${count}`;
                     indicator.title = `${count} ${state} nodes`;
+                    indicator.onclick = () => highlightState(state);
+                    indicator.style.cursor = 'pointer';
                     stateIndicators.appendChild(indicator);
                 }
             });
 
-            // Node type colors and icons - using theme colors
+            // Enhanced node configuration with theme colors
             const nodeConfig = {
                 'resource': { color: '{{ colors.success }}', icon: 'fas fa-cube' },
                 'module': { color: '{{ colors.accent_secondary }}', icon: 'fas fa-cubes' },
@@ -1612,13 +1682,44 @@ class HTMLVisualizer:
                 'provider': { color: '{{ colors.info }}', icon: 'fas fa-cog' }
             };
             
+            // Enhanced state-based styling
             const stateConfig = {
-                'healthy': { stroke: '{{ colors.success }}', glow: '{{ colors.success }}40' },
-                'unused': { stroke: '{{ colors.danger }}', glow: '{{ colors.danger }}40' },
-                'external': { stroke: '{{ colors.info }}', glow: '{{ colors.info }}40' },
-                'leaf': { stroke: '{{ colors.success }}', glow: '{{ colors.success }}40' },
-                'orphan': { stroke: '{{ colors.warning }}', glow: '{{ colors.warning }}40' },
-                'warning': { stroke: '{{ colors.warning }}', glow: '{{ colors.warning }}40' }
+                'healthy': { 
+                    stroke: '{{ colors.success }}', 
+                    glow: '{{ colors.success }}40',
+                    charge: config.physics.charge.healthy,
+                    link: config.physics.link.healthy
+                },
+                'unused': { 
+                    stroke: '{{ colors.danger }}', 
+                    glow: '{{ colors.danger }}40',
+                    charge: config.physics.charge.unused,
+                    link: config.physics.link.unused
+                },
+                'external': { 
+                    stroke: '{{ colors.info }}', 
+                    glow: '{{ colors.info }}40',
+                    charge: config.physics.charge.external,
+                    link: config.physics.link.external
+                },
+                'leaf': { 
+                    stroke: '{{ colors.success }}', 
+                    glow: '{{ colors.success }}40',
+                    charge: config.physics.charge.leaf,
+                    link: config.physics.link.leaf
+                },
+                'orphan': { 
+                    stroke: '{{ colors.warning }}', 
+                    glow: '{{ colors.warning }}40',
+                    charge: config.physics.charge.orphan,
+                    link: config.physics.link.orphan
+                },
+                'warning': { 
+                    stroke: '{{ colors.warning }}', 
+                    glow: '{{ colors.warning }}40',
+                    charge: config.physics.charge.warning,
+                    link: config.physics.link.warning
+                }
             };
 
             function init() {
@@ -1631,172 +1732,232 @@ class HTMLVisualizer:
                 const svg = d3.select('#graph-container').append('svg')
                     .attr('width', width)
                     .attr('height', height);
+
+                const g = svg.append('g');
                 
-                // Create arrow markers for each node type
+                // Enhanced zoom with smoother behavior
+                const zoom = d3.zoom()
+                    .scaleExtent([0.05, 8])
+                    .wheelDelta(() => -d3.event.deltaY * (d3.event.deltaMode ? 120 : 1) / 500)
+                    .on('zoom', (event) => {
+                        currentTransform = event.transform;
+                        g.attr('transform', event.transform);
+                    });
+                    
+                svg.call(zoom)
+                .call(zoom.transform, d3.zoomIdentity);
+
+                // Create arrow markers
                 const defs = svg.append('defs');
                 Object.keys(nodeConfig).forEach(type => {
                     defs.append('marker')
                         .attr('id', `arrow-${type}`)
                         .attr('viewBox', '0 -5 10 10')
-                        .attr('refX', 15)
+                        .attr('refX', 18)
                         .attr('refY', 0)
-                        .attr('markerWidth', 6)
-                        .attr('markerHeight', 6)
+                        .attr('markerWidth', 8)
+                        .attr('markerHeight', 8)
                         .attr('orient', 'auto')
                         .append('path')
                         .attr('d', 'M0,-5L10,0L0,5')
                         .attr('class', 'link-arrow')
-                        .style('fill', nodeConfig[type].color);
+                        .style('fill', nodeConfig[type].color)
+                        .style('opacity', '0.7');
                 });
 
-                const g = svg.append('g');
-                const zoom = d3.zoom()
-                    .scaleExtent([0.1, 4])
-                    .on('zoom', (event) => {
-                        currentTransform = event.transform;
-                        g.attr('transform', event.transform);
-                    });
-                svg.call(zoom);
-
-                // Separate nodes by state for better force configuration
-                const mainNodes = graphData.nodes.filter(n => n.state === 'healthy' || n.state === 'external' || n.state === 'leaf');
-                const unusedNodes = graphData.nodes.filter(n => n.state === 'unused' );
-                
-                // Initialize force simulation with different forces for different node types
+                // Initialize enhanced force simulation
                 simulation = d3.forceSimulation(graphData.nodes)
-                    .force('link', d3.forceLink(graphData.edges).id(d => d.id).distance(d => {
-                        // Shorter distances for unused nodes to keep them closer
-                        const sourceState = d.source.state || graphData.nodes.find(n => n.id === d.source)?.state;
-                        const targetState = d.target.state || graphData.nodes.find(n => n.id === d.target)?.state;
-                        
-                        if (sourceState === 'unused' || targetState === 'unused') return 60;
-                        if (sourceState === 'orphan' || targetState === 'orphan') return 80;
-                        return 100;
-                    }))
+                    .force('link', d3.forceLink(graphData.edges)
+                        .id(d => d.id)
+                        .distance(d => {
+                            const source = typeof d.source === 'object' ? d.source : nodeMap.get(d.source);
+                            const target = typeof d.target === 'object' ? d.target : nodeMap.get(d.target);
+                            const sourceState = source?.state || 'healthy';
+                            const targetState = target?.state || 'healthy';
+                            
+                            // Use the minimum link distance between connected nodes
+                            return Math.min(
+                                stateConfig[sourceState]?.link || config.physics.link.healthy,
+                                stateConfig[targetState]?.link || config.physics.link.healthy
+                            );
+                        })
+                        .strength(0.2)
+                    )
                     .force('charge', d3.forceManyBody()
                         .strength(d => {
-                            // Weaker repulsion for unused nodes to keep them closer to main graph
-                            if (d.state === 'unused' || d.state === 'orphan') return -200;
-                            if (d.state === 'warning') return -150;
-                            return -300;
-                        }))
-                    .force('center', d3.forceCenter(width / 2, height / 2))
-                    .force('collision', d3.forceCollide().radius(d => {
-                        const baseRadius = d.type === 'module' ? 20 : d.type === 'resource' ? 15 : 12;
-                        const dependencyCount = (d.dependencies_out || 0) + (d.dependencies_in || 0);
-                        return baseRadius + Math.min(dependencyCount * 2, 10);
-                    }))
-                    .force('unused', d3.forceManyBody()
-                        .strength(d => {
-                            // Attract unused nodes toward the center of main nodes
-                            if (d.state === 'unused' || d.state === 'orphan') return 0.1;
-                            return 0;
+                            const stateStrength = stateConfig[d.state]?.charge || config.physics.charge.healthy;
+                            // Adjust based on node type and dependencies
+                            const dependencyFactor = 1 + ((d.dependencies_out || 0) + (d.dependencies_in || 0)) * 0.1;
+                            return stateStrength * dependencyFactor;
                         })
-                        .distanceMax(200));
+                        .distanceMax(400)
+                    )
+                    .force('center', d3.forceCenter(width / 2, height / 2).strength(config.physics.force.center))
+                    .force('collision', d3.forceCollide()
+                        .radius(d => {
+                            const baseRadius = d.type === 'module' ? config.physics.collision.module : 
+                                            d.type === 'resource' ? config.physics.collision.resource : 
+                                            config.physics.collision.base;
+                            const dependencyCount = (d.dependencies_out || 0) + (d.dependencies_in || 0);
+                            return baseRadius + Math.min(dependencyCount * config.physics.collision.multiplier, 8);
+                        })
+                        .strength(0.8)
+                    )
+                    .force('state_grouping', d3.forceY()
+                        .strength(d => {
+                            // Group similar states together vertically
+                            const stateGroups = { healthy: 0, external: 0.1, leaf: -0.1, warning: 0.2, orphan: -0.2, unused: 0.3 };
+                            return (stateGroups[d.state] || 0) * config.physics.force.stateGrouping;
+                        })
+                    )
+                    .force('unused_attraction', d3.forceX()
+                        .strength(d => d.state === 'unused' ? config.physics.force.unusedAttraction : 0)
+                        .x(width * 0.7)
+                    )
+                    .alphaDecay(0.0228) // Slower decay for smoother settling
+                    .velocityDecay(0.4);
 
-                // Create links
+                // Create links with enhanced styling
                 const link = g.append('g')
                     .selectAll('line')
                     .data(graphData.edges)
                     .join('line')
                     .attr('class', 'link')
+                    .attr('data-source', d => typeof d.source === 'object' ? d.source.id : d.source)
+                    .attr('data-target', d => typeof d.target === 'object' ? d.target.id : d.target)
                     .attr('marker-end', d => {
-                        const target = graphData.nodes.find(n => n.id === d.target.id || n.id === d.target);
+                        const target = typeof d.target === 'object' ? d.target : nodeMap.get(d.target);
                         return target ? `url(#arrow-${target.type})` : '';
-                    });
+                    })
+                    .style('stroke-width', 1.5)
+                    .style('opacity', 0.4);
 
-                // Create nodes
+                // Create nodes with enhanced interactions
                 const node = g.append('g')
                     .selectAll('g')
                     .data(graphData.nodes)
                     .join('g')
-                    .attr('class', d => `node ${d.type}`)
+                    .attr('class', d => `node ${d.type} ${d.state}`)
+                    .attr('data-id', d => d.id)
                     .call(d3.drag()
                         .on('start', dragstarted)
                         .on('drag', dragged)
                         .on('end', dragended))
-                    .on('mouseover', showTooltip)
-                    .on('mouseout', hideTooltip);
+                    .on('mouseover', (event, d) => showTooltip(event, d))
+                    .on('mouseout', (event, d) => hideTooltip(event, d))
+                    .on('click', (event, d) => highlightConnected(event, d));
 
-                // Add circles to nodes with state-based styling
+                // Enhanced node circles with state-based styling
                 node.append('circle')
                     .attr('r', d => {
-                        const baseRadius = d.type === 'module' ? 12 : d.type === 'resource' ? 10 : 8;
+                        const baseRadius = d.type === 'module' ? 14 : d.type === 'resource' ? 11 : 9;
                         const dependencyCount = (d.dependencies_out || 0) + (d.dependencies_in || 0);
-                        return baseRadius + Math.min(dependencyCount * 0.5, 6);
+                        return baseRadius + Math.min(dependencyCount * 0.6, 6);
                     })
                     .style('fill', d => nodeConfig[d.type]?.color || '#666')
                     .style('stroke', d => stateConfig[d.state]?.stroke || nodeConfig[d.type]?.color || '#666')
                     .style('stroke-width', 2)
-                    .style('filter', d => `drop-shadow(0 0 6px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '30' || '#6666'})`);
+                    .style('cursor', 'pointer')
+                    .style('filter', d => `drop-shadow(0 0 8px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '40' || '#6666'})`);
 
-                // Add labels to nodes
+                // Enhanced labels with better positioning
                 node.append('text')
-                    .attr('dx', 15)
+                    .attr('dx', d => (d.type === 'module' ? 18 : 16))
                     .attr('dy', 4)
                     .text(d => {
-                        const maxLength = d.type === 'module' ? 20 : 15;
+                        const maxLength = d.type === 'module' ? 25 : 18;
                         return d.label.length > maxLength ? d.label.substring(0, maxLength) + '...' : d.label;
                     })
                     .style('fill', '{{ colors.text_primary }}')
-                    .style('font-size', '11px')
-                    .style('font-weight', '500');
+                    .style('font-size', d => d.type === 'module' ? '12px' : '11px')
+                    .style('font-weight', '500')
+                    .style('pointer-events', 'none')
+                    .style('text-shadow', `0 1px 4px {{ colors.bg_primary }}`);
 
-                // Update positions on simulation tick
+                // Enhanced simulation tick for better performance
                 simulation.on('tick', () => {
-                    link.attr('x1', d => d.source.x)
-                        .attr('y1', d => d.source.y)
-                        .attr('x2', d => d.target.x)
-                        .attr('y2', d => d.target.y);
+                    link.attr('x1', d => {
+                            const source = typeof d.source === 'object' ? d.source : nodeMap.get(d.source);
+                            return source?.x || 0;
+                        })
+                        .attr('y1', d => {
+                            const source = typeof d.source === 'object' ? d.source : nodeMap.get(d.source);
+                            return source?.y || 0;
+                        })
+                        .attr('x2', d => {
+                            const target = typeof d.target === 'object' ? d.target : nodeMap.get(d.target);
+                            return target?.x || 0;
+                        })
+                        .attr('y2', d => {
+                            const target = typeof d.target === 'object' ? d.target : nodeMap.get(d.target);
+                            return target?.y || 0;
+                        });
                         
-                    node.attr('transform', d => `translate(${d.x},${d.y})`);
+                    node.attr('transform', d => `translate(${d.x || 0},${d.y || 0})`);
                 });
 
-                // Start particle animations if enabled
+                // Start enhanced particle animations
                 if (animationsEnabled) {
                     startParticleAnimations(g);
                 }
+                
+                // Initial stabilization
+                setTimeout(() => {
+                    simulation.alphaTarget(0.1).restart();
+                    setTimeout(() => simulation.alphaTarget(0), 1000);
+                }, 500);
             }
 
             function startParticleAnimations(g) {
-                setInterval(() => {
-                    if (graphData.edges.length > 0 && animationsEnabled) {
-                        const edge = graphData.edges[Math.floor(Math.random() * graphData.edges.length)];
-                        const sourceNode = graphData.nodes.find(n => n.id === edge.source.id || n.id === edge.source);
-                        const targetNode = graphData.nodes.find(n => n.id === edge.target.id || n.id === edge.target);
-                        
-                        if (sourceNode && targetNode && sourceNode.x && sourceNode.y && targetNode.x && targetNode.y) {
-                            const particle = g.append('circle')
-                                .attr('class', 'particle')
-                                .attr('r', 2)
-                                .attr('cx', sourceNode.x)
-                                .attr('cy', sourceNode.y)
-                                .style('fill', nodeConfig[sourceNode.type]?.color || '{{ colors.accent }}');
-                                
-                            particle.transition()
-                                .duration(1500)
-                                .attr('cx', targetNode.x)
-                                .attr('cy', targetNode.y)
-                                .style('opacity', 0)
-                                .remove();
-                        }
+                const particleGroup = g.append('g').attr('class', 'particles');
+                
+                function spawnParticle() {
+                    if (!animationsEnabled || graphData.edges.length === 0) return;
+                    
+                    const edge = graphData.edges[Math.floor(Math.random() * graphData.edges.length)];
+                    const source = typeof edge.source === 'object' ? edge.source : nodeMap.get(edge.source);
+                    const target = typeof edge.target === 'object' ? edge.target : nodeMap.get(edge.target);
+                    
+                    if (source && target && source.x && source.y && target.x && target.y) {
+                        const particle = particleGroup.append('circle')
+                            .attr('class', 'particle')
+                            .attr('r', 2.5)
+                            .attr('cx', source.x)
+                            .attr('cy', source.y)
+                            .style('fill', nodeConfig[source.type]?.color || '{{ colors.accent }}')
+                            .style('opacity', 0.9);
+                            
+                        particle.transition()
+                            .duration(1200 + Math.random() * 600)
+                            .ease(d3.easeCubicOut)
+                            .attr('cx', target.x)
+                            .attr('cy', target.y)
+                            .style('opacity', 0)
+                            .remove();
                     }
-                }, 300);
+                }
+                
+                const particleInterval = setInterval(spawnParticle, config.animation.particleInterval);
+                
+                // Cleanup interval when animations are disabled
+                window.particleInterval = particleInterval;
             }
 
             function showTooltip(event, d) {
+                if (hoveredNode === d.id) return;
+                hoveredNode = d.id;
+                
                 const tooltip = document.getElementById('node-tooltip');
                 const config = nodeConfig[d.type] || {};
-                const state = stateConfig[d.state] || {};
                 
                 tooltip.innerHTML = `
                     <div class="node-info">
                         <div class="node-info-title">
                             <i class="${config.icon}"></i> ${d.label}
                         </div>
-                        <div><strong>Type:</strong> ${d.type} • ${d.subtype}</div>
-                        <div><strong>State:</strong> ${d.state}</div>
-                        <div><strong>Reason:</strong> ${d.state_reason}</div>
+                        <div><strong>Type:</strong> ${d.type}</div>
+                        <div><strong>State:</strong> <span class="node-state state-${d.state}">${d.state}</span></div>
+                        ${d.state_reason ? `<div><strong>Reason:</strong> ${d.state_reason}</div>` : ''}
                         <div class="node-info-deps">
                             <div class="node-info-dep"><i class="fas fa-arrow-up"></i> Uses: ${d.dependencies_out || 0}</div>
                             <div class="node-info-dep"><i class="fas fa-arrow-down"></i> Used by: ${d.dependencies_in || 0}</div>
@@ -1804,14 +1965,135 @@ class HTMLVisualizer:
                     </div>
                 `;
                 
-                tooltip.style.opacity = 1;
-                tooltip.style.left = (event.pageX + 10) + 'px';
-                tooltip.style.top = (event.pageY - 10) + 'px';
+                tooltip.style.opacity = '1';
+                tooltip.style.left = (event.pageX + 15) + 'px';
+                tooltip.style.top = (event.pageY - 15) + 'px';
+                
+                // Subtle highlight on hover
+                highlightConnected(event, d, true);
             }
 
-            function hideTooltip() {
+            function hideTooltip(event, d) {
+                hoveredNode = null;
                 const tooltip = document.getElementById('node-tooltip');
-                tooltip.style.opacity = 0;
+                tooltip.style.opacity = '0';
+                
+                // Clear highlight if not intentionally highlighted
+                if (!highlightedNodes.size) {
+                    clearHighlights();
+                }
+            }
+
+            function highlightConnected(event, d, isHover = false) {
+                if (!isHover) {
+                    event.stopPropagation();
+                }
+                
+                if (highlightedNodes.has(d.id) && !isHover) {
+                    clearHighlights();
+                    return;
+                }
+                
+                clearHighlights();
+                
+                const connectedNodes = new Set([d.id]);
+                const connectedEdges = new Set();
+                
+                // Find all connected nodes (2 levels deep)
+                function findConnections(nodeId, depth = 0, maxDepth = 2) {
+                    if (depth >= maxDepth) return;
+                    
+                    const connections = adjacencyList.get(nodeId);
+                    if (!connections) return;
+                    
+                    [...connections.in, ...connections.out].forEach(connectedId => {
+                        if (!connectedNodes.has(connectedId)) {
+                            connectedNodes.add(connectedId);
+                            findConnections(connectedId, depth + 1, maxDepth);
+                        }
+                    });
+                }
+                
+                findConnections(d.id);
+                
+                // Find edges between connected nodes
+                graphData.edges.forEach(edge => {
+                    const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+                    const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+                    
+                    if (connectedNodes.has(sourceId) && connectedNodes.has(targetId)) {
+                        connectedEdges.add(edge);
+                    }
+                });
+                
+                // Apply highlights
+                connectedNodes.forEach(nodeId => highlightedNodes.add(nodeId));
+                connectedEdges.forEach(edge => highlightedEdges.add(edge));
+                
+                updateHighlights();
+                
+                if (!isHover) {
+                    // Center view on highlighted node
+                    const node = graphData.nodes.find(n => n.id === d.id);
+                    if (node && node.x && node.y) {
+                        const scale = Math.min(2, Math.max(0.5, 800 / (highlightedNodes.size * 10)));
+                        const transform = d3.zoomIdentity
+                            .translate(window.innerWidth / 2 - node.x * scale, window.innerHeight / 2 - node.y * scale)
+                            .scale(scale);
+                            
+                        d3.select('#graph-container svg')
+                            .transition()
+                            .duration(800)
+                            .call(d3.zoom().transform, transform);
+                    }
+                }
+            }
+
+            function highlightState(state) {
+                clearHighlights();
+                
+                graphData.nodes.forEach(node => {
+                    if (node.state === state) {
+                        highlightedNodes.add(node.id);
+                    }
+                });
+                
+                updateHighlights();
+            }
+
+            function clearHighlights() {
+                highlightedNodes.clear();
+                highlightedEdges.clear();
+                updateHighlights();
+            }
+
+            function updateHighlights() {
+                // Update node opacity
+                d3.selectAll('.node')
+                    .transition()
+                    .duration(300)
+                    .style('opacity', d => highlightedNodes.size === 0 || highlightedNodes.has(d.id) ? 1 : 0.2);
+                    
+                // Update link opacity and style
+                d3.selectAll('.link')
+                    .transition()
+                    .duration(300)
+                    .style('opacity', d => {
+                        if (highlightedNodes.size === 0) return 0.4;
+                        
+                        const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+                        const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+                        
+                        return highlightedNodes.has(sourceId) && highlightedNodes.has(targetId) ? 0.9 : 0.1;
+                    })
+                    .style('stroke-width', d => {
+                        if (highlightedNodes.size === 0) return 1.5;
+                        
+                        const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+                        const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+                        
+                        return highlightedNodes.has(sourceId) && highlightedNodes.has(targetId) ? 2.5 : 1;
+                    });
             }
 
             function dragstarted(event, d) {
@@ -1827,8 +2109,9 @@ class HTMLVisualizer:
 
             function dragended(event, d) {
                 if (!event.active) simulation.alphaTarget(0);
-                d.fx = null;
-                d.fy = null;
+                // Keep fixed position for better UX
+                // d.fx = null;
+                // d.fy = null;
             }
 
             function resetView() {
@@ -1837,49 +2120,64 @@ class HTMLVisualizer:
                     .duration(750)
                     .call(d3.zoom().transform, d3.zoomIdentity);
                 currentTransform = d3.zoomIdentity;
+                clearHighlights();
             }
 
             function togglePhysics() {
                 physicsEnabled = !physicsEnabled;
                 const btn = document.getElementById('physics-btn');
                 if (physicsEnabled) {
-                    simulation.alphaTarget(0.3).restart();
+                    simulation.alphaTarget(0.1).restart();
                     btn.innerHTML = '<i class="fas fa-bolt"></i> Physics';
+                    btn.style.background = '{{ colors.accent }}';
+                    btn.style.color = '{{ colors.bg_primary }}';
                 } else {
                     simulation.stop();
                     btn.innerHTML = '<i class="fas fa-pause"></i> Paused';
+                    btn.style.background = '{{ colors.warning }}';
+                    btn.style.color = '{{ colors.bg_primary }}';
                 }
             }
 
             function centerGraph() {
                 const container = document.getElementById('graph-container');
                 simulation.force('center', d3.forceCenter(container.clientWidth / 2, container.clientHeight / 2));
-                simulation.alpha(1).restart();
+                simulation.alpha(0.5).restart();
+                setTimeout(() => simulation.alphaTarget(0), 1000);
             }
 
             function toggleAnimations() {
                 animationsEnabled = !animationsEnabled;
                 const btn = document.getElementById('animations-btn');
+                
                 if (animationsEnabled) {
                     startParticleAnimations(d3.select('#graph-container svg g'));
                     btn.innerHTML = '<i class="fas fa-sparkles"></i> Animations';
+                    btn.style.background = '{{ colors.accent }}';
+                    btn.style.color = '{{ colors.bg_primary }}';
                 } else {
+                    if (window.particleInterval) {
+                        clearInterval(window.particleInterval);
+                    }
+                    d3.selectAll('.particle').remove();
                     btn.innerHTML = '<i class="fas fa-ban"></i> Animations';
+                    btn.style.background = '{{ colors.danger }}';
+                    btn.style.color = '{{ colors.bg_primary }}';
                 }
             }
 
             function zoomIn() {
                 const svg = d3.select('#graph-container svg');
-                const newScale = Math.min(currentTransform.k * 1.2, 4);
-                const transform = d3.zoomIdentity.scale(newScale);
-                svg.transition().duration(300).call(d3.zoom().transform, transform);
+                const newScale = Math.min(currentTransform.k * 1.4, 8);
+                const transform = d3.zoomIdentity.scale(newScale).translate(currentTransform.x, currentTransform.y);
+                svg.transition().duration(200).call(d3.zoom().transform, transform);
             }
 
             function zoomOut() {
                 const svg = d3.select('#graph-container svg');
-                const newScale = Math.max(currentTransform.k / 1.2, 0.1);
-                const transform = d3.zoomIdentity.scale(newScale);
-                svg.transition().duration(300).call(d3.zoom().transform, transform);
+                const newScale = Math.max(currentTransform.k / 1.4, 0.05);
+                const transform = d3.zoomIdentity.scale(newScale).translate(currentTransform.x, currentTransform.y);
+                svg.transition().duration(200).call(d3.zoom().transform, transform);
             }
 
             function resetZoom() {
@@ -1887,15 +2185,27 @@ class HTMLVisualizer:
                 svg.transition().duration(300).call(d3.zoom().transform, d3.zoomIdentity);
             }
 
-            // Handle window resize
+            // Enhanced window resize handler
             window.addEventListener('resize', () => {
                 const container = document.getElementById('graph-container');
-                d3.select('#graph-container svg')
-                    .attr('width', container.clientWidth)
-                    .attr('height', container.clientHeight);
+                const svg = d3.select('#graph-container svg');
+                
+                svg.attr('width', container.clientWidth)
+                .attr('height', container.clientHeight);
+                
+                simulation.force('center', d3.forceCenter(container.clientWidth / 2, container.clientHeight / 2));
+                simulation.alpha(0.3).restart();
             });
 
-            // Initialize graph
+            // Click anywhere to clear highlights
+            document.addEventListener('click', (event) => {
+                if (event.target.closest('.node, .control-btn, .scale-btn, .state-indicator, .hud, .legend')) {
+                    return;
+                }
+                clearHighlights();
+            });
+
+            // Initialize enhanced graph
             init();
         </script>
     </body>

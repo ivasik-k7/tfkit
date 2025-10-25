@@ -1,0 +1,95 @@
+name: Build Multi-Format Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-packages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+
+      - name: Build packages
+        run: |
+          uv build
+          echo "Built packages:"
+          ls -la dist/
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-packages
+          path: dist/*
+
+  build-binaries:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux-amd64
+            binary_name: tfkit
+          - os: macos-latest
+            name: macos-amd64
+            binary_name: tfkit
+          - os: windows-latest
+            name: windows-amd64
+            binary_name: tfkit.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v1
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install PyInstaller
+        run: uv pip install pyinstaller
+
+      - name: Build binary
+        run: |
+          pyinstaller --onefile --name ${{ matrix.binary_name }} src/tfkit/cli.py
+          ls -la dist/
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-binary
+          path: dist/${{ matrix.binary_name }}
+
+  create-release:
+    runs-on: ubuntu-latest
+    needs: [build-packages, build-binaries]
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: "*"
+          merge-multiple: true
+
+      - name: List all release assets
+        run: |
+          echo "Release assets:"
+          find release-assets -type f
+          echo "---"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-assets/**/*
+          generate_release_notes: true
