@@ -9,39 +9,18 @@ permissions:
   contents: write
 
 jobs:
-  build-packages:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-
-      - name: Build packages
-        run: |
-          uv build
-          echo "Built packages:"
-          ls -la dist/
-
-      - name: Upload packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-packages
-          path: dist/*
-
   build-binaries:
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            name: linux-amd64
+            name: tfkit-linux
             binary_name: tfkit
           - os: macos-latest
-            name: macos-amd64
+            name: tfkit-macos
             binary_name: tfkit
           - os: windows-latest
-            name: windows-amd64
+            name: tfkit-windows.exe
             binary_name: tfkit.exe
 
     runs-on: ${{ matrix.os }}
@@ -49,47 +28,86 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-
       - name: Set up Python
-        run: uv python install 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
 
-      - name: Install PyInstaller
-        run: uv pip install pyinstaller
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Install dependencies
+        run: |
+          uv pip install --system pyinstaller
+          uv pip install --system -e .
 
       - name: Build binary
         run: |
           pyinstaller --onefile --name ${{ matrix.binary_name }} src/tfkit/cli.py
-          ls -la dist/
+          echo "✅ Binary built successfully!"
 
       - name: Upload binary
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}-binary
+          name: ${{ matrix.name }}
           path: dist/${{ matrix.binary_name }}
+
+  build-python-packages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Build packages
+        run: |
+          uv build
+          echo "✅ Python packages built successfully!"
+
+      - name: List built packages
+        run: |
+          echo "Built packages:"
+          ls -lh dist/
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-packages
+          path: dist/*
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [build-packages, build-binaries]
+    needs: [build-binaries, build-python-packages]
 
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: release-assets
-          pattern: "*"
-          merge-multiple: true
+
+      - name: Flatten artifact structure
+        run: |
+          find release-assets -type f -exec mv {} release-assets/ \;
+          find release-assets -type d -empty -delete
 
       - name: List all release assets
         run: |
           echo "Release assets:"
-          find release-assets -type f
-          echo "---"
+          ls -lh release-assets/
+          echo "Total files: $(find release-assets -type f | wc -l)"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            release-assets/**/*
+            release-assets/tfkit-*
+            release-assets/*.whl
+            release-assets/*.tar.gz
           generate_release_notes: true
