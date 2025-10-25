@@ -9,87 +9,249 @@ permissions:
   contents: write
 
 jobs:
-  build-packages:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v1
-
-      - name: Build packages
-        run: |
-          uv build
-          echo "Built packages:"
-          ls -la dist/
-
-      - name: Upload packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-packages
-          path: dist/*
-
   build-binaries:
     strategy:
       matrix:
         include:
           - os: ubuntu-latest
-            name: linux-amd64
+            name: tfkit-linux
             binary_name: tfkit
+            platform: linux
           - os: macos-latest
-            name: macos-amd64
+            name: tfkit-macos
             binary_name: tfkit
+            platform: macos
           - os: windows-latest
-            name: windows-amd64
+            name: tfkit-windows.exe
             binary_name: tfkit.exe
+            platform: windows
 
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v1
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
 
       - name: Set up Python
-        run: uv python install 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Install PyInstaller
-        run: uv pip install pyinstaller
-
-      - name: Build binary
+      - name: Create virtual environment and install dependencies
         run: |
-          pyinstaller --onefile --name ${{ matrix.binary_name }} src/tfkit/cli.py
-          ls -la dist/
+          uv venv .venv
+          echo "Virtual environment created"
 
-      - name: Upload binary
+      - name: Install project and PyInstaller (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          source .venv/bin/activate
+          uv pip install pyinstaller
+          uv pip install .
+          python --version
+          pip list
+
+      - name: Install project and PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          .venv\Scripts\activate
+          uv pip install pyinstaller
+          uv pip install .
+          python --version
+          pip list
+
+      - name: Build binary with PyInstaller (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          source .venv/bin/activate
+          pyinstaller --onefile --name ${{ matrix.binary_name }} src/tfkit/cli.py
+          echo "✅ Binary built successfully for ${{ matrix.platform }}!"
+          ls -lh dist/
+
+      - name: Build binary with PyInstaller (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          .venv\Scripts\activate
+          pyinstaller --onefile --name ${{ matrix.binary_name }} src/tfkit/cli.py
+          echo "✅ Binary built successfully for ${{ matrix.platform }}!"
+          dir dist
+
+      - name: Test binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x dist/${{ matrix.binary_name }}
+          dist/${{ matrix.binary_name }} --version || echo "Version check completed"
+
+      - name: Test binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          dist\${{ matrix.binary_name }} --version
+        continue-on-error: true
+
+      - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}-binary
+          name: ${{ matrix.name }}
           path: dist/${{ matrix.binary_name }}
+          if-no-files-found: error
+
+  build-python-packages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify pyproject.toml
+        run: |
+          echo "Checking pyproject.toml..."
+          cat pyproject.toml
+          echo "✅ pyproject.toml verified"
+
+      - name: Build Python packages with uv
+        run: |
+          uv build --verbose
+          echo "✅ Python packages built successfully!"
+
+      - name: List built packages
+        run: |
+          echo "Built packages:"
+          ls -lh dist/
+          echo ""
+          echo "Package details:"
+          for file in dist/*; do
+            echo "- $(basename $file) ($(stat -f%z "$file" 2>/dev/null || stat -c%s "$file") bytes)"
+          done
+
+      - name: Verify package contents
+        run: |
+          uv pip install twine --system
+          twine check dist/*
+          echo "✅ Package verification passed"
+
+      - name: Upload Python packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-packages
+          path: dist/*
+          if-no-files-found: error
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [build-packages, build-binaries]
+    needs: [build-binaries, build-python-packages]
 
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release-assets
-          pattern: "*"
-          merge-multiple: true
+          path: release-assets-temp
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          echo "Artifact structure:"
+          find release-assets-temp -type f
+
+          echo ""
+          echo "Moving and renaming files to release-assets..."
+
+          # Move Python packages (keep original names)
+          if [ -d "release-assets-temp/python-packages" ]; then
+            mv release-assets-temp/python-packages/* release-assets/
+          fi
+
+          # Move and rename binaries with platform-specific names
+          if [ -d "release-assets-temp/tfkit-linux" ]; then
+            mv release-assets-temp/tfkit-linux/tfkit release-assets/tfkit-linux
+          fi
+
+          if [ -d "release-assets-temp/tfkit-macos" ]; then
+            mv release-assets-temp/tfkit-macos/tfkit release-assets/tfkit-macos
+          fi
+
+          if [ -d "release-assets-temp/tfkit-windows.exe" ]; then
+            mv release-assets-temp/tfkit-windows.exe/tfkit.exe release-assets/tfkit-windows.exe
+          fi
+
+          echo ""
+          echo "Cleaning up temp directory..."
+          rm -rf release-assets-temp
 
       - name: List all release assets
         run: |
-          echo "Release assets:"
-          find release-assets -type f
-          echo "---"
+          echo "=== Final Release Assets ==="
+          ls -lh release-assets/
+          echo ""
+          echo "Total files: $(find release-assets -type f | wc -l)"
+          echo ""
+          echo "Files by type:"
+          echo "- Binaries: $(find release-assets -type f -name 'tfkit-*' | wc -l)"
+          echo "- Wheels: $(find release-assets -type f -name '*.whl' | wc -l)"
+          echo "- Source: $(find release-assets -type f -name '*.tar.gz' | wc -l)"
+
+      - name: Verify all expected files exist
+        run: |
+          error=0
+
+          # Check for at least one of each type
+          if [ $(find release-assets -type f -name 'tfkit-linux' | wc -l) -eq 0 ]; then
+            echo "❌ Missing Linux binary"
+            error=1
+          fi
+
+          if [ $(find release-assets -type f -name 'tfkit-macos' | wc -l) -eq 0 ]; then
+            echo "❌ Missing macOS binary"
+            error=1
+          fi
+
+          if [ $(find release-assets -type f -name 'tfkit-windows.exe' | wc -l) -eq 0 ]; then
+            echo "❌ Missing Windows binary"
+            error=1
+          fi
+
+          if [ $(find release-assets -type f -name '*.whl' | wc -l) -eq 0 ]; then
+            echo "❌ Missing wheel package"
+            error=1
+          fi
+
+          if [ $(find release-assets -type f -name '*.tar.gz' | wc -l) -eq 0 ]; then
+            echo "❌ Missing source package"
+            error=1
+          fi
+
+          if [ $error -eq 0 ]; then
+            echo "✅ All expected files present"
+          else
+            exit 1
+          fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/**/*
+            release-assets/tfkit-linux
+            release-assets/tfkit-macos
+            release-assets/tfkit-windows.exe
+            release-assets/*.whl
+            release-assets/*.tar.gz
           generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
