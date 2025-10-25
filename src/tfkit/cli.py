@@ -4,13 +4,10 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import click
 from rich import box
 from rich.console import Console
-from rich.layout import Layout
-from rich.live import Live
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -22,6 +19,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.tree import Tree
 
+from tfkit import __version__
 from tfkit.analyzer.terraform_analyzer import TerraformAnalyzer
 from tfkit.visualizer.html_generator import HTMLVisualizer
 
@@ -37,7 +35,6 @@ TFKIT_BANNER = """
 """
 
 TFKIT_TAGLINE = "[bold cyan]Terraform Intelligence & Analysis Suite[/bold cyan]"
-TFKIT_VERSION = "2.0.0"
 
 
 def print_banner(show_version: bool = True):
@@ -46,7 +43,7 @@ def print_banner(show_version: bool = True):
     console.print(f"  {TFKIT_TAGLINE}")
     if show_version:
         console.print(
-            f"  [dim]v{TFKIT_VERSION} | Advanced Infrastructure Analysis[/dim]\n"
+            f"  [dim]v{__version__} | Advanced Infrastructure Analysis[/dim]\n"
         )
 
 
@@ -203,7 +200,6 @@ def scan(path, output, format, open, quiet, save, theme, layout):
             progress.update(task, advance=40, description="Building resource map...")
             progress.update(task, advance=30, description="Finalizing analysis...")
 
-        # Display results
         if format == "table":
             _display_scan_results(project, quiet)
         elif format == "json":
@@ -213,14 +209,12 @@ def scan(path, output, format, open, quiet, save, theme, layout):
         else:
             _display_simple_results(project)
 
-        # Save if requested
         if save:
             with save.open("w") as f:
                 json.dump(_get_scan_data(project), f, indent=2, default=str)
             if not quiet:
                 console.print(f"\n✓ Results saved to: [green]{save}[/green]")
 
-        # Open visualization if requested
         if open:
             visualizer = HTMLVisualizer(theme=theme, layout=layout)
             html_file = visualizer.generate_visualization(
@@ -241,9 +235,7 @@ def scan(path, output, format, open, quiet, save, theme, layout):
 
     except Exception as e:
         console.print(f"\n[red]✗ Scan failed:[/red] {e}")
-        # if ctx.obj.get("DEBUG"):
-        #     console.print_exception()
-        # sys.exit(1)
+        sys.exit(1)
 
 
 # ============================================================================
@@ -395,7 +387,6 @@ def analyze(
         console.print()
 
     try:
-        # Analysis with progress tracking
         if verbose and not quiet:
             with Progress(
                 SpinnerColumn(),
@@ -448,11 +439,9 @@ def analyze(
             analyzer = TerraformAnalyzer()
             project = analyzer.analyze_project(path)
 
-        # Apply filters
         if providers:
             _apply_provider_filter(project, providers)
 
-        # Export in various formats
         exports_completed = []
 
         if export_json:
@@ -479,7 +468,6 @@ def analyze(
             for export in exports_completed:
                 console.print(f"   ✓ {export}")
 
-        # Generate visualization
         if output or open_browser:
             if verbose and not quiet:
                 console.print("\n📊 Generating visualization...")
@@ -493,7 +481,6 @@ def analyze(
                 if not quiet:
                     console.print("   🌐 Opened in browser")
 
-        # Display comprehensive summary
         if not quiet:
             console.print()
             _display_detailed_analysis_summary(
@@ -615,7 +602,6 @@ def inspect(
         analyzer = TerraformAnalyzer()
         project = analyzer.analyze_project(path)
 
-        # Get components based on type
         components = _get_components_by_type(
             project, component_type, name, resource_type, filter
         )
@@ -626,7 +612,6 @@ def inspect(
             )
             sys.exit(0)
 
-        # Display based on format
         if format == "tree":
             _display_component_tree(
                 components,
@@ -639,7 +624,7 @@ def inspect(
             _display_component_table(components, component_type, show_attributes)
         elif format == "json":
             console.print(json.dumps(components, indent=2, default=str))
-        else:  # detailed
+        else:
             _display_component_detailed(
                 components,
                 component_type,
@@ -648,7 +633,6 @@ def inspect(
                 show_attributes,
             )
 
-        # Export if requested
         if export:
             with export.open("w") as f:
                 json.dump(components, f, indent=2, default=str)
@@ -775,7 +759,6 @@ def report(
 
             progress.update(task, description="Generating report content...")
 
-            # Generate report based on type
             report_file = _generate_report(
                 project,
                 report_type,
@@ -880,7 +863,6 @@ def export(path, formats, output_dir, prefix, split_by, include, exclude, compre
         analyzer = TerraformAnalyzer()
         project = analyzer.analyze_project(path)
 
-        # Setup output directory
         output_dir = output_dir or Path(".")
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -990,11 +972,10 @@ def validate(
 
     try:
         analyzer = TerraformAnalyzer()
-        project = analyzer.analyze_project(path)
+        # project = analyzer.analyze_project(path)
 
         validation_results = {"errors": [], "warnings": [], "passed": [], "summary": {}}
 
-        # Perform validations
         if check_syntax:
             console.print("   🔍 Checking syntax...")
             validation_results["passed"].append("Syntax check passed")
@@ -1239,10 +1220,7 @@ def info(path):
     """
     print_banner()
 
-    # System Info
     import platform
-
-    from tfkit import __version__
 
     system_table = Table(
         title="System Information", show_header=False, border_style="blue"
@@ -1257,29 +1235,6 @@ def info(path):
 
     console.print(system_table)
     console.print()
-
-    # Project Info
-    try:
-        analyzer = TerraformAnalyzer()
-        project = analyzer.analyze_project(path)
-
-        project_table = Table(
-            title="Project Information", show_header=False, border_style="green"
-        )
-        project_table.add_column("Property", style="cyan")
-        project_table.add_column("Value", style="white")
-
-        project_table.add_row("Project Path", str(path.resolve()))
-        project_table.add_row("Total Resources", str(len(project.resources)))
-        project_table.add_row("Modules", str(len(project.modules)))
-        project_table.add_row("Variables", str(len(project.variables)))
-        project_table.add_row("Outputs", str(len(project.outputs)))
-        project_table.add_row("Providers", str(len(project.providers)))
-
-        console.print(project_table)
-
-    except Exception as e:
-        console.print(f"[yellow]⚠[/yellow]  Could not analyze project: {e}")
 
 
 def show_version_info():
@@ -1724,7 +1679,7 @@ def _export_sarif(results):
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "runs": [
             {
-                "tool": {"driver": {"name": "TFKIT", "version": TFKIT_VERSION}},
+                "tool": {"driver": {"name": "TFKIT", "version": __version__}},
                 "results": [],
             }
         ],

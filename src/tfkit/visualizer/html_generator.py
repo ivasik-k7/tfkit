@@ -5,7 +5,7 @@ import tempfile
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from jinja2 import Template
 
@@ -40,7 +40,6 @@ class HTMLVisualizer:
         Returns:
             Path to generated HTML file
         """
-        # Override theme/layout from options
         theme = options.get("theme", self.theme)
         layout = options.get("layout", self.layout)
 
@@ -80,23 +79,22 @@ class HTMLVisualizer:
             template = self._get_graph_template()
         elif layout == "dashboard":
             template = self._get_dashboard_template()
-        else:  # classic
+        else:
             template = self._get_classic_template()
 
-        # Render HTML
         html_content = template.render(
             sections=sections,
             stats=stats,
             graph_data=json.dumps(graph_data),
             timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             theme=theme,
+            theme_colors=self._get_theme_colors(theme),
             title=options.get("title", "Terraform Project Visualization"),
             include_graph=options.get("include_graph", True),
             include_metrics=options.get("include_metrics", True),
             project_path=options.get("project_path", "."),
         )
 
-        # Determine output file
         if output_path:
             output_path = Path(output_path)
             output_path.mkdir(parents=True, exist_ok=True)
@@ -105,7 +103,6 @@ class HTMLVisualizer:
             temp_dir = tempfile.mkdtemp()
             output_file = Path(temp_dir) / "terraform_visualization.html"
 
-        # Write file
         with open(output_file, "w", encoding="utf-8") as f:
             f.write(html_content)
 
@@ -137,7 +134,6 @@ class HTMLVisualizer:
             node_id += 1
             return node_data
 
-        # Add all nodes first
         for res_name, res_data in project_dict.get("resources", {}).items():
             res_type = res_data.get("type", "unknown")
             subtype = res_type.name if hasattr(res_type, "name") else str(res_type)
@@ -160,7 +156,6 @@ class HTMLVisualizer:
         for provider_name, provider_data in project_dict.get("providers", {}).items():
             add_node(provider_name, "provider", "provider", provider_data)
 
-        # Build edges and count dependencies
         def add_edge(source_name, target_name, edge_type, strength=1.0):
             if source_name in node_map and target_name in node_map:
                 source_id = node_map[source_name]
@@ -175,13 +170,11 @@ class HTMLVisualizer:
                     }
                 )
 
-                # Update dependency counts
                 nodes[source_id]["dependencies_out"] += 1
                 nodes[target_id]["dependencies_in"] += 1
                 return True
             return False
 
-        # Build dependency edges
         for res_name, res_data in project_dict.get("resources", {}).items():
             if "dependencies" in res_data and isinstance(
                 res_data["dependencies"], list
@@ -216,7 +209,6 @@ class HTMLVisualizer:
                 for dep in data_data["dependencies"]:
                     add_edge(data_name, dep, "dependency", 0.9)
 
-        # Analyze node states
         state_counts = {
             "healthy": 0,
             "unused": 0,
@@ -231,7 +223,6 @@ class HTMLVisualizer:
             incoming = node["dependencies_in"]
             node_type = node["type"]
 
-            # Determine state based on type and dependencies
             if node_type == "output":
                 if incoming == 0:
                     node["state"] = "external"
@@ -304,13 +295,8 @@ class HTMLVisualizer:
                     node["state"] = "warning"
                     node["state_reason"] = "Data source with unexpected pattern"
 
-            # Count states
             state_counts[node["state"]] += 1
 
-        # Calculate summary statistics
-        total_unused = sum(1 for node in nodes if node["state"] == "unused")
-
-        # Count by type for quick access
         type_counts = {}
         for node in nodes:
             node_type = node["type"]
@@ -324,7 +310,6 @@ class HTMLVisualizer:
         }
 
     def _get_theme_colors(self, theme: str) -> Dict[str, str]:
-        """Get color scheme for the specified theme."""
         themes = {
             "light": {
                 "bg_primary": "#ffffff",
@@ -339,6 +324,8 @@ class HTMLVisualizer:
                 "warning": "#ffc107",
                 "danger": "#dc3545",
                 "info": "#0dcaf0",
+                # Additional colors from template analysis
+                "purple": "#6610f2",  # Used for modules in legend
             },
             "dark": {
                 "bg_primary": "#0a0e27",
@@ -353,6 +340,8 @@ class HTMLVisualizer:
                 "warning": "#f59e0b",
                 "danger": "#ef4444",
                 "info": "#06b6d4",
+                # Additional colors from template analysis
+                "purple": "#8b5cf6",  # Used for modules in legend
             },
             "cyber": {
                 "bg_primary": "#000000",
@@ -367,6 +356,8 @@ class HTMLVisualizer:
                 "warning": "#ffff00",
                 "danger": "#ff0000",
                 "info": "#00ffff",
+                # Additional colors from template analysis
+                "purple": "#ff00ff",  # Used for modules in legend
             },
             "nord": {
                 "bg_primary": "#2e3440",
@@ -381,79 +372,12 @@ class HTMLVisualizer:
                 "warning": "#ebcb8b",
                 "danger": "#bf616a",
                 "info": "#5e81ac",
+                # Additional colors from template analysis
+                "purple": "#b48ead",  # Used for modules in legend
             },
         }
-        return themes.get(theme, themes["light"])
 
-    def _get_dashboard_template(self) -> Template:
-        """Get dashboard-style template with metrics and charts."""
-        return Template("""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; }
-        .dashboard { max-width: 1600px; margin: 0 auto; }
-        .header { background: white; padding: 30px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .header h1 { color: #667eea; margin-bottom: 10px; }
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 20px; }
-        .metric-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); transition: transform 0.3s ease; }
-        .metric-card:hover { transform: translateY(-5px); }
-        .metric-value { font-size: 3em; font-weight: bold; color: #667eea; }
-        .metric-label { color: #888; text-transform: uppercase; font-size: 0.85em; margin-top: 10px; }
-        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
-        .chart-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        .chart-title { font-size: 1.2em; color: #333; margin-bottom: 20px; }
-        canvas { max-height: 300px; }
-    </style>
-</head>
-<body>
-    <div class="dashboard">
-        <div class="header">
-            <h1>📊 {{ title }}</h1>
-            <p>Infrastructure Analytics Dashboard - {{ timestamp }}</p>
-        </div>
-        <div class="metrics-grid">
-            <div class="metric-card"><div class="metric-value">{{ stats.resources }}</div><div class="metric-label">Resources</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.modules }}</div><div class="metric-label">Modules</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.variables }}</div><div class="metric-label">Variables</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.outputs }}</div><div class="metric-label">Outputs</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.data_sources }}</div><div class="metric-label">Data Sources</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.providers }}</div><div class="metric-label">Providers</div></div>
-        </div>
-        <div class="charts-grid">
-            <div class="chart-card"><div class="chart-title">Component Distribution</div><canvas id="pieChart"></canvas></div>
-            <div class="chart-card"><div class="chart-title">Infrastructure Overview</div><canvas id="barChart"></canvas></div>
-        </div>
-    </div>
-    <script>
-        new Chart(document.getElementById('pieChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Resources', 'Modules', 'Variables', 'Outputs', 'Data Sources', 'Providers'],
-                datasets: [{ data: [{{ stats.resources }}, {{ stats.modules }}, {{ stats.variables }}, {{ stats.outputs }}, {{ stats.data_sources }}, {{ stats.providers }}],
-                    backgroundColor: ['#10b981', '#8b5cf6', '#f59e0b', '#3b82f6', '#ef4444', '#06b6d4'] }]
-            },
-            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } } }
-        });
-        new Chart(document.getElementById('barChart'), {
-            type: 'bar',
-            data: {
-                labels: ['Resources', 'Modules', 'Variables', 'Outputs', 'Data', 'Providers'],
-                datasets: [{ label: 'Count', data: [{{ stats.resources }}, {{ stats.modules }}, {{ stats.variables }}, {{ stats.outputs }}, {{ stats.data_sources }}, {{ stats.providers }}],
-                    backgroundColor: ['#10b981', '#8b5cf6', '#f59e0b', '#3b82f6', '#ef4444', '#06b6d4'] }]
-            },
-            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-        });
-    </script>
-</body>
-</html>
-        """)
+        return themes.get(theme, themes["light"])
 
     def _get_classic_template(self) -> Template:
         """Get clean, intuitive classic template with graph nodes and enhanced visualization."""
@@ -1239,96 +1163,6 @@ class HTMLVisualizer:
     </html>
     """)
 
-    def _get_dashboard_template(self) -> Template:
-        """Get dashboard-style template with metrics and charts."""
-        return Template("""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }} - Dashboard</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; }
-        .dashboard { max-width: 1600px; margin: 0 auto; }
-        .header {
-            background: white; padding: 30px; border-radius: 15px; margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        .header h1 { color: #667eea; margin-bottom: 10px; }
-        .metrics-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px; margin-bottom: 20px;
-        }
-        .metric-card {
-            background: white; padding: 25px; border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); transition: transform 0.3s ease;
-        }
-        .metric-card:hover { transform: translateY(-5px); }
-        .metric-value { font-size: 3em; font-weight: bold; color: #667eea; }
-        .metric-label { color: #888; text-transform: uppercase; font-size: 0.85em; margin-top: 10px; }
-        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
-        .chart-card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        .chart-title { font-size: 1.2em; color: #333; margin-bottom: 20px; }
-        canvas { max-height: 300px; }
-    </style>
-</head>
-<body>
-    <div class="dashboard">
-        <div class="header">
-            <h1>📊 {{ title }}</h1>
-            <p>Infrastructure Analytics Dashboard - {{ timestamp }}</p>
-        </div>
-        <div class="metrics-grid">
-            <div class="metric-card"><div class="metric-value">{{ stats.resources }}</div><div class="metric-label">Resources</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.modules }}</div><div class="metric-label">Modules</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.variables }}</div><div class="metric-label">Variables</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.outputs }}</div><div class="metric-label">Outputs</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.data_sources }}</div><div class="metric-label">Data Sources</div></div>
-            <div class="metric-card"><div class="metric-value">{{ stats.providers }}</div><div class="metric-label">Providers</div></div>
-        </div>
-        <div class="charts-grid">
-            <div class="chart-card">
-                <div class="chart-title">Component Distribution</div>
-                <canvas id="pieChart"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title">Infrastructure Overview</div>
-                <canvas id="barChart"></canvas>
-            </div>
-        </div>
-    </div>
-    <script>
-        new Chart(document.getElementById('pieChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Resources', 'Modules', 'Variables', 'Outputs', 'Data Sources', 'Providers'],
-                datasets: [{
-                    data: [{{ stats.resources }}, {{ stats.modules }}, {{ stats.variables }}, {{ stats.outputs }}, {{ stats.data_sources }}, {{ stats.providers }}],
-                    backgroundColor: ['#10b981', '#8b5cf6', '#f59e0b', '#3b82f6', '#ef4444', '#06b6d4']
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom' } } }
-        });
-        new Chart(document.getElementById('barChart'), {
-            type: 'bar',
-            data: {
-                labels: ['Resources', 'Modules', 'Variables', 'Outputs', 'Data', 'Providers'],
-                datasets: [{
-                    label: 'Count',
-                    data: [{{ stats.resources }}, {{ stats.modules }}, {{ stats.variables }}, {{ stats.outputs }}, {{ stats.data_sources }}, {{ stats.providers }}],
-                    backgroundColor: ['#10b981', '#8b5cf6', '#f59e0b', '#3b82f6', '#ef4444', '#06b6d4']
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-        });
-    </script>
-</body>
-</html>
-        """)
-
     def _get_graph_template(self) -> Template:
         """Get graph-focused template with advanced visualization."""
         return Template("""
@@ -1341,35 +1175,14 @@ class HTMLVisualizer:
         <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
         <style>
-            {% set colors = {
-                'light': {
-                    'bg': '#ffffff', 'bg_alt': '#f8f9fa', 'text': '#212529', 'text_muted': '#6c757d',
-                    'border': '#dee2e6', 'accent': '#0d6efd', 'success': '#198754', 'warning': '#ffc107',
-                    'danger': '#dc3545', 'info': '#0dcaf0', 'purple': '#6610f2'
-                },
-                'dark': {
-                    'bg': '#0f1117', 'bg_alt': '#1a1d29', 'text': '#e4e6eb', 'text_muted': '#9ca3af',
-                    'border': '#2d3748', 'accent': '#3b82f6', 'success': '#10b981', 'warning': '#f59e0b',
-                    'danger': '#ef4444', 'info': '#06b6d4', 'purple': '#8b5cf6'
-                },
-                'cyber': {
-                    'bg': '#000000', 'bg_alt': '#0a0a0a', 'text': '#00ffff', 'text_muted': '#00cccc',
-                    'border': '#00ffff', 'accent': '#ff00ff', 'success': '#00ff00', 'warning': '#ffff00',
-                    'danger': '#ff0000', 'info': '#00ffff', 'purple': '#ff00ff'
-                },
-                'nord': {
-                    'bg': '#2e3440', 'bg_alt': '#3b4252', 'text': '#eceff4', 'text_muted': '#d8dee9',
-                    'border': '#4c566a', 'accent': '#88c0d0', 'success': '#a3be8c', 'warning': '#ebcb8b',
-                    'danger': '#bf616a', 'info': '#5e81ac', 'purple': '#b48ead'
-                }
-            }[theme] %}
+            {% set colors = theme_colors %}
             
             * { margin: 0; padding: 0; box-sizing: border-box; }
             
             body { 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
-                background: {{ colors.bg }}; 
-                color: {{ colors.text }}; 
+                background: {{ colors.bg_primary }}; 
+                color: {{ colors.text_primary }}; 
                 overflow: hidden; 
             }
             
@@ -1377,14 +1190,14 @@ class HTMLVisualizer:
                 width: 100vw; 
                 height: 100vh; 
                 position: relative; 
-                background: {{ colors.bg }};
+                background: {{ colors.bg_primary }};
             }
-            
+
             .hud {
                 position: absolute; 
                 top: 20px; 
                 left: 20px; 
-                background: {{ colors.bg_alt }};
+                background: {{ colors.bg_secondary }};
                 border: 1px solid {{ colors.border }}; 
                 border-radius: 12px; 
                 padding: 20px;
@@ -1393,8 +1206,8 @@ class HTMLVisualizer:
                 z-index: 1000;
                 min-width: 220px;
             }
-            
-            .hud h2 { 
+
+            .hud h2 {
                 color: {{ colors.accent }}; 
                 margin-bottom: 16px; 
                 font-size: 1.1em; 
@@ -1418,11 +1231,11 @@ class HTMLVisualizer:
             }
             
             .hud-stat-label { 
-                color: {{ colors.text_muted }}; 
+                color: {{ colors.text_secondary }}; 
             }
             
             .hud-stat-value { 
-                color: {{ colors.text }}; 
+                color: {{ colors.text_primary }}; 
                 font-weight: 600;
                 font-size: 1.1em;
             }
@@ -1456,7 +1269,7 @@ class HTMLVisualizer:
                 bottom: 20px; 
                 left: 50%; 
                 transform: translateX(-50%);
-                background: {{ colors.bg_alt }}; 
+                background: {{ colors.bg_secondary }}; 
                 border: 1px solid {{ colors.border }}; 
                 border-radius: 12px;
                 padding: 12px 20px; 
@@ -1468,9 +1281,9 @@ class HTMLVisualizer:
             }
             
             .control-btn {
-                background: {{ colors.bg }}; 
+                background: {{ colors.bg_primary }}; 
                 border: 1px solid {{ colors.border }}; 
-                color: {{ colors.text }};
+                color: {{ colors.text_primary }};
                 padding: 8px 16px; 
                 border-radius: 8px; 
                 cursor: pointer; 
@@ -1485,7 +1298,7 @@ class HTMLVisualizer:
             .control-btn:hover { 
                 background: {{ colors.accent }}; 
                 border-color: {{ colors.accent }}; 
-                color: {{ colors.bg }}; 
+                color: {{ colors.bg_primary }}; 
                 transform: translateY(-1px);
             }
             
@@ -1497,7 +1310,7 @@ class HTMLVisualizer:
                 position: absolute;
                 bottom: 20px;
                 right: 20px;
-                background: {{ colors.bg_alt }};
+                background: {{ colors.bg_secondary }};
                 border: 1px solid {{ colors.border }};
                 border-radius: 12px;
                 padding: 12px;
@@ -1510,9 +1323,9 @@ class HTMLVisualizer:
             }
             
             .scale-btn {
-                background: {{ colors.bg }};
+                background: {{ colors.bg_primary }};
                 border: 1px solid {{ colors.border }};
-                color: {{ colors.text }};
+                color: {{ colors.text_primary }};
                 width: 36px;
                 height: 36px;
                 border-radius: 8px;
@@ -1527,7 +1340,7 @@ class HTMLVisualizer:
             .scale-btn:hover {
                 background: {{ colors.accent }};
                 border-color: {{ colors.accent }};
-                color: {{ colors.bg }};
+                color: {{ colors.bg_primary }};
                 transform: translateY(-1px);
             }
             
@@ -1535,7 +1348,7 @@ class HTMLVisualizer:
                 position: absolute; 
                 top: 20px; 
                 right: 20px; 
-                background: {{ colors.bg_alt }};
+                background: {{ colors.bg_secondary }};
                 border: 1px solid {{ colors.border }}; 
                 border-radius: 12px; 
                 padding: 16px; 
@@ -1546,7 +1359,7 @@ class HTMLVisualizer:
             }
             
             .legend-title { 
-                color: {{ colors.text }}; 
+                color: {{ colors.text_primary }}; 
                 margin-bottom: 12px; 
                 font-size: 0.9em; 
                 font-weight: 600;
@@ -1581,8 +1394,8 @@ class HTMLVisualizer:
             
             .node text { 
                 font-size: 10px; 
-                fill: {{ colors.text }}; 
-                text-shadow: 0 1px 3px {{ colors.bg }};
+                fill: {{ colors.text_primary }}; 
+                text-shadow: 0 1px 3px {{ colors.bg_primary }};
                 pointer-events: none; 
                 font-weight: 500;
                 transition: all 0.3s ease;
@@ -1598,14 +1411,14 @@ class HTMLVisualizer:
             }
             
             .link { 
-                stroke: {{ colors.text_muted }}; 
+                stroke: {{ colors.text_secondary }}; 
                 stroke-opacity: 0.3; 
                 stroke-width: 1.5; 
                 transition: all 0.3s ease;
             }
             
             .link-arrow { 
-                fill: {{ colors.text_muted }}; 
+                fill: {{ colors.text_secondary }}; 
                 opacity: 0.5; 
             }
             
@@ -1616,7 +1429,7 @@ class HTMLVisualizer:
             
             .node-tooltip {
                 position: absolute;
-                background: {{ colors.bg_alt }};
+                background: {{ colors.bg_secondary }};
                 border: 1px solid {{ colors.border }};
                 border-radius: 8px;
                 padding: 12px;
@@ -1653,7 +1466,7 @@ class HTMLVisualizer:
             
             .node-info-dep {
                 font-size: 0.8em;
-                color: {{ colors.text_muted }};
+                color: {{ colors.text_secondary }};
                 display: flex;
                 align-items: center;
                 gap: 4px;
@@ -1695,12 +1508,12 @@ class HTMLVisualizer:
         
         <div class="legend">
             <div class="legend-title"><i class="fas fa-layer-group"></i> Resource Types</div>
-            <div class="legend-item"><div class="legend-dot" style="background: #10b981;"></div><span>Resources</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: #8b5cf6;"></div><span>Modules</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: #f59e0b;"></div><span>Variables</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: #3b82f6;"></div><span>Outputs</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: #ef4444;"></div><span>Data Sources</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: #06b6d4;"></div><span>Providers</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.success }};"></div><span>Resources</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.accent_secondary }};"></div><span>Modules</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.warning }};"></div><span>Variables</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.accent }};"></div><span>Outputs</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.danger }};"></div><span>Data Sources</span></div>
+            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.info }};"></div><span>Providers</span></div>
         </div>
         
         <div class="controls">
@@ -1723,7 +1536,6 @@ class HTMLVisualizer:
             let simulation, physicsEnabled = true, animationsEnabled = true;
             let currentTransform = d3.zoomIdentity;
             
-            // Calculate summary statistics
             const summary = {
                 total_nodes: graphData.nodes.length,
                 total_edges: graphData.edges.length,
@@ -1774,7 +1586,6 @@ class HTMLVisualizer:
             
             summary.connected_components = calculateConnectedComponents();
             
-            // Update HUD with calculated summary
             document.getElementById('node-count').textContent = summary.total_nodes;
             document.getElementById('edge-count').textContent = summary.total_edges;
             document.getElementById('component-count').textContent = summary.connected_components;
@@ -1791,24 +1602,23 @@ class HTMLVisualizer:
                 }
             });
 
-            // Node type colors and icons
+            // Node type colors and icons - using theme colors
             const nodeConfig = {
-                'resource': { color: '#10b981', icon: 'fas fa-cube' },
-                'module': { color: '#8b5cf6', icon: 'fas fa-cubes' },
-                'variable': { color: '#f59e0b', icon: 'fas fa-code' },
-                'output': { color: '#3b82f6', icon: 'fas fa-arrow-right' },
-                'data': { color: '#ef4444', icon: 'fas fa-database' },
-                'provider': { color: '#06b6d4', icon: 'fas fa-cog' }
+                'resource': { color: '{{ colors.success }}', icon: 'fas fa-cube' },
+                'module': { color: '{{ colors.accent_secondary }}', icon: 'fas fa-cubes' },
+                'variable': { color: '{{ colors.warning }}', icon: 'fas fa-code' },
+                'output': { color: '{{ colors.accent }}', icon: 'fas fa-arrow-right' },
+                'data': { color: '{{ colors.danger }}', icon: 'fas fa-database' },
+                'provider': { color: '{{ colors.info }}', icon: 'fas fa-cog' }
             };
             
-            // State-based styling
             const stateConfig = {
-                'healthy': { stroke: '#10b981', glow: '#10b98140' },
-                'unused': { stroke: '#ef4444', glow: '#ef444440' },
-                'external': { stroke: '#06b6d4', glow: '#06b6d440' },
-                'leaf': { stroke: '#10b981', glow: '#10b98140' },
-                'orphan': { stroke: '#f59e0b', glow: '#f59e0b40' },
-                'warning': { stroke: '#f59e0b', glow: '#f59e0b40' }
+                'healthy': { stroke: '{{ colors.success }}', glow: '{{ colors.success }}40' },
+                'unused': { stroke: '{{ colors.danger }}', glow: '{{ colors.danger }}40' },
+                'external': { stroke: '{{ colors.info }}', glow: '{{ colors.info }}40' },
+                'leaf': { stroke: '{{ colors.success }}', glow: '{{ colors.success }}40' },
+                'orphan': { stroke: '{{ colors.warning }}', glow: '{{ colors.warning }}40' },
+                'warning': { stroke: '{{ colors.warning }}', glow: '{{ colors.warning }}40' }
             };
 
             function init() {
@@ -1850,7 +1660,7 @@ class HTMLVisualizer:
 
                 // Separate nodes by state for better force configuration
                 const mainNodes = graphData.nodes.filter(n => n.state === 'healthy' || n.state === 'external' || n.state === 'leaf');
-                const unusedNodes = graphData.nodes.filter(n => n.state === 'unused' || n.state === 'orphan' || n.state === 'warning');
+                const unusedNodes = graphData.nodes.filter(n => n.state === 'unused' );
                 
                 // Initialize force simulation with different forces for different node types
                 simulation = d3.forceSimulation(graphData.nodes)
@@ -1928,7 +1738,7 @@ class HTMLVisualizer:
                         const maxLength = d.type === 'module' ? 20 : 15;
                         return d.label.length > maxLength ? d.label.substring(0, maxLength) + '...' : d.label;
                     })
-                    .style('fill', '{{ colors.text }}')
+                    .style('fill', '{{ colors.text_primary }}')
                     .style('font-size', '11px')
                     .style('font-weight', '500');
 
@@ -2087,6 +1897,879 @@ class HTMLVisualizer:
 
             // Initialize graph
             init();
+        </script>
+    </body>
+    </html>
+    """)
+
+    def _get_dashboard_template(self) -> Template:
+        """Get modern dashboard-style template with metrics and charts."""
+        return Template("""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{{ title }} - Dashboard</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+            * { 
+                margin: 0; 
+                padding: 0; 
+                box-sizing: border-box; 
+            }
+            
+            body { 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+                background: {{ theme_colors.bg_primary }}; 
+                color: {{ theme_colors.text_primary }}; 
+                line-height: 1.6;
+                min-height: 100vh;
+            }
+            
+            .dashboard { 
+                max-width: 1400px; 
+                margin: 0 auto;
+                padding: 24px;
+            }
+            
+            /* Header */
+            .header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 32px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid {{ theme_colors.border }};
+            }
+            
+            .header-content h1 {
+                color: {{ theme_colors.text_primary }};
+                font-size: 2.2em;
+                font-weight: 700;
+                margin-bottom: 4px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            }
+            
+            .header-content p {
+                color: {{ theme_colors.text_secondary }};
+                font-size: 1.1em;
+            }
+            
+            .theme-badge {
+                background: {{ theme_colors.accent }};
+                color: white;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 0.85em;
+                font-weight: 600;
+            }
+            
+            /* Main Grid */
+            .main-grid {
+                display: grid;
+                grid-template-columns: 1fr 400px;
+                gap: 24px;
+                margin-bottom: 32px;
+            }
+            
+            /* Stats Grid */
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+            
+            .stat-card {
+                background: {{ theme_colors.bg_secondary }};
+                padding: 24px;
+                border-radius: 12px;
+                border: 1px solid {{ theme_colors.border }};
+                text-align: center;
+                transition: all 0.3s ease;
+            }
+            
+            .stat-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            }
+            
+            .stat-icon {
+                font-size: 2em;
+                margin-bottom: 12px;
+                opacity: 0.9;
+            }
+            
+            .stat-value {
+                font-size: 2.5em;
+                font-weight: 800;
+                color: {{ theme_colors.accent }};
+                line-height: 1;
+                margin-bottom: 8px;
+            }
+            
+            .stat-label {
+                color: {{ theme_colors.text_secondary }};
+                font-size: 0.9em;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            /* Charts */
+            .charts-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 24px;
+                margin-bottom: 32px;
+            }
+            
+            .chart-card {
+                background: {{ theme_colors.bg_secondary }};
+                padding: 24px;
+                border-radius: 12px;
+                border: 1px solid {{ theme_colors.border }};
+            }
+            
+            .chart-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+            
+            .chart-title {
+                font-size: 1.2em;
+                font-weight: 600;
+                color: {{ theme_colors.text_primary }};
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .chart-container {
+                height: 280px;
+                position: relative;
+            }
+            
+            /* Sidebar */
+            .sidebar {
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
+            }
+            
+            .health-card {
+                background: {{ theme_colors.bg_secondary }};
+                padding: 24px;
+                border-radius: 12px;
+                border: 1px solid {{ theme_colors.border }};
+            }
+            
+            .health-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            
+            .health-title {
+                font-size: 1.2em;
+                font-weight: 600;
+                color: {{ theme_colors.text_primary }};
+            }
+            
+            .health-stats {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .health-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 0;
+                border-bottom: 1px solid {{ theme_colors.border }}20;
+            }
+            
+            .health-item:last-child {
+                border-bottom: none;
+            }
+            
+            .health-label {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 500;
+            }
+            
+            .health-value {
+                font-weight: 700;
+                font-size: 1.1em;
+            }
+            
+            .health-healthy { color: {{ theme_colors.success }}; }
+            .health-unused { color: {{ theme_colors.danger }}; }
+            .health-external { color: {{ theme_colors.info }}; }
+            .health-warning { color: {{ theme_colors.warning }}; }
+            
+            .type-breakdown {
+                background: {{ theme_colors.bg_secondary }};
+                padding: 24px;
+                border-radius: 12px;
+                border: 1px solid {{ theme_colors.border }};
+            }
+            
+            .type-list {
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .type-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 0;
+                border-bottom: 1px solid {{ theme_colors.border }}20;
+            }
+            
+            .type-item:last-child {
+                border-bottom: none;
+            }
+            
+            .type-name {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 500;
+            }
+            
+            .type-count {
+                font-weight: 600;
+                color: {{ theme_colors.accent }};
+            }
+            
+            /* Resource Grid */
+            .resources-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 16px;
+                margin-bottom: 32px;
+            }
+            
+            .resource-card {
+                background: {{ theme_colors.bg_secondary }};
+                padding: 20px;
+                border-radius: 12px;
+                border: 1px solid {{ theme_colors.border }};
+                transition: all 0.3s ease;
+            }
+            
+            .resource-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            }
+            
+            .resource-header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .resource-icon {
+                font-size: 1.5em;
+                width: 40px;
+                height: 40px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                background: {{ theme_colors.accent }}20;
+                color: {{ theme_colors.accent }};
+            }
+            
+            .resource-title {
+                font-weight: 600;
+                font-size: 1.1em;
+            }
+            
+            .resource-description {
+                color: {{ theme_colors.text_secondary }};
+                font-size: 0.9em;
+                margin-bottom: 12px;
+                line-height: 1.4;
+            }
+            
+            .resource-stats {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                margin-top: 12px;
+            }
+            
+            .resource-stat {
+                text-align: center;
+                padding: 8px;
+                background: {{ theme_colors.bg_primary }};
+                border-radius: 8px;
+                border: 1px solid {{ theme_colors.border }};
+            }
+            
+            .resource-stat-value {
+                font-size: 1.3em;
+                font-weight: 700;
+                color: {{ theme_colors.accent }};
+            }
+            
+            .resource-stat-label {
+                font-size: 0.8em;
+                color: {{ theme_colors.text_secondary }};
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }
+            
+            /* Footer */
+            .footer {
+                text-align: center;
+                color: {{ theme_colors.text_secondary }};
+                font-size: 0.9em;
+                padding: 24px;
+                border-top: 1px solid {{ theme_colors.border }};
+                margin-top: 32px;
+            }
+            
+            /* Responsive */
+            @media (max-width: 1200px) {
+                .main-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .stats-grid {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+                
+                .charts-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+            
+            @media (max-width: 768px) {
+                .dashboard {
+                    padding: 16px;
+                }
+                
+                .stats-grid {
+                    grid-template-columns: 1fr;
+                }
+                
+                .header {
+                    flex-direction: column;
+                    gap: 16px;
+                    text-align: center;
+                }
+                
+                .resources-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="dashboard">
+            <!-- Header -->
+            <div class="header">
+                <div class="header-content">
+                    <h1><i class="fas fa-chart-network"></i> Infrastructure Dashboard</h1>
+                    <p>{{ timestamp }} • {{ title }}</p>
+                </div>
+            </div>
+            
+            <div class="main-grid">
+                <!-- Main Content -->
+                <div class="main-content">
+                    <!-- Resource Overview -->
+                    <div class="resources-grid">
+                        <div class="resource-card">
+                            <div class="resource-header">
+                                <div class="resource-icon">
+                                    <i class="fas fa-cube"></i>
+                                </div>
+                                <div class="resource-title">Resources</div>
+                            </div>
+                            <div class="resource-description">
+                                Core infrastructure components and services
+                            </div>
+                            <div class="resource-stats">
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value">{{ stats.resources }}</div>
+                                    <div class="resource-stat-label">Total</div>
+                                </div>
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value" id="resource-unused">0</div>
+                                    <div class="resource-stat-label">Unused</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="resource-card">
+                            <div class="resource-header">
+                                <div class="resource-icon">
+                                    <i class="fas fa-cubes"></i>
+                                </div>
+                                <div class="resource-title">Modules</div>
+                            </div>
+                            <div class="resource-description">
+                                Reusable infrastructure modules and components
+                            </div>
+                            <div class="resource-stats">
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value">{{ stats.modules }}</div>
+                                    <div class="resource-stat-label">Total</div>
+                                </div>
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value" id="module-unused">0</div>
+                                    <div class="resource-stat-label">Unused</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="resource-card">
+                            <div class="resource-header">
+                                <div class="resource-icon">
+                                    <i class="fas fa-project-diagram"></i>
+                                </div>
+                                <div class="resource-title">Dependencies</div>
+                            </div>
+                            <div class="resource-description">
+                                Component relationships and connections
+                            </div>
+                            <div class="resource-stats">
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value" id="total-dependencies">0</div>
+                                    <div class="resource-stat-label">Links</div>
+                                </div>
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value" id="avg-dependencies">0</div>
+                                    <div class="resource-stat-label">Avg/Node</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="resource-card">
+                            <div class="resource-header">
+                                <div class="resource-icon">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                                <div class="resource-title">Health Status</div>
+                            </div>
+                            <div class="resource-description">
+                                Infrastructure health and usage analysis
+                            </div>
+                            <div class="resource-stats">
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value" id="healthy-percentage">0%</div>
+                                    <div class="resource-stat-label">Healthy</div>
+                                </div>
+                                <div class="resource-stat">
+                                    <div class="resource-stat-value" id="coverage-score">0%</div>
+                                    <div class="resource-stat-label">Coverage</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Charts -->
+                    <div class="charts-grid">
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <i class="fas fa-chart-pie"></i> Component Distribution
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="distributionChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <i class="fas fa-chart-bar"></i> Infrastructure Overview
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="overviewChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <i class="fas fa-heartbeat"></i> Health Distribution
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="healthChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <div class="chart-title">
+                                    <i class="fas fa-project-diagram"></i> Dependency Analysis
+                                </div>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="dependencyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <div class="health-card">
+                        <div class="health-header">
+                            <i class="fas fa-heartbeat" style="color: {{ theme_colors.success }};"></i>
+                            <div class="health-title">Health Status</div>
+                        </div>
+                        <div class="health-stats">
+                            <div class="health-item">
+                                <div class="health-label">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>Healthy</span>
+                                </div>
+                                <div class="health-value health-healthy" id="healthy-count">0</div>
+                            </div>
+                            <div class="health-item">
+                                <div class="health-label">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>Unused</span>
+                                </div>
+                                <div class="health-value health-unused" id="unused-count">0</div>
+                            </div>
+                            <div class="health-item">
+                                <div class="health-label">
+                                    <i class="fas fa-external-link-alt"></i>
+                                    <span>External</span>
+                                </div>
+                                <div class="health-value health-external" id="external-count">0</div>
+                            </div>
+                            <div class="health-item">
+                                <div class="health-label">
+                                    <i class="fas fa-bell"></i>
+                                    <span>Warnings</span>
+                                </div>
+                                <div class="health-value health-warning" id="warning-count">0</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="type-breakdown">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-layer-group"></i> Type Breakdown
+                            </div>
+                        </div>
+                        <div class="type-list">
+                            <div class="type-item">
+                                <div class="type-name">
+                                    <i class="fas fa-cube" style="color: {{ theme_colors.success }};"></i>
+                                    <span>Resources</span>
+                                </div>
+                                <div class="type-count">{{ stats.resources }}</div>
+                            </div>
+                            <div class="type-item">
+                                <div class="type-name">
+                                    <i class="fas fa-cubes" style="color: {{ theme_colors.accent_secondary }};"></i>
+                                    <span>Modules</span>
+                                </div>
+                                <div class="type-count">{{ stats.modules }}</div>
+                            </div>
+                            <div class="type-item">
+                                <div class="type-name">
+                                    <i class="fas fa-code" style="color: {{ theme_colors.warning }};"></i>
+                                    <span>Variables</span>
+                                </div>
+                                <div class="type-count">{{ stats.variables }}</div>
+                            </div>
+                            <div class="type-item">
+                                <div class="type-name">
+                                    <i class="fas fa-arrow-right" style="color: {{ theme_colors.info }};"></i>
+                                    <span>Outputs</span>
+                                </div>
+                                <div class="type-count">{{ stats.outputs }}</div>
+                            </div>
+                            <div class="type-item">
+                                <div class="type-name">
+                                    <i class="fas fa-database" style="color: {{ theme_colors.danger }};"></i>
+                                    <span>Data Sources</span>
+                                </div>
+                                <div class="type-count">{{ stats.data_sources }}</div>
+                            </div>
+                            <div class="type-item">
+                                <div class="type-name">
+                                    <i class="fas fa-cog" style="color: {{ theme_colors.accent }};"></i>
+                                    <span>Providers</span>
+                                </div>
+                                <div class="type-count">{{ stats.providers }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer">
+                TFKIT • Terraform Intelligence & Analysis Suite • Generated on {{ timestamp }}
+            </div>
+        </div>
+        
+        <script>
+            // Component Distribution Chart
+            new Chart(document.getElementById('distributionChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Resources', 'Modules', 'Variables', 'Outputs', 'Data Sources', 'Providers'],
+                    datasets: [{
+                        data: [
+                            {{ stats.resources }},
+                            {{ stats.modules }}, 
+                            {{ stats.variables }},
+                            {{ stats.outputs }},
+                            {{ stats.data_sources }},
+                            {{ stats.providers }}
+                        ],
+                        backgroundColor: [
+                            '{{ theme_colors.success }}',
+                            '{{ theme_colors.accent_secondary }}',
+                            '{{ theme_colors.warning }}',
+                            '{{ theme_colors.info }}',
+                            '{{ theme_colors.danger }}',
+                            '{{ theme_colors.accent }}'
+                        ],
+                        borderWidth: 0,
+                        borderColor: '{{ theme_colors.bg_primary }}',
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '{{ theme_colors.text_primary }}',
+                                padding: 20,
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Overview Bar Chart
+            new Chart(document.getElementById('overviewChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Resources', 'Modules', 'Variables', 'Outputs', 'Data Sources', 'Providers'],
+                    datasets: [{
+                        data: [
+                            {{ stats.resources }},
+                            {{ stats.modules }},
+                            {{ stats.variables }},
+                            {{ stats.outputs }},
+                            {{ stats.data_sources }},
+                            {{ stats.providers }}
+                        ],
+                        backgroundColor: [
+                            '{{ theme_colors.success }}',
+                            '{{ theme_colors.accent_secondary }}',
+                            '{{ theme_colors.warning }}',
+                            '{{ theme_colors.info }}',
+                            '{{ theme_colors.danger }}',
+                            '{{ theme_colors.accent }}'
+                        ],
+                        borderWidth: 0,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '{{ theme_colors.border }}20' },
+                            ticks: { color: '{{ theme_colors.text_secondary }}' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '{{ theme_colors.text_secondary }}' }
+                        }
+                    }
+                }
+            });
+            
+            // Calculate health statistics from graph data
+            {% if graph_data %}
+            const graphData = {{ graph_data|safe }};
+            
+            // Calculate state counts
+            const stateCounts = {
+                healthy: 0,
+                unused: 0,
+                external: 0,
+                leaf: 0,
+                orphan: 0,
+                warning: 0
+            };
+            
+            graphData.nodes.forEach(node => {
+                if (stateCounts.hasOwnProperty(node.state)) {
+                    stateCounts[node.state]++;
+                }
+            });
+            
+            // Calculate type-specific unused counts
+            let resourceUnused = 0;
+            let moduleUnused = 0;
+            
+            graphData.nodes.forEach(node => {
+                if (node.state === 'unused') {
+                    if (node.type === 'resource') resourceUnused++;
+                    if (node.type === 'module') moduleUnused++;
+                }
+            });
+            
+            // Calculate dependency statistics
+            const totalDependencies = graphData.edges.length;
+            const avgDependencies = graphData.nodes.length > 0 
+                ? (totalDependencies * 2 / graphData.nodes.length).toFixed(1) 
+                : '0';
+            
+            // Calculate health percentages
+            const totalNodes = graphData.nodes.length;
+            const healthyPercentage = totalNodes > 0 
+                ? Math.round((stateCounts.healthy / totalNodes) * 100) 
+                : 0;
+            
+            const coverageScore = totalNodes > 0 
+                ? Math.round(((totalNodes - stateCounts.unused) / totalNodes) * 100)
+                : 0;
+            
+            // Update UI with calculated values
+            document.getElementById('healthy-count').textContent = stateCounts.healthy;
+            document.getElementById('unused-count').textContent = stateCounts.unused ;
+            document.getElementById('external-count').textContent = stateCounts.external;
+            document.getElementById('warning-count').textContent = stateCounts.warning;
+            
+            document.getElementById('resource-unused').textContent = resourceUnused;
+            document.getElementById('module-unused').textContent = moduleUnused;
+            document.getElementById('total-dependencies').textContent = totalDependencies;
+            document.getElementById('avg-dependencies').textContent = avgDependencies;
+            document.getElementById('healthy-percentage').textContent = healthyPercentage + '%';
+            document.getElementById('coverage-score').textContent = coverageScore + '%';
+            
+            // Health Distribution Chart
+            new Chart(document.getElementById('healthChart'), {
+                type: 'pie',
+                data: {
+                    labels: ['Healthy', 'Unused', 'External', 'Leaf', 'Orphan', 'Warning'],
+                    datasets: [{
+                        data: [
+                            stateCounts.healthy,
+                            stateCounts.unused,
+                            stateCounts.external,
+                            stateCounts.leaf,
+                            stateCounts.orphan,
+                            stateCounts.warning
+                        ],
+                        backgroundColor: [
+                            '{{ theme_colors.success }}',
+                            '{{ theme_colors.danger }}',
+                            '{{ theme_colors.info }}',
+                            '{{ theme_colors.success }}',
+                            '{{ theme_colors.warning }}',
+                            '{{ theme_colors.warning }}'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '{{ theme_colors.text_primary }}',
+                                font: { size: 11 }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Dependency Analysis Chart
+            const nodeTypes = ['resource', 'module', 'variable', 'output', 'data', 'provider'];
+            const avgDependenciesByType = nodeTypes.map(type => {
+                const nodesOfType = graphData.nodes.filter(n => n.type === type);
+                if (nodesOfType.length === 0) return 0;
+                const totalDeps = nodesOfType.reduce((sum, node) => 
+                    sum + (node.dependencies_out || 0) + (node.dependencies_in || 0), 0);
+                return (totalDeps / nodesOfType.length).toFixed(1);
+            });
+            
+            new Chart(document.getElementById('dependencyChart'), {
+                type: 'radar',
+                data: {
+                    labels: ['Resources', 'Modules', 'Variables', 'Outputs', 'Data Sources', 'Providers'],
+                    datasets: [{
+                        label: 'Avg Dependencies per Node',
+                        data: avgDependenciesByType,
+                        backgroundColor: '{{ theme_colors.accent }}20',
+                        borderColor: '{{ theme_colors.accent }}',
+                        pointBackgroundColor: '{{ theme_colors.accent }}',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '{{ theme_colors.accent }}'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            grid: { color: '{{ theme_colors.border }}20' },
+                            angleLines: { color: '{{ theme_colors.border }}20' },
+                            pointLabels: { color: '{{ theme_colors.text_secondary }}' },
+                            ticks: { color: 'transparent', backdropColor: 'transparent' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '{{ theme_colors.text_primary }}' }
+                        }
+                    }
+                }
+            });
+            {% endif %}
+            
+            // Set chart defaults
+            Chart.defaults.color = '{{ theme_colors.text_secondary }}';
+            Chart.defaults.borderColor = '{{ theme_colors.border }}20';
         </script>
     </body>
     </html>
