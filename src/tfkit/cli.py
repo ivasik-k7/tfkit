@@ -153,7 +153,7 @@ def cli(ctx, version, welcome, debug):
 )
 @click.option(
     "--theme",
-    type=click.Choice(["light", "dark", "cyberpunk", "minimal"], case_sensitive=False),
+    type=click.Choice(["light", "dark", "cyber", "nord"], case_sensitive=False),
     default="dark",
     help="Visualization theme (default: dark)",
 )
