@@ -105,29 +105,32 @@ detect_platform() {
 check_existing_installation() {
     local install_path="$INSTALL_DIR/$BINARY_NAME"
     
-    if [ -f "$install_path" ]; then
+    if [ -f "$install_path" ] && [ -x "$install_path" ]; then
         log "Existing installation detected"
         
         local current_version=""
-        if current_version=$("$install_path" --version 2>/dev/null | head -n1); then
-            CURRENT_VERSION="$current_version"
-            info "Current version: ${BOLD}$CURRENT_VERSION${NC}"
+        if current_version=$("$install_path" --version 2>/dev/null |  grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1); then
+            if [ -n "$current_version" ]; then
+                CURRENT_VERSION="$current_version"
+                info "Current version: ${BOLD}$CURRENT_VERSION${NC}"
+            else
+                CURRENT_VERSION="unknown"
+                info "Current version: ${GRAY}unable to parse${NC}"
+            fi
         else
-            CURRENT_VERSION="unknown"
-            info "Current version: ${GRAY}unable to determine${NC}"
+            CURRENT_VERSION="unknown" 
+            info "Current version: ${GRAY}check failed${NC}"
         fi
         
         EXISTING_INSTALL=true
-        return 0
     else
         log "No existing installation found"
         EXISTING_INSTALL=false
-        return 1
     fi
 }
 
 backup_existing() {
-    local install_path="$INSTALL_DIR/$BINARY_NAME"
+    local install_path="$INfSTALL_DIR/$BINARY_NAME"
     local backup_path="$install_path$BACKUP_SUFFIX"
     
     if [ -f "$install_path" ]; then
@@ -145,24 +148,47 @@ backup_existing() {
 get_latest_version() {
     log "Querying GitHub API for latest release..."
     
+    local version=""
+    
+    # Try multiple methods to get the latest version
     if command -v curl &> /dev/null; then
-        VERSION=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-    elif command -v wget &> /dev/null; then
-        VERSION=$(wget -qO- "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        progress "Using GitHub API..."
+        version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || true)
+    fi
+    
+    # If curl failed or no version found, try wget
+    if [ -z "$version" ] && command -v wget &> /dev/null; then
+        progress "Trying alternative method..."
+        version=$(wget -qO- "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || true)
+    fi
+    
+    # If still no version, try direct HTML parsing as fallback
+    if [ -z "$version" ]; then
+        progress "Using fallback method..."
+        if command -v curl &> /dev/null; then
+            version=$(curl -fsSL "https://github.com/$REPO/releases" 2>/dev/null | grep -o 'releases/tag/[^"]*' | head -1 | cut -d'/' -f3 || true)
+        elif command -v wget &> /dev/null; then
+            version=$(wget -qO- "https://github.com/$REPO/releases" 2>/dev/null | grep -o 'releases/tag/[^"]*' | head -1 | cut -d'/' -f3 || true)
+        fi
+    fi
+    
+    # If we still can't get version, use a default or exit
+    if [ -z "$version" ]; then
+        warn "Could not determine latest version automatically"
+        info "Using default version pattern - this may not be the latest release"
+        VERSION="latest"
     else
-        error "No download tool found (curl/wget required)"
+        VERSION="$version"
+        success "Target version locked: ${BOLD}$VERSION${NC}"
     fi
-
-    if [ -z "$VERSION" ]; then
-        error "Failed to retrieve version metadata"
-    fi
-
-    success "Target version locked: ${BOLD}$VERSION${NC}"
 }
 
 compare_versions() {
-    if [ "$EXISTING_INSTALL" = true ]; then
-        if [ "$CURRENT_VERSION" = "$VERSION" ]; then
+    if [ "$EXISTING_INSTALL" = true ] && [ "$VERSION" != "latest" ]; then
+        local normalized_current="${CURRENT_VERSION#v}"
+        local normalized_target="${VERSION#v}"
+        
+        if [ "$normalized_current" = "$normalized_target" ]; then
             info "Already running latest version ${BOLD}$VERSION${NC}"
             echo "" >&2
             read -p "$(echo -e ${YELLOW}Re-install anyway? [y/N]:${NC} )" -n 1 -r >&2
@@ -173,34 +199,60 @@ compare_versions() {
                 echo "" >&2
                 exit 0
             fi
-        else
+        elif [ "$CURRENT_VERSION" != "unknown" ] && [ "$CURRENT_VERSION" != "detected" ]; then
             info "Upgrade available: ${GRAY}$CURRENT_VERSION${NC} → ${GREEN}${BOLD}$VERSION${NC}"
         fi
     fi
 }
 
 download_binary() {
-    local url="https://github.com/$REPO/releases/download/$VERSION/$BINARY_FILE"
-    local tmp_file="/tmp/$BINARY_FILE"
+    local url=""
+    local tmp_file="/tmp/$BINARY_FILE.$$"  
+    
+    if [ "$VERSION" = "latest" ]; then
+        url="https://github.com/$REPO/releases/latest/download/$BINARY_FILE"
+    else
+        url="https://github.com/$REPO/releases/download/$VERSION/$BINARY_FILE"
+    fi
 
     log "Initiating binary download..."
     progress "Fetching ${BOLD}$BINARY_FILE${NC} from release artifacts..."
 
+    local download_success=false
+    
     if command -v curl &> /dev/null; then
-        if ! curl -fsSL "$url" -o "$tmp_file"; then
-            error "Download failed - binary not found or network error"
+        progress "Using curl..."
+        if curl -fsSL -L "$url" -o "$tmp_file"; then
+            download_success=true
         fi
-    elif command -v wget &> /dev/null; then
-        if ! wget -q "$url" -O "$tmp_file"; then
-            error "Download failed - binary not found or network error"
+    fi
+    
+    if [ "$download_success" = false ] && command -v wget &> /dev/null; then
+        progress "Using wget..."
+        if wget -q --show-progress "$url" -O "$tmp_file"; then
+            download_success=true
         fi
+    fi
+
+    if [ "$download_success" = false ]; then
+        rm -f "$tmp_file"
+        error "Download failed - binary not found or network error. URL: $url"
     fi
 
     if [ ! -f "$tmp_file" ]; then
         error "Download verification failed - file not created"
     fi
 
-    local size=$(du -h "$tmp_file" | cut -f1)
+    local file_size=$(stat -c%s "$tmp_file" 2>/dev/null || stat -f%z "$tmp_file" 2>/dev/null || echo "0")
+    if [ "$file_size" -lt 1000 ]; then
+        warn "Downloaded file seems too small, might be an error page"
+        if grep -q "<html\|<!DOCTYPE" "$tmp_file" 2>/dev/null; then
+            rm -f "$tmp_file"
+            error "Download failed - received HTML error page instead of binary"
+        fi
+    fi
+
+    local size=$(du -h "$tmp_file" 2>/dev/null | cut -f1 || echo "unknown")
     local checksum=$(sha256sum "$tmp_file" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$tmp_file" 2>/dev/null | cut -d' ' -f1 || echo "unavailable")
     success "Binary acquired ${GRAY}(${size})${NC}"
     info "SHA256: ${GRAY}${checksum:0:16}...${NC}"
@@ -226,7 +278,9 @@ install_binary() {
     
     progress "Installing to ${BOLD}$install_path${NC}"
     
-    mv "$tmp_file" "$install_path" || error "Installation failed - check permissions"
+    cp "$tmp_file" "$install_path" || error "Installation failed - check permissions"
+    rm -f "$tmp_file" 
+    
     chmod +x "$install_path" || error "Failed to set executable permissions"
 
     success "Binary deployed successfully"
@@ -289,7 +343,7 @@ verify_installation() {
         success "Binary integrity confirmed"
         
         local installed_version=""
-        if installed_version=$("$install_path" --version 2>/dev/null | head -n1); then
+        if installed_version=$("$install_path" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1); then
             info "Installed version: ${BOLD}$installed_version${NC}"
         fi
         
