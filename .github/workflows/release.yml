@@ -70,7 +70,14 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           source .venv/bin/activate
-          pyinstaller --onefile --name ${{ matrix.binary_name }} src/tfkit/cli.py
+          pyinstaller --onefile \
+            --name ${{ matrix.binary_name }} \
+            --collect-data hcl2 \
+            --collect-all hcl2 \
+            --hidden-import=hcl2 \
+            --hidden-import=lark \
+            --hidden-import=lark.lark \
+            src/tfkit/cli.py
           echo "✅ Binary built successfully for ${{ matrix.platform }}!"
           ls -lh dist/
 
@@ -78,7 +85,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           .venv\Scripts\activate
-          pyinstaller --onefile --name ${{ matrix.binary_name }} src/tfkit/cli.py
+          pyinstaller --onefile --name ${{ matrix.binary_name }} --collect-data hcl2 --collect-all hcl2 --hidden-import=hcl2 --hidden-import=lark --hidden-import=lark.lark src/tfkit/cli.py
           echo "✅ Binary built successfully for ${{ matrix.platform }}!"
           dir dist
 
