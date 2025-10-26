@@ -34,7 +34,6 @@ class TerraformRule(ABC):
     Each rule is a self-contained check.
     """
 
-    # Rule metadata (to be overridden by subclasses)
     rule_id: str = "TF_BASE_000"
     description: str = "Base rule description"
     category: ValidationCategory = ValidationCategory.SYNTAX
@@ -131,6 +130,15 @@ class TerraformValidator:
             RdsInstancePubliclyAccessibleRule,
             RdsInstanceEncryptionDisabledRule,
             HardcodedSecretRule,
+            # new
+            DeprecatedResourceTypeRule,
+            DeprecatedAttributeRule,
+            ExcessiveCountRule,
+            LargeInlineDataRule,
+            InvalidResourceTypeRule,
+            DuplicateResourceNameRule,
+            UnusedOutputRule,
+            SelfReferenceRule,
         ]
         return [RuleClass() for RuleClass in rule_classes]
 
@@ -238,9 +246,7 @@ class ModuleMissingSourceRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, module in project.modules.items():
-            # --- Updated Field ---
-            # Your model provides 'source' directly
+        for _, module in project.modules.items():
             if not module.source:
                 issues.append(self._create_issue(module))
         return issues
@@ -255,7 +261,7 @@ class ResourceMissingAttributesRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             # This logic remains the same
             if not resource.attributes:
                 issues.append(self._create_issue(resource))
@@ -284,7 +290,7 @@ class UndefinedReferenceRule(TerraformRule):
         self._available_refs = self._get_available_references(project)
 
         # Use your project's `all_objects` property
-        for name, item in project.all_objects.items():
+        for _, item in project.all_objects.items():
             # Skip vars, locals (they don't have refs in the same way)
             if item.type in [ResourceType.VARIABLE, ResourceType.LOCAL]:
                 continue
@@ -457,7 +463,7 @@ class UnusedVariableRule(TerraformRule):
                 self._used_vars.add(match.group(1))
 
         # 2. Check against definitions
-        for name, var in project.variables.items():
+        for _, var in project.variables.items():
             # --- Updated Field ---
             # 'var.name' is 'my_var', which matches the regex capture
             if var.name not in self._used_vars:
@@ -478,7 +484,7 @@ class MissingVariableDescriptionRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, var in project.variables.items():
+        for _, var in project.variables.items():
             # --- Updated Field ---
             if not var.description:
                 issues.append(self._create_issue(var))
@@ -494,7 +500,7 @@ class MissingVariableTypeRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, var in project.variables.items():
+        for _, var in project.variables.items():
             # --- Updated Field ---
             if not var.variable_type:
                 issues.append(self._create_issue(var))
@@ -510,7 +516,7 @@ class MissingOutputDescriptionRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, output in project.outputs.items():
+        for _, output in project.outputs.items():
             # --- Updated Field ---
             if not output.description:
                 issues.append(self._create_issue(output))
@@ -591,18 +597,14 @@ class ModuleVersionPinningRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, module in project.modules.items():
-            # --- Updated Field ---
+        for _, module in project.modules.items():
             source = module.source or ""
 
-            # Check for Git sources without a 'ref'
             if source.startswith("git@") or source.startswith("https://"):
                 if "?ref=" not in source:
-                    # --- Updated Field ---
                     msg = f"Module '{module.full_name}' Git source is not pinned to a specific ref/tag."
                     issues.append(self._create_issue(module, message=msg))
 
-            # Check for registry sources without a 'version'
             elif re.match(r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$", source):
                 if not module.attributes.get("version"):
                     # --- Updated Field ---
@@ -645,55 +647,6 @@ class ResourceNamingConventionRule(TerraformRule):
         return issues
 
 
-class ResourceMissingTagsRule(TerraformRule):
-    rule_id = "TF020"
-    description = "Resource is missing 'tags' attribute"
-    category = ValidationCategory.BEST_PRACTICE
-    severity = ValidationSeverity.WARNING
-    suggestion = "Add 'tags' for cost allocation, automation, and resource management."
-
-    TAGGABLE_RESOURCE_TYPES = {
-        # AWS
-        "aws_instance",
-        "aws_s3_bucket",
-        "aws_vpc",
-        "aws_subnet",
-        "aws_security_group",
-        "aws_db_instance",
-        "aws_lambda_function",
-        "aws_ecs_cluster",
-        "aws_ecs_service",
-        "aws_elb",
-        "aws_alb",
-        "aws_nat_gateway",
-        "aws_iam_role",
-        "aws_iam_policy",
-        # Azure
-        "azurerm_resource_group",
-        "azurerm_virtual_network",
-        "azurerm_virtual_machine",
-        "azurerm_storage_account",
-        "azurerm_kubernetes_cluster",
-        # GCP
-        "google_compute_instance",
-        "google_storage_bucket",
-        "google_compute_network",
-        "google_sql_database_instance",
-        "google_container_cluster",
-    }
-
-    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
-        issues = []
-        for name, resource in project.resources.items():
-            # --- Correct Field ---
-            # 'resource.resource_type' (e.g., 'aws_instance') is correct
-            if resource.resource_type in self.TAGGABLE_RESOURCE_TYPES:
-                tags = resource.attributes.get("tags")
-                if not isinstance(tags, dict) or not tags:
-                    issues.append(self._create_issue(resource))
-        return issues
-
-
 #
 # === SECURITY RULES ===
 #
@@ -708,7 +661,7 @@ class SecurityGroupUnrestrictedIngressRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type == "aws_security_group":
                 rules = resource.attributes.get("ingress", [])
                 if not isinstance(rules, list):
@@ -720,7 +673,6 @@ class SecurityGroupUnrestrictedIngressRule(TerraformRule):
                             + rule.get("ipv6_cidr_blocks", [])
                         )
                         if not cidrs.isdisjoint(self.UNRESTRICTED_CIDRS):
-                            # --- Updated Field ---
                             msg = f"Security group '{resource.full_name}' has unrestricted ingress in inline rule #{i}."
                             issues.append(self._create_issue(resource, message=msg))
 
@@ -748,7 +700,7 @@ class SecurityGroupUnrestrictedEgressRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type == "aws_security_group":
                 rules = resource.attributes.get("egress", [])
                 if not isinstance(rules, list):
@@ -1019,3 +971,610 @@ class HardcodedSecretRule(TerraformRule):
             return False
 
         return True
+
+
+#
+# === DEPRECATION RULES ===
+#
+class DeprecatedResourceTypeRule(TerraformRule):
+    rule_id = "TF060"
+    description = "Resource type is deprecated"
+    category = ValidationCategory.DEPRECATION
+    severity = ValidationSeverity.WARNING
+    suggestion = "Update to the recommended replacement resource type."
+
+    DEPRECATED_RESOURCES = {
+        "aws_s3_bucket_policy": "Use aws_s3_bucket with policy attribute or separate aws_s3_bucket_policy resource",
+        "aws_alb": "Use aws_lb instead",
+        "aws_alb_listener": "Use aws_lb_listener instead",
+        "aws_alb_target_group": "Use aws_lb_target_group instead",
+        "azurerm_virtual_machine": "Use azurerm_linux_virtual_machine or azurerm_windows_virtual_machine",
+        "google_compute_instance_group_manager": "Use google_compute_region_instance_group_manager for regional resources",
+    }
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, resource in project.resources.items():
+            if resource.resource_type in self.DEPRECATED_RESOURCES:
+                suggestion = self.DEPRECATED_RESOURCES[resource.resource_type]
+                msg = f"Resource type '{resource.resource_type}' is deprecated. {suggestion}"
+                issues.append(self._create_issue(resource, message=msg))
+
+        return issues
+
+
+class DeprecatedAttributeRule(TerraformRule):
+    rule_id = "TF061"
+    description = "Resource uses deprecated attribute"
+    category = ValidationCategory.DEPRECATION
+    severity = ValidationSeverity.WARNING
+    suggestion = "Update to use the recommended attribute."
+
+    DEPRECATED_ATTRIBUTES = {
+        "aws_instance": {
+            "ebs_block_device": "Use separate aws_ebs_volume and aws_volume_attachment resources",
+        },
+        "aws_db_instance": {
+            "name": "Use aws_db_database resource instead for RDS database creation",
+        },
+        "aws_security_group": {
+            "ingress": "Use separate aws_security_group_rule resources for better management",
+            "egress": "Use separate aws_security_group_rule resources for better management",
+        },
+    }
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, resource in project.resources.items():
+            if resource.resource_type in self.DEPRECATED_ATTRIBUTES:
+                deprecated_attrs = self.DEPRECATED_ATTRIBUTES[resource.resource_type]
+                for attr_name, suggestion in deprecated_attrs.items():
+                    if attr_name in resource.attributes:
+                        msg = f"Attribute '{attr_name}' in '{resource.full_name}' is deprecated. {suggestion}"
+                        issues.append(self._create_issue(resource, message=msg))
+
+        return issues
+
+
+#
+# === PERFORMANCE RULES ===
+#
+class ExcessiveCountRule(TerraformRule):
+    rule_id = "TF070"
+    description = "Resource uses excessive count value"
+    category = ValidationCategory.PERFORMANCE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Consider using modules or for_each for better organization with large resource counts."
+
+    MAX_RECOMMENDED_COUNT = 50
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, resource in project.resources.items():
+            count_value = resource.attributes.get("count")
+
+            if (
+                isinstance(count_value, int)
+                and count_value > self.MAX_RECOMMENDED_COUNT
+            ):
+                msg = f"Resource '{resource.full_name}' has count={count_value} which may impact performance"
+                issues.append(self._create_issue(resource, message=msg))
+
+        return issues
+
+
+class LargeInlineDataRule(TerraformRule):
+    rule_id = "TF071"
+    description = "Resource contains large inline data"
+    category = ValidationCategory.PERFORMANCE
+    severity = ValidationSeverity.INFO
+    suggestion = (
+        "Consider using external files with templatefile() or file() functions."
+    )
+
+    MAX_INLINE_LENGTH = 1000
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, resource in project.resources.items():
+            for attr_name, attr_value in resource.attributes.items():
+                if (
+                    isinstance(attr_value, str)
+                    and len(attr_value) > self.MAX_INLINE_LENGTH
+                ):
+                    # Skip if it's already using file() or templatefile()
+                    if "file(" not in attr_value and "templatefile(" not in attr_value:
+                        msg = f"Attribute '{attr_name}' in '{resource.full_name}' contains {len(attr_value)} characters of inline data"
+                        issues.append(self._create_issue(resource, message=msg))
+
+        return issues
+
+
+class InvalidResourceTypeRule(TerraformRule):
+    rule_id = "TF003"
+    description = "Resource type format is invalid"
+    category = ValidationCategory.SYNTAX
+    severity = ValidationSeverity.ERROR
+    suggestion = "Resource type must be in format 'provider_resourcetype' (e.g., 'aws_instance')."
+
+    VALID_TYPE_REGEX = re.compile(r"^[a-z][a-z0-9]*_[a-z][a-z0-9_]*$")
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for _, resource in project.resources.items():
+            if resource.resource_type and not self.VALID_TYPE_REGEX.match(
+                resource.resource_type
+            ):
+                msg = f"Resource type '{resource.resource_type}' has invalid format"
+                issues.append(self._create_issue(resource, message=msg))
+        return issues
+
+
+class DuplicateResourceNameRule(TerraformRule):
+    rule_id = "TF004"
+    description = "Duplicate resource name detected"
+    category = ValidationCategory.SYNTAX
+    severity = ValidationSeverity.ERROR
+    suggestion = "Ensure each resource has a unique name within its type."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        seen = {}
+
+        for _, resource in project.resources.items():
+            key = f"{resource.resource_type}.{resource.name}"
+            if key in seen:
+                msg = f"Duplicate resource name: {key} (also defined in {seen[key]})"
+                issues.append(self._create_issue(resource, message=msg))
+            else:
+                seen[key] = resource.file_path
+
+        return issues
+
+
+class UnusedOutputRule(TerraformRule):
+    rule_id = "TF014"
+    description = "Output is defined but its value references undefined resources"
+    category = ValidationCategory.REFERENCE
+    severity = ValidationSeverity.WARNING
+    suggestion = (
+        "Ensure output values reference valid resources or remove unused outputs."
+    )
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        available_refs = set()
+        available_refs.update(project.resources.keys())
+        available_refs.update(project.data_sources.keys())
+        available_refs.update(project.modules.keys())
+        available_refs.update(project.locals.keys())
+
+        for _, output in project.outputs.items():
+            value_str = json.dumps(output.attributes.get("value", ""))
+            has_valid_ref = False
+
+            for ref_type in ["data.", "module.", "local."]:
+                if ref_type in value_str:
+                    has_valid_ref = True
+                    break
+
+            for res_name in project.resources.keys():
+                if res_name in value_str:
+                    has_valid_ref = True
+                    break
+
+            if not has_valid_ref and value_str and value_str != '""':
+                msg = f"Output '{output.full_name}' may not reference valid resources"
+                issues.append(self._create_issue(output, message=msg))
+
+        return issues
+
+
+class SelfReferenceRule(TerraformRule):
+    rule_id = "TF015"
+    description = "Resource contains a self-reference without using 'self'"
+    category = ValidationCategory.REFERENCE
+    severity = ValidationSeverity.ERROR
+    suggestion = (
+        "Use 'self' keyword for self-references within provisioners or connections."
+    )
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for _, resource in project.resources.items():
+            attr_str = json.dumps(resource.attributes)
+
+            if resource.full_name in attr_str and "self." not in attr_str:
+                depends_on = resource.attributes.get("depends_on", [])
+                if resource.full_name not in depends_on:
+                    msg = f"Resource '{resource.full_name}' appears to reference itself"
+                    issues.append(self._create_issue(resource, message=msg))
+
+        return issues
+
+
+#
+# === BEST PRACTICE RULES ===
+#
+class MissingVariableDescriptionRule(TerraformRule):
+    rule_id = "TF021"
+    description = "Variable is missing a 'description' attribute"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.INFO
+    suggestion = "Add a 'description' to the variable to document its purpose."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, var in project.variables.items():
+            if not var.description:
+                issues.append(self._create_issue(var))
+        return issues
+
+
+class MissingVariableTypeRule(TerraformRule):
+    rule_id = "TF022"
+    description = "Variable is missing a 'type' constraint"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Add a 'type' constraint for better validation and clarity (e.g., type = string)."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, var in project.variables.items():
+            if not var.variable_type:
+                issues.append(self._create_issue(var))
+        return issues
+
+
+class MissingOutputDescriptionRule(TerraformRule):
+    rule_id = "TF023"
+    description = "Output is missing a 'description' attribute"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.INFO
+    suggestion = "Add a 'description' to the output to document its purpose."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, output in project.outputs.items():
+            if not output.description:
+                issues.append(self._create_issue(output))
+        return issues
+
+
+class TerraformVersionPinningRule(TerraformRule):
+    rule_id = "TF100"
+    description = (
+        "Terraform block missing 'required_version' or uses a permissive version"
+    )
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Pin the Terraform version (e.g., 'required_version = \"~> 1.5\"')."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        if not project.terraform_blocks:
+            return []
+
+        for tf_block in project.terraform_blocks.values():
+            req_version = tf_block.attributes.get("required_version")
+            if not req_version:
+                issues.append(
+                    self._create_issue(
+                        tf_block, message="Terraform block missing 'required_version'"
+                    )
+                )
+            elif str(req_version) in ["> 0", "latest", "*", ">= 0"]:
+                issues.append(
+                    self._create_issue(
+                        tf_block,
+                        message=f"Terraform 'required_version' ({req_version}) is too permissive.",
+                    )
+                )
+        return issues
+
+
+class ProviderVersionPinningRule(TerraformRule):
+    rule_id = "TF101"
+    description = "Provider configuration missing version constraint"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Pin all provider versions in 'required_providers' (e.g., 'version = \"~> 4.0\"')."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        if not project.terraform_blocks:
+            return []
+
+        for tf_block in project.terraform_blocks.values():
+            required_providers = tf_block.attributes.get("required_providers")
+            if not isinstance(required_providers, dict):
+                continue
+
+            for name, config in required_providers.items():
+                if isinstance(config, dict) and not config.get("version"):
+                    msg = f"Provider '{name}' in '{tf_block.full_name}' is missing a 'version' constraint."
+                    issues.append(self._create_issue(tf_block, message=msg))
+        return issues
+
+
+class ModuleVersionPinningRule(TerraformRule):
+    rule_id = "TF102"
+    description = "Module 'source' uses a non-pinned reference (e.g., 'main' branch)"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = (
+        "Pin module 'source' to a specific tag or version (e.g., '..._?ref=v1.2.3_')."
+    )
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, module in project.modules.items():
+            source = module.source or ""
+
+            if source.startswith("git@") or source.startswith("https://"):
+                if "?ref=" not in source:
+                    msg = f"Module '{module.full_name}' Git source is not pinned to a specific ref/tag."
+                    issues.append(self._create_issue(module, message=msg))
+
+            elif re.match(r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$", source):
+                if not module.attributes.get("version"):
+                    msg = f"Module '{module.full_name}' from registry is missing a 'version' constraint."
+                    issues.append(self._create_issue(module, message=msg))
+        return issues
+
+
+class ResourceMissingTagsRule(TerraformRule):
+    rule_id = "TF020"
+    description = "Resource is missing 'tags' attribute"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Add 'tags' for cost allocation, automation, and resource management."
+
+    TAGGABLE_RESOURCE_TYPES = {
+        "aws_instance",
+        "aws_s3_bucket",
+        "aws_vpc",
+        "aws_subnet",
+        "aws_security_group",
+        "aws_db_instance",
+        "aws_lambda_function",
+        "aws_ecs_cluster",
+        "aws_ecs_service",
+        "aws_elb",
+        "aws_alb",
+        "aws_nat_gateway",
+        "aws_iam_role",
+        "aws_iam_policy",
+        "azurerm_resource_group",
+        "azurerm_virtual_network",
+        "azurerm_virtual_machine",
+        "azurerm_storage_account",
+        "azurerm_kubernetes_cluster",
+        "google_compute_instance",
+        "google_storage_bucket",
+        "google_compute_network",
+        "google_sql_database_instance",
+        "google_container_cluster",
+    }
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type in self.TAGGABLE_RESOURCE_TYPES:
+                tags = resource.attributes.get("tags")
+                if not isinstance(tags, dict) or not tags:
+                    issues.append(self._create_issue(resource))
+        return issues
+
+
+class MissingProviderRule(TerraformRule):
+    rule_id = "TF024"
+    description = "Resources exist but no provider is configured"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Add provider configuration blocks for all providers used."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        if not project.resources:
+            return []
+
+        providers_used = set()
+        for resource in project.resources.values():
+            if resource.resource_type:
+                provider = resource.resource_type.split("_")[0]
+                providers_used.add(provider)
+
+        providers_configured = set()
+        for provider in project.providers.values():
+            providers_configured.add(provider.name)
+
+        # Also check terraform block for required_providers
+        for tf_block in project.terraform_blocks.values():
+            req_providers = tf_block.attributes.get("required_providers", {})
+            if isinstance(req_providers, dict):
+                providers_configured.update(req_providers.keys())
+
+        missing = providers_used - providers_configured
+
+        if missing:
+            # Create issue on first resource using missing provider
+            for name, resource in project.resources.items():
+                if resource.resource_type:
+                    provider = resource.resource_type.split("_")[0]
+                    if provider in missing:
+                        msg = f"Provider '{provider}' is used but not configured"
+                        issues.append(self._create_issue(resource, message=msg))
+                        missing.remove(provider)
+                        if not missing:
+                            break
+
+        return issues
+
+
+class CountAndForEachRule(TerraformRule):
+    rule_id = "TF025"
+    description = "Resource uses both 'count' and 'for_each'"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.ERROR
+    suggestion = "Use either 'count' or 'for_each', not both."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, resource in project.resources.items():
+            has_count = "count" in resource.attributes
+            has_for_each = "for_each" in resource.attributes
+
+            if has_count and has_for_each:
+                msg = (
+                    f"Resource '{resource.full_name}' uses both 'count' and 'for_each'"
+                )
+                issues.append(self._create_issue(resource, message=msg))
+
+        return issues
+
+
+class VariableValidationRule(TerraformRule):
+    rule_id = "TF026"
+    description = "Variable has type constraint but no validation rules"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.INFO
+    suggestion = "Add validation rules to enforce constraints on variable values."
+
+    SENSITIVE_TYPES = {"string", "list", "map", "object"}
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, var in project.variables.items():
+            if var.variable_type and var.variable_type in self.SENSITIVE_TYPES:
+                validation = var.attributes.get("validation")
+                if not validation:
+                    msg = f"Variable '{var.full_name}' with type '{var.variable_type}' has no validation rules"
+                    issues.append(
+                        self._create_issue(
+                            var, message=msg, severity=ValidationSeverity.INFO
+                        )
+                    )
+
+        return issues
+
+
+class OutputSensitiveRule(TerraformRule):
+    rule_id = "TF027"
+    description = "Output may contain sensitive data but is not marked sensitive"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Mark outputs containing sensitive data with 'sensitive = true'."
+
+    SENSITIVE_KEYWORDS = {"password", "secret", "token", "key", "private", "credential"}
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, output in project.outputs.items():
+            if output.sensitive:
+                continue
+
+            # Check if output name suggests sensitive data
+            output_name_lower = output.name.lower()
+            if any(keyword in output_name_lower for keyword in self.SENSITIVE_KEYWORDS):
+                msg = f"Output '{output.full_name}' may contain sensitive data but is not marked sensitive"
+                issues.append(self._create_issue(output, message=msg))
+
+        return issues
+
+
+class LocalValueComplexityRule(TerraformRule):
+    rule_id = "TF028"
+    description = "Local value has excessive complexity"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.INFO
+    suggestion = (
+        "Consider breaking down complex local values into multiple simpler ones."
+    )
+
+    MAX_NESTED_DEPTH = 5
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, local in project.locals.items():
+            depth = self._get_nesting_depth(local.attributes)
+            if depth > self.MAX_NESTED_DEPTH:
+                msg = f"Local value '{local.full_name}' has nesting depth of {depth}, consider simplifying"
+                issues.append(self._create_issue(local, message=msg))
+
+        return issues
+
+    def _get_nesting_depth(self, obj: Any, current_depth: int = 0) -> int:
+        if not isinstance(obj, (dict, list)):
+            return current_depth
+
+        if isinstance(obj, dict):
+            if not obj:
+                return current_depth
+            return max(
+                self._get_nesting_depth(v, current_depth + 1) for v in obj.values()
+            )
+
+        if isinstance(obj, list):
+            if not obj:
+                return current_depth
+            return max(self._get_nesting_depth(item, current_depth + 1) for item in obj)
+
+        return current_depth
+
+
+#
+# === COST RULES ===
+#
+class UntaggedResourcesRule(TerraformRule):
+    rule_id = "TF080"
+    description = "Resource lacks cost allocation tags"
+    category = ValidationCategory.COST
+    severity = ValidationSeverity.WARNING
+    suggestion = "Add cost allocation tags like 'Environment', 'Project', 'CostCenter' for better cost tracking."
+
+    REQUIRED_COST_TAGS = {"Environment", "Project", "Owner", "CostCenter"}
+    TAGGABLE_TYPES = {
+        "aws_instance",
+        "aws_db_instance",
+        "aws_s3_bucket",
+        "aws_ebs_volume",
+        "aws_lambda_function",
+        "aws_ecs_cluster",
+        "aws_eks_cluster",
+        "azurerm_virtual_machine",
+        "azurerm_storage_account",
+        "google_compute_instance",
+        "google_storage_bucket",
+    }
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+
+        for name, resource in project.resources.items():
+            if resource.resource_type not in self.TAGGABLE_TYPES:
+                continue
+
+            tags = resource.attributes.get("tags", {})
+            if not isinstance(tags, dict):
+                continue
+
+            # Check for at least one cost allocation tag
+            tag_keys = set(tags.keys())
+            missing_tags = self.REQUIRED_COST_TAGS - tag_keys
+
+            if len(missing_tags) == len(self.REQUIRED_COST_TAGS):
+                msg = f"Resource '{resource.full_name}' lacks cost allocation tags (consider: {', '.join(self.REQUIRED_COST_TAGS)})"
+                issues.append(self._create_issue(resource, message=msg))
+
+        return issues
