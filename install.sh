@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
-# tfkit installer script
 # Usage: curl -fsSL https://raw.githubusercontent.com/ivasik-k7/tfkit/main/install.sh | bash
 
 REPO="ivasik-k7/tfkit"
 BINARY_NAME="tfkit"
 BACKUP_SUFFIX=".backup"
 
-# Will be set after platform detection
 INSTALL_DIR=""
 PLATFORM=""
 BINARY_FILE=""
 
-# Colors
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -23,7 +20,6 @@ GRAY='\033[0;90m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# Logging functions
 log() {
     echo -e "${GRAY}[$(date +'%H:%M:%S')]${NC} ${CYAN}▸${NC} $1" >&2
 }
@@ -130,7 +126,7 @@ check_existing_installation() {
 }
 
 backup_existing() {
-    local install_path="$INfSTALL_DIR/$BINARY_NAME"
+    local install_path="$INSTALL_DIR/$BINARY_NAME"
     local backup_path="$install_path$BACKUP_SUFFIX"
     
     if [ -f "$install_path" ]; then
@@ -150,19 +146,16 @@ get_latest_version() {
     
     local version=""
     
-    # Try multiple methods to get the latest version
     if command -v curl &> /dev/null; then
         progress "Using GitHub API..."
         version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || true)
     fi
     
-    # If curl failed or no version found, try wget
     if [ -z "$version" ] && command -v wget &> /dev/null; then
         progress "Trying alternative method..."
         version=$(wget -qO- "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' || true)
     fi
     
-    # If still no version, try direct HTML parsing as fallback
     if [ -z "$version" ]; then
         progress "Using fallback method..."
         if command -v curl &> /dev/null; then
@@ -172,7 +165,6 @@ get_latest_version() {
         fi
     fi
     
-    # If we still can't get version, use a default or exit
     if [ -z "$version" ]; then
         warn "Could not determine latest version automatically"
         info "Using default version pattern - this may not be the latest release"
