@@ -15,6 +15,7 @@ class ClassicTemplate(BaseTemplate):
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>{{ title }}</title>
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
             {% set colors = {
                 'light': {
@@ -42,7 +43,7 @@ class ClassicTemplate(BaseTemplate):
             * { margin: 0; padding: 0; box-sizing: border-box; }
             
             body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+                font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
                 background: {{ colors.bg }};
                 color: {{ colors.text }};
                 line-height: 1.6;
@@ -57,21 +58,23 @@ class ClassicTemplate(BaseTemplate):
             .header {
                 background: {{ colors.bg_alt }};
                 padding: 24px 28px;
-                border-radius: 8px;
+                border-radius: 12px;
                 margin-bottom: 24px;
                 border: 1px solid {{ colors.border }};
+                border-left: 4px solid {{ colors.accent }};
             }
             
             .header h1 {
                 color: {{ colors.accent }};
                 font-size: 1.75em;
-                font-weight: 600;
+                font-weight: 700;
                 margin-bottom: 6px;
             }
             
             .header .meta {
                 color: {{ colors.text_muted }};
                 font-size: 0.875em;
+                font-weight: 500;
             }
             
             .stats-grid {
@@ -87,6 +90,11 @@ class ClassicTemplate(BaseTemplate):
                 border-radius: 8px;
                 border: 1px solid {{ colors.border }};
                 text-align: center;
+                transition: transform 0.2s ease;
+            }
+            
+            .stat-card:hover {
+                transform: translateY(-2px);
             }
             
             .stat-value {
@@ -102,12 +110,12 @@ class ClassicTemplate(BaseTemplate):
                 color: {{ colors.text_muted }};
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                font-weight: 500;
+                font-weight: 600;
             }
             
             .state-indicators {
                 display: flex;
-                gap: 8px;
+                gap: 6px;
                 margin-top: 8px;
                 flex-wrap: wrap;
                 justify-content: center;
@@ -115,22 +123,28 @@ class ClassicTemplate(BaseTemplate):
             
             .state-indicator {
                 font-size: 0.7em;
-                padding: 2px 6px;
-                border-radius: 4px;
+                padding: 3px 8px;
+                border-radius: 6px;
                 font-weight: 600;
+                cursor: pointer;
+                transition: all 0.2s ease;
             }
             
-            .state-healthy { background: {{ colors.success }}; color: white; }
-            .state-unused { background: {{ colors.danger }}; color: white; }
-            .state-external { background: {{ colors.info }}; color: white; }
-            .state-leaf { background: {{ colors.success }}20; color: {{ colors.success }}; border: 1px solid {{ colors.success }}; }
-            .state-orphan { background: {{ colors.warning }}20; color: {{ colors.warning }}; border: 1px solid {{ colors.warning }}; }
-            .state-warning { background: {{ colors.warning }}; color: {{ colors.bg }}; }
+            .state-indicator:hover {
+                transform: scale(1.05);
+            }
+            
+            .state-healthy { background: {{ colors.success }}15; color: {{ colors.success }}; border: 1px solid {{ colors.success }}30; }
+            .state-unused { background: {{ colors.danger }}15; color: {{ colors.danger }}; border: 1px solid {{ colors.danger }}30; }
+            .state-external { background: {{ colors.info }}15; color: {{ colors.info }}; border: 1px solid {{ colors.info }}30; }
+            .state-leaf { background: {{ colors.success }}15; color: {{ colors.success }}; border: 1px solid {{ colors.success }}30; }
+            .state-orphan { background: {{ colors.warning }}15; color: {{ colors.warning }}; border: 1px solid {{ colors.warning }}30; }
+            .state-warning { background: {{ colors.warning }}15; color: {{ colors.warning }}; border: 1px solid {{ colors.warning }}30; }
             
             .main-panel {
                 background: {{ colors.bg_alt }};
                 border: 1px solid {{ colors.border }};
-                border-radius: 8px;
+                border-radius: 12px;
                 overflow: hidden;
                 margin-bottom: 24px;
             }
@@ -184,17 +198,6 @@ class ClassicTemplate(BaseTemplate):
                 color: {{ colors.bg }};
             }
             
-            .btn-warning {
-                background: {{ colors.warning }};
-                border-color: {{ colors.warning }};
-                color: {{ colors.bg }};
-            }
-            
-            .btn-warning:hover {
-                background: {{ colors.danger }};
-                border-color: {{ colors.danger }};
-            }
-            
             .search-box {
                 width: 100%;
                 padding: 12px 16px;
@@ -205,12 +208,12 @@ class ClassicTemplate(BaseTemplate):
                 font-size: 0.9em;
                 margin: 16px 20px;
                 max-width: calc(100% - 40px);
+                transition: border-color 0.2s;
             }
             
             .search-box:focus {
                 outline: none;
                 border-color: {{ colors.accent }};
-                box-shadow: 0 0 0 2px {{ colors.accent }}20;
             }
             
             .search-box::placeholder {
@@ -240,7 +243,6 @@ class ClassicTemplate(BaseTemplate):
                 background: {{ colors.text_muted }};
             }
             
-            /* Graph Nodes Styles */
             .graph-nodes {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -250,7 +252,7 @@ class ClassicTemplate(BaseTemplate):
             .graph-node {
                 background: {{ colors.bg }};
                 border: 1px solid {{ colors.border }};
-                border-radius: 12px;
+                border-radius: 10px;
                 padding: 20px;
                 transition: all 0.3s ease;
                 position: relative;
@@ -259,39 +261,15 @@ class ClassicTemplate(BaseTemplate):
             
             .graph-node:hover {
                 border-color: {{ colors.accent }};
-                transform: translateY(-4px);
-                box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                transform: translateY(-2px);
             }
             
-            /* Node states */
-            .node-unused { 
-                border-left: 6px solid {{ colors.danger }};
-                background: linear-gradient(135deg, {{ colors.bg }} 0%, {{ colors.danger }}08 100%);
-            }
-            
-            .node-external { 
-                border-left: 6px solid {{ colors.info }};
-                background: linear-gradient(135deg, {{ colors.bg }} 0%, {{ colors.info }}08 100%);
-            }
-            
-            .node-leaf { 
-                border-left: 6px solid {{ colors.success }};
-                background: linear-gradient(135deg, {{ colors.bg }} 0%, {{ colors.success }}08 100%);
-            }
-            
-            .node-orphan { 
-                border-left: 6px solid {{ colors.warning }};
-                background: linear-gradient(135deg, {{ colors.bg }} 0%, {{ colors.warning }}08 100%);
-            }
-            
-            .node-warning { 
-                border-left: 6px solid {{ colors.warning }};
-                background: linear-gradient(135deg, {{ colors.bg }} 0%, {{ colors.warning }}08 100%);
-            }
-            
-            .node-healthy { 
-                border-left: 6px solid {{ colors.success }};
-            }
+            .node-unused { border-left: 4px solid {{ colors.danger }}; }
+            .node-external { border-left: 4px solid {{ colors.info }}; }
+            .node-leaf { border-left: 4px solid {{ colors.success }}; }
+            .node-orphan { border-left: 4px solid {{ colors.warning }}; }
+            .node-warning { border-left: 4px solid {{ colors.warning }}; }
+            .node-healthy { border-left: 4px solid {{ colors.success }}; }
             
             .graph-node-header {
                 display: flex;
@@ -307,10 +285,10 @@ class ClassicTemplate(BaseTemplate):
                 align-items: center;
                 justify-content: center;
                 border-radius: 8px;
-                background: {{ colors.bg_alt }};
+                background: {{ colors.accent }};
                 flex-shrink: 0;
                 font-size: 1.2em;
-                color: {{ colors.accent }};
+                color: {{ colors.bg }};
             }
             
             .graph-node-title-container {
@@ -337,7 +315,7 @@ class ClassicTemplate(BaseTemplate):
             .graph-node-state {
                 font-size: 0.8em;
                 font-weight: 600;
-                padding: 2px 8px;
+                padding: 3px 8px;
                 border-radius: 4px;
                 display: inline-block;
             }
@@ -425,11 +403,33 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .footer {
-                margin-top: 24px;
+                margin-top: 40px;
                 padding: 16px;
                 text-align: center;
+            }
+
+            #watermark {
+                font-size: 0.75em;
                 color: {{ colors.text_muted }};
-                font-size: 0.875em;
+                user-select: none;
+                z-index: 1000;
+                font-family: 'Exo 2', sans-serif;
+                font-weight: 500;
+                letter-spacing: 0.3px;
+            }
+
+            #watermark a {
+                color: {{ colors.text_muted }};
+                text-decoration: none;
+                font-weight: 600;
+                transition: all 0.2s ease;
+                padding: 2px 6px;
+                border-radius: 4px;
+            }
+
+            #watermark a:hover {
+                color: {{ colors.accent }};
+                background: {{ colors.accent }}15;
             }
             
             .filter-info {
@@ -452,37 +452,11 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .filter-tag {
-                background: {{ colors.accent }};
                 color: white;
                 padding: 4px 8px;
                 border-radius: 12px;
                 font-size: 0.8em;
                 font-weight: 500;
-            }
-            
-            .legend {
-                display: flex;
-                gap: 16px;
-                flex-wrap: wrap;
-                margin-bottom: 16px;
-                padding: 12px 16px;
-                background: {{ colors.bg_alt }};
-                border-radius: 8px;
-                border: 1px solid {{ colors.border }};
-            }
-            
-            .legend-item {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 0.8em;
-                color: {{ colors.text_muted }};
-            }
-            
-            .legend-color {
-                width: 12px;
-                height: 12px;
-                border-radius: 2px;
             }
             
             @media (max-width: 768px) {
@@ -503,10 +477,6 @@ class ClassicTemplate(BaseTemplate):
                     flex-direction: column;
                     align-items: stretch;
                 }
-                .legend {
-                    flex-direction: column;
-                    gap: 8px;
-                }
             }
             
             @media (max-width: 480px) {
@@ -518,9 +488,13 @@ class ClassicTemplate(BaseTemplate):
     </head>
     <body>
         <div class="container">
+            <div class="stats-grid" id="stats-grid">
+                <!-- Stats will be populated by JavaScript -->
+            </div>
+            
             <div class="main-panel">
                 <div class="panel-header">
-                    <div class="panel-title">Infrastructure Components</div>
+                    <div class="panel-title">Components</div>
                     <div class="controls">
                         <button class="btn" onclick="sortNodes('name')" id="sort-name">
                             <i class="fas fa-sort-alpha-down"></i> Name
@@ -553,7 +527,7 @@ class ClassicTemplate(BaseTemplate):
                     </button>
                 </div>
                 
-                <input type="text" class="search-box" placeholder="Search components by name, type, or state..." onkeyup="filterNodes(this.value)" />
+                <input type="text" class="search-box" placeholder="Search components by name, type, or state..." onkeyup="debounceFilter(this.value)" />
                 
                 <div class="graph-container">
                     <div class="graph-nodes" id="graph-nodes-container"></div>
@@ -561,8 +535,10 @@ class ClassicTemplate(BaseTemplate):
             </div>
             
             <div class="footer">
-                TFKIT • Terraform Intelligence & Analysis Suite • Theme: {{ theme }}
-            </div>
+                <div id="watermark">
+                    tfkit (v{{ tfkit_version | default('0.0.0') }}) | <a href="https://github.com/ivasik-k7/tfkit" target="_blank" style="color: {{ colors.text_secondary }};">tfkit.com</a>
+                </div>
+            </div>         
         </div>
         
         <script>
@@ -570,6 +546,29 @@ class ClassicTemplate(BaseTemplate):
             let currentSort = 'name';
             let currentStateFilter = null;
             let currentSearch = '';
+            let filterTimeout = null;
+
+            // Performance optimization: Debounce search
+            function debounceFilter(query) {
+                clearTimeout(filterTimeout);
+                filterTimeout = setTimeout(() => {
+                    filterNodes(query);
+                }, 150);
+            }
+
+            // Calculate summary statistics
+            const summary = {
+                total_nodes: graphData.nodes.length,
+                total_edges: graphData.edges.length,
+                state_counts: {
+                    healthy: graphData.nodes.filter(n => n.state === 'healthy').length,
+                    unused: graphData.nodes.filter(n => n.state === 'unused').length,
+                    external: graphData.nodes.filter(n => n.state === 'external').length,
+                    leaf: graphData.nodes.filter(n => n.state === 'leaf').length,
+                    orphan: graphData.nodes.filter(n => n.state === 'orphan').length,
+                    warning: graphData.nodes.filter(n => n.state === 'warning').length
+                }
+            };
             
             // Font Awesome icons for different node types
             const nodeIcons = {
@@ -581,7 +580,7 @@ class ClassicTemplate(BaseTemplate):
                 'provider': 'fas fa-cog'
             };
             
-            // State colors and icons
+            // State configuration
             const stateConfig = {
                 'healthy': { class: 'node-healthy', icon: 'fas fa-check-circle', color: '{{ colors.success }}' },
                 'unused': { class: 'node-unused', icon: 'fas fa-ban', color: '{{ colors.danger }}' },
@@ -591,25 +590,84 @@ class ClassicTemplate(BaseTemplate):
                 'warning': { class: 'node-warning', icon: 'fas fa-exclamation-triangle', color: '{{ colors.warning }}' }
             };
 
+            function initializeStats() {
+                const statsGrid = document.getElementById('stats-grid');
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-value">${summary.total_nodes}</div>
+                        <div class="stat-label">Total Components</div>
+                        <div class="state-indicators">
+                            ${Object.entries(summary.state_counts).map(([state, count]) => 
+                                count > 0 ? `<div class="state-indicator state-${state}" onclick="filterByState('${state}')">${state}: ${count}</div>` : ''
+                            ).join('')}
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${summary.total_edges}</div>
+                        <div class="stat-label">Dependencies</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${calculateConnectedComponents()}</div>
+                        <div class="stat-label">Connected Groups</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${Object.keys(nodeIcons).length}</div>
+                        <div class="stat-label">Resource Types</div>
+                    </div>
+                `;
+            }
+
+            function calculateConnectedComponents() {
+                // Simple component counting - optimized for performance
+                const visited = new Set();
+                let components = 0;
+
+                // Build quick adjacency list
+                const adj = new Map();
+                graphData.nodes.forEach(node => adj.set(node.id, []));
+                graphData.edges.forEach(edge => {
+                    const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+                    const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+                    if (adj.has(sourceId)) adj.get(sourceId).push(targetId);
+                    if (adj.has(targetId)) adj.get(targetId).push(sourceId);
+                });
+
+                function dfs(nodeId) {
+                    const stack = [nodeId];
+                    while (stack.length) {
+                        const current = stack.pop();
+                        if (!visited.has(current)) {
+                            visited.add(current);
+                            stack.push(...(adj.get(current) || []));
+                        }
+                    }
+                }
+
+                graphData.nodes.forEach(node => {
+                    if (!visited.has(node.id)) {
+                        dfs(node.id);
+                        components++;
+                    }
+                });
+
+                return components;
+            }
+            
             function renderGraphNodes() {
                 const container = document.getElementById('graph-nodes-container');
-                container.innerHTML = '';
                 
                 let nodesToShow = graphData.nodes.filter(node => {
-                    // Filter by state if enabled
                     if (currentStateFilter && node.state !== currentStateFilter) {
                         return false;
                     }
                     
-                    // Filter by search term
                     if (currentSearch) {
                         const searchTerm = currentSearch.toLowerCase();
-                        const matchesName = node.label.toLowerCase().includes(searchTerm);
-                        const matchesType = node.type.toLowerCase().includes(searchTerm) || 
-                                        node.subtype.toLowerCase().includes(searchTerm);
-                        const matchesState = node.state.toLowerCase().includes(searchTerm) ||
-                                        node.state_reason.toLowerCase().includes(searchTerm);
-                        return matchesName || matchesType || matchesState;
+                        return node.label.toLowerCase().includes(searchTerm) ||
+                               node.type.toLowerCase().includes(searchTerm) || 
+                               (node.subtype && node.subtype.toLowerCase().includes(searchTerm)) ||
+                               node.state.toLowerCase().includes(searchTerm) ||
+                               (node.state_reason && node.state_reason.toLowerCase().includes(searchTerm));
                     }
                     
                     return true;
@@ -621,10 +679,10 @@ class ClassicTemplate(BaseTemplate):
                         case 'name':
                             return a.label.localeCompare(b.label);
                         case 'type':
-                            return a.type.localeCompare(b.type) || a.subtype.localeCompare(b.subtype);
+                            return a.type.localeCompare(b.type) || (a.subtype || '').localeCompare(b.subtype || '');
                         case 'dependencies':
-                            const aDeps = a.dependencies_out + a.dependencies_in;
-                            const bDeps = b.dependencies_out + b.dependencies_in;
+                            const aDeps = (a.dependencies_out || 0) + (a.dependencies_in || 0);
+                            const bDeps = (b.dependencies_out || 0) + (b.dependencies_in || 0);
                             return bDeps - aDeps;
                         default:
                             return 0;
@@ -642,10 +700,16 @@ class ClassicTemplate(BaseTemplate):
                     return;
                 }
                 
+                // Use document fragment for better performance
+                const fragment = document.createDocumentFragment();
+                
                 nodesToShow.forEach(node => {
                     const nodeElement = createNodeElement(node);
-                    container.appendChild(nodeElement);
+                    fragment.appendChild(nodeElement);
                 });
+                
+                container.innerHTML = '';
+                container.appendChild(fragment);
                 
                 updateFilterInfo();
             }
@@ -658,13 +722,13 @@ class ClassicTemplate(BaseTemplate):
                 
                 // Create badges based on node status
                 const badges = [];
-                if (node.dependencies_out === 0 && node.dependencies_in > 0) {
+                if ((node.dependencies_out || 0) === 0 && (node.dependencies_in || 0) > 0) {
                     badges.push('<span class="graph-node-badge"><i class="fas fa-leaf"></i> LEAF</span>');
                 }
-                if (node.dependencies_out > 5 || node.dependencies_in > 5) {
+                if ((node.dependencies_out || 0) > 5 || (node.dependencies_in || 0) > 5) {
                     badges.push('<span class="graph-node-badge"><i class="fas fa-hubspot"></i> HUB</span>');
                 }
-                
+
                 nodeElement.innerHTML = `
                     <div class="graph-node-header">
                         <div class="graph-node-icon">
@@ -672,8 +736,8 @@ class ClassicTemplate(BaseTemplate):
                         </div>
                         <div class="graph-node-title-container">
                             <div class="graph-node-title" title="${node.label}">${node.label}</div>
-                            <div class="graph-node-type">${node.type} • ${node.subtype}</div>
-                            <span class="graph-node-state" style="background: ${state.color}; color: white;">
+                            <div class="graph-node-type">${node.type} • ${node.subtype || 'N/A'}</div>
+                            <span class="graph-node-state" style="background: ${state.color}15; color: ${state.color}; border: 1px solid ${state.color}30;">
                                 <i class="${state.icon}"></i> ${node.state.toUpperCase()}
                             </span>
                             ${badges.length > 0 ? `<div class="graph-node-badges">${badges.join('')}</div>` : ''}
@@ -682,14 +746,14 @@ class ClassicTemplate(BaseTemplate):
                     <div class="graph-node-dependencies">
                         <div class="graph-node-deps-item">
                             <span><i class="fas fa-arrow-up"></i> Uses:</span>
-                            <span class="graph-node-deps-count outgoing">${node.dependencies_out}</span>
+                            <span class="graph-node-deps-count outgoing">${node.dependencies_out || 0}</span>
                         </div>
                         <div class="graph-node-deps-item">
                             <span><i class="fas fa-arrow-down"></i> Used by:</span>
-                            <span class="graph-node-deps-count incoming">${node.dependencies_in}</span>
+                            <span class="graph-node-deps-count incoming">${node.dependencies_in || 0}</span>
                         </div>
                     </div>
-                    <div class="graph-node-reason">${node.state_reason}</div>
+                    ${node.state_reason ? `<div class="graph-node-reason">${node.state_reason}</div>` : ''}
                 `;
                 
                 return nodeElement;
@@ -697,18 +761,13 @@ class ClassicTemplate(BaseTemplate):
             
             function sortNodes(criteria) {
                 currentSort = criteria;
-                
-                // Update active button states
                 document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
                 document.getElementById(`sort-${criteria}`).classList.add('active');
-                
                 renderGraphNodes();
             }
             
             function filterByState(state) {
                 currentStateFilter = currentStateFilter === state ? null : state;
-                
-                // Update UI
                 document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
                 document.getElementById('sort-name').classList.add('active');
                 
@@ -729,7 +788,6 @@ class ClassicTemplate(BaseTemplate):
                 currentStateFilter = null;
                 currentSort = 'name';
                 
-                // Reset UI states
                 document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
                 document.getElementById('sort-name').classList.add('active');
                 document.querySelector('.search-box').value = '';
@@ -742,18 +800,9 @@ class ClassicTemplate(BaseTemplate):
                 const filterTags = document.getElementById('filter-tags');
                 
                 const activeFilters = [];
-                
-                if (currentSearch) {
-                    activeFilters.push(`Search: "${currentSearch}"`);
-                }
-                
-                if (currentStateFilter) {
-                    activeFilters.push(`State: ${currentStateFilter}`);
-                }
-                
-                if (currentSort !== 'name') {
-                    activeFilters.push(`Sorted by: ${currentSort}`);
-                }
+                if (currentSearch) activeFilters.push(`Search: "${currentSearch}"`);
+                if (currentStateFilter) activeFilters.push(`State: ${currentStateFilter}`);
+                if (currentSort !== 'name') activeFilters.push(`Sorted by: ${currentSort}`);
                 
                 if (activeFilters.length > 0) {
                     filterInfo.style.display = 'flex';
@@ -766,8 +815,11 @@ class ClassicTemplate(BaseTemplate):
             }
             
             // Initialize
-            document.getElementById('sort-name').classList.add('active');
-            renderGraphNodes();
+            function initialize() {
+                initializeStats();
+                document.getElementById('sort-name').classList.add('active');
+                renderGraphNodes();
+            }
             
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
@@ -776,14 +828,11 @@ class ClassicTemplate(BaseTemplate):
                     document.querySelector('.search-box').focus();
                 } else if (e.key === 'Escape') {
                     resetFilters();
-                } else if (e.key === '1' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    filterByState('unused');
-                } else if (e.key === '2' && (e.ctrlKey || e.metaKey)) {
-                    e.preventDefault();
-                    filterByState('warning');
                 }
             });
+            
+            // Initialize on load
+            window.addEventListener('load', initialize);
         </script>
     </body>
     </html>

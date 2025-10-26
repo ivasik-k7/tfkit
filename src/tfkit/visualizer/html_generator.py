@@ -80,11 +80,13 @@ class HTMLVisualizer:
         }
 
         template = TemplateFactory.create_template(layout)
+        from tfkit import __version__
 
         context = {
             "sections": sections,
             "stats": stats,
             "graph_data": json.dumps(graph_data),
+            "tfkit_version": __version__,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "theme": theme,
             "theme_colors": ThemeManager.get_theme_colors(theme),

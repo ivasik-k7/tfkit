@@ -339,18 +339,18 @@ class DashboardTemplate(BaseTemplate):
             }
             
             .link.highlighted {
-                stroke: {{ colors.accent }}; 
+                stroke: {{ theme_colors.accent }}; 
                 stroke-opacity: 1.0 !important; 
                 stroke-width: 2.5 !important;
-                filter: drop-shadow(0 0 4px {{ colors.accent }}80);
+                filter: drop-shadow(0 0 4px {{ theme_colors.accent }}80);
                 /* **Animation Fix:** Ensure highlighted links have a smooth transition */
                 transition: stroke 0.3s, stroke-opacity 0.3s, stroke-width 0.3s;
             }
             
             .node.highlighted circle { 
                 stroke-width: 4px !important; 
-                stroke: {{ colors.accent }} !important;
-                filter: drop-shadow(0 0 10px {{ colors.accent }}80); /* Neon effect on active node */
+                stroke: {{ theme_colors.accent }} !important;
+                filter: drop-shadow(0 0 10px {{ theme_colors.accent }}80); /* Neon effect on active node */
             }
 
             .link.highlighted[marker-end^="url(#arrow-"] {
@@ -358,14 +358,34 @@ class DashboardTemplate(BaseTemplate):
                 but we need a CSS hook for the link line itself. */
             }
             
-            /* Footer */
             .footer {
+                margin-top: 40px;
+                padding: 16px;
                 text-align: center;
-                color: {{ theme_colors.text_secondary }};
-                font-size: 0.9em;
-                padding: 24px;
-                border-top: 1px solid {{ theme_colors.border }};
-                margin-top: 32px;
+            }
+
+            #watermark {
+                font-size: 0.75em;
+                color: {{ theme_colors.text_muted }};
+                user-select: none;
+                z-index: 1000;
+                font-family: 'Exo 2', sans-serif;
+                font-weight: 500;
+                letter-spacing: 0.3px;
+            }
+
+            #watermark a {
+                color: {{ theme_colors.text_muted }};
+                text-decoration: none;
+                font-weight: 600;
+                transition: all 0.2s ease;
+                padding: 2px 6px;
+                border-radius: 4px;
+            }
+
+            #watermark a:hover {
+                color: {{ theme_colors.accent }};
+                background: {{ theme_colors.accent }}15;
             }
             
             /* Responsive */
@@ -406,14 +426,6 @@ class DashboardTemplate(BaseTemplate):
     </head>
     <body>
         <div class="dashboard">
-            <!-- Header -->
-            <div class="header">
-                <div class="header-content">
-                    <h1><i class="fas fa-chart-network"></i> Infrastructure Dashboard</h1>
-                    <p>{{ timestamp }} • {{ title }}</p>
-                </div>
-            </div>
-            
             <div class="main-grid">
                 <!-- Main Content -->
                 <div class="main-content">
@@ -649,9 +661,11 @@ class DashboardTemplate(BaseTemplate):
                 </div>
             </div>
             
-            <div class="footer">
-                TFKIT • Terraform Intelligence & Analysis Suite • Generated on {{ timestamp }}
-            </div>
+           <div class="footer">
+                <div id="watermark">
+                    tfkit (v{{ tfkit_version | default('0.0.0') }}) | <a href="https://github.com/ivasik-k7/tfkit" target="_blank" style="color: {{ theme_colors.text_secondary }};">tfkit.com</a>
+                </div>
+            </div>   
         </div>
         
         <script>

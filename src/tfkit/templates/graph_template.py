@@ -16,13 +16,14 @@ class GraphTemplate(BaseTemplate):
         <title>{{ title }} - Graph View</title>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
         <style>
             {% set colors = theme_colors %}
             
             * { margin: 0; padding: 0; box-sizing: border-box; }
             
             body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+                font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
                 background: {{ colors.bg_primary }}; 
                 color: {{ colors.text_primary }}; 
                 overflow: hidden; 
@@ -35,7 +36,7 @@ class GraphTemplate(BaseTemplate):
                 background: {{ colors.bg_primary }};
             }
 
-            /* --- STYLED GRID BACKGROUND --- */
+            /* --- ENHANCED GRID BACKGROUND --- */
             #grid-pattern {
                 fill: url(#grid);
             }
@@ -49,85 +50,168 @@ class GraphTemplate(BaseTemplate):
                 color: {{ colors.text_secondary }}80;
                 user-select: none;
                 z-index: 1000;
+                font-family: 'Exo 2', sans-serif;
             }
 
-            .hud {
+            /* --- NEXUS-STYLE HUD PANEL --- */
+            .nexus-hud {
                 position: absolute; 
                 top: 20px; 
                 left: 20px; 
-                background: {{ colors.bg_secondary }}d0; /* Increased opacity for better readability */
-                border: 1px solid {{ colors.border }}; 
-                border-radius: 12px; 
-                padding: 20px;
-                backdrop-filter: blur(10px); 
-                box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+                background: linear-gradient(135deg, {{ colors.bg_secondary }}e6 0%, {{ colors.bg_secondary }}cc 100%);
+                border: 1px solid {{ colors.accent }}60;
+                border-radius: 16px; 
+                padding: 24px 20px;
+                backdrop-filter: blur(15px) saturate(180%);
+                box-shadow: 
+                    0 8px 32px rgba(0,0,0,0.4),
+                    0 0 0 1px {{ colors.accent }}20,
+                    inset 0 1px 0 {{ colors.accent }}20;
                 z-index: 1000;
-                min-width: 220px;
+                min-width: 260px;
+                font-family: 'Exo 2', sans-serif;
             }
 
-            .hud h2 {
-                color: {{ colors.accent }}; 
-                margin-bottom: 16px; 
-                font-size: 1.1em; 
-                font-weight: 600;
+            .nexus-header {
                 display: flex;
                 align-items: center;
-                gap: 8px;
+                gap: 12px;
+                margin-bottom: 20px;
+                padding-bottom: 16px;
+                border-bottom: 1px solid {{ colors.accent }}30;
+                position: relative;
+            }
+
+            .nexus-header::after {
+                content: '';
+                position: absolute;
+                bottom: -1px;
+                left: 0;
+                width: 40%;
+                height: 2px;
+                background: linear-gradient(90deg, {{ colors.accent }}, transparent);
+            }
+
+            .nexus-icon {
+                width: 40px;
+                height: 40px;
+                background: linear-gradient(135deg, {{ colors.accent }}, {{ colors.accent_secondary }});
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.2em;
+                color: {{ colors.bg_primary }};
+                box-shadow: 0 4px 12px {{ colors.accent }}40;
+            }
+
+            .nexus-title {
+                color: {{ colors.text_primary }}; 
+                font-size: 1.3em; 
+                font-weight: 700;
+                font-family: 'Orbitron', sans-serif;
+                letter-spacing: 0.5px;
             }
             
-            .hud-stats {
+            .nexus-stats {
                 display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 12px;
             }
             
-            .hud-stat { 
+            .nexus-stat { 
                 display: flex; 
                 justify-content: space-between; 
                 align-items: center;
-                font-size: 0.85em; 
+                font-size: 0.9em; 
+                padding: 8px 12px;
+                background: {{ colors.bg_primary }}15;
+                border-radius: 8px;
+                border: 1px solid {{ colors.border }}30;
+                transition: all 0.3s ease;
             }
             
-            .hud-stat-label { 
+            .nexus-stat:hover {
+                background: {{ colors.bg_primary }}25;
+                border-color: {{ colors.accent }}40;
+                transform: translateX(4px);
+            }
+            
+            .nexus-stat-label { 
                 color: {{ colors.text_secondary }}; 
+                font-weight: 500;
             }
             
-            .hud-stat-value { 
+            .nexus-stat-value { 
                 color: {{ colors.text_primary }}; 
-                font-weight: 600;
+                font-weight: 700;
                 font-size: 1.1em;
+                font-family: 'Orbitron', sans-serif;
             }
             
-            .state-indicators {
+            .nexus-indicators {
                 display: grid;
                 grid-template-columns: 1fr 1fr;
-                gap: 6px;
-                margin-top: 12px;
-                padding-top: 12px;
-                border-top: 1px solid {{ colors.border }};
+                gap: 8px;
+                margin-top: 20px;
+                padding-top: 20px;
+                border-top: 1px solid {{ colors.accent }}30;
             }
             
-            .state-indicator {
+            .nexus-indicator {
                 font-size: 0.75em;
-                padding: 4px 8px;
-                border-radius: 6px;
+                padding: 6px 10px;
+                border-radius: 8px;
                 font-weight: 600;
                 text-align: center;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                border: 1px solid transparent;
+                font-family: 'Exo 2', sans-serif;
             }
             
-            .state-healthy { background: {{ colors.success }}15; color: {{ colors.success }}; border: 1px solid {{ colors.success }}30; }
-            .state-unused { background: {{ colors.danger }}15; color: {{ colors.danger }}; border: 1px solid {{ colors.danger }}30; }
-            .state-external { background: {{ colors.info }}15; color: {{ colors.info }}; border: 1px solid {{ colors.info }}30; }
-            .state-leaf { background: {{ colors.success }}15; color: {{ colors.success }}; border: 1px solid {{ colors.success }}30; }
-            .state-orphan { background: {{ colors.warning }}15; color: {{ colors.warning }}; border: 1px solid {{ colors.warning }}30; }
-            .state-warning { background: {{ colors.warning }}15; color: {{ colors.warning }}; border: 1px solid {{ colors.warning }}30; }
+            .nexus-indicator:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            }
+            
+            .state-healthy { 
+                background: linear-gradient(135deg, {{ colors.success }}20, {{ colors.success }}10); 
+                color: {{ colors.success }}; 
+                border-color: {{ colors.success }}40; 
+            }
+            .state-unused { 
+                background: linear-gradient(135deg, {{ colors.danger }}20, {{ colors.danger }}10); 
+                color: {{ colors.danger }}; 
+                border-color: {{ colors.danger }}40; 
+            }
+            .state-external { 
+                background: linear-gradient(135deg, {{ colors.info }}20, {{ colors.info }}10); 
+                color: {{ colors.info }}; 
+                border-color: {{ colors.info }}40; 
+            }
+            .state-leaf { 
+                background: linear-gradient(135deg, {{ colors.success }}20, {{ colors.success }}10); 
+                color: {{ colors.success }}; 
+                border-color: {{ colors.success }}40; 
+            }
+            .state-orphan { 
+                background: linear-gradient(135deg, {{ colors.warning }}20, {{ colors.warning }}10); 
+                color: {{ colors.warning }}; 
+                border-color: {{ colors.warning }}40; 
+            }
+            .state-warning { 
+                background: linear-gradient(135deg, {{ colors.warning }}20, {{ colors.warning }}10); 
+                color: {{ colors.warning }}; 
+                border-color: {{ colors.warning }}40; 
+            }
             
             .controls {
                 position: absolute; 
                 bottom: 20px; 
                 left: 50%; 
                 transform: translateX(-50%);
-                background: {{ colors.bg_secondary }}d0; /* Increased opacity for better readability */
+                background: {{ colors.bg_secondary }}d0;
                 border: 1px solid {{ colors.border }}; 
                 border-radius: 12px;
                 padding: 12px 20px; 
@@ -168,7 +252,7 @@ class GraphTemplate(BaseTemplate):
                 position: absolute;
                 bottom: 20px;
                 right: 20px;
-                background: {{ colors.bg_secondary }}d0; /* Increased opacity for better readability */
+                background: {{ colors.bg_secondary }}d0;
                 border: 1px solid {{ colors.border }};
                 border-radius: 12px;
                 padding: 12px;
@@ -210,7 +294,7 @@ class GraphTemplate(BaseTemplate):
                 position: absolute; 
                 top: 20px; 
                 right: 20px; 
-                background: {{ colors.bg_secondary }}d0; /* Increased opacity for better readability */
+                background: {{ colors.bg_secondary }}d0;
                 border: 1px solid {{ colors.border }}; 
                 border-radius: 12px; 
                 padding: 16px; 
@@ -265,10 +349,19 @@ class GraphTemplate(BaseTemplate):
 
             .node-icon {
                 font-family: "Font Awesome 6 Free";
-                font-weight: 900; /* Solid style */
+                font-weight: 900;
                 font-size: 10px;
-                fill: {{ colors.bg_primary }}; /* Icon color inside circle */
+                fill: {{ colors.bg_primary }};
                 pointer-events: none;
+                text-anchor: middle;
+                dominant-baseline: central;
+                text-rendering: optimizeLegibility;
+            }
+            
+            .node text.node-icon {
+                font-family: "Font Awesome 6 Free", sans-serif;
+                font-weight: 900;
+                fill: {{ colors.bg_primary }}; 
             }
             
             .node:hover circle { 
@@ -293,94 +386,92 @@ class GraphTemplate(BaseTemplate):
             }
             
             .particle {
-                    fill: {{ colors.accent }}; 
-                    opacity: 0.9; 
-                    transition: opacity 0.1s;
-                }
+                fill: {{ colors.accent }}; 
+                opacity: 0.9; 
+                transition: opacity 0.1s;
+            }
             
+            /* --- ENHANCED TOOLTIP --- */
             .node-tooltip {
-                    position: absolute;
-                    
-                    /* Futuristic Aesthetic: Glassmorphism/Neon */
-                    background: rgba(10, 25, 40, 0.95); /* Darker, high opacity */
-                    border: 1px solid {{ colors.accent }}70; /* Subtle accent border */
-                    backdrop-filter: blur(8px); /* **Key Enhancement:** Glass effect */
-                    box-shadow: 0 0 15px {{ colors.accent }}40, 0 8px 32px rgba(0,0,0,0.4); /* **Enhanced:** Neon glow */
-                    font-family: 'Inconsolata', monospace; /* Futuristic font feel */
+                position: absolute;
+                background: linear-gradient(135deg, rgba(10, 25, 47, 0.95) 0%, rgba(15, 32, 55, 0.95) 100%);
+                border: 1px solid {{ colors.accent }}80;
+                backdrop-filter: blur(12px) saturate(180%);
+                box-shadow: 
+                    0 0 25px {{ colors.accent }}30,
+                    0 8px 40px rgba(0,0,0,0.5),
+                    inset 0 1px 0 {{ colors.accent }}20;
+                font-family: 'Exo 2', monospace;
+                border-radius: 12px;
+                padding: 16px;
+                font-size: 0.85em;
+                pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.3s ease, transform 0.3s ease;
+                z-index: 1001;
+                max-width: 320px;
+                transform: translateY(10px);
+            }
 
-                    border-radius: 8px;
-                    padding: 12px;
-                    font-size: 0.85em;
-                    pointer-events: none;
-                    opacity: 0;
-                    transition: opacity 0.2s, transform 0.2s; /* **Animation Fix:** Added transition for smooth fade */
-                    z-index: 1001;
-                    max-width: 320px;
-                }
+            .node-tooltip.show {
+                opacity: 1;
+                transform: translateY(0);
+            }
             
             .node-info {
                 display: flex;
                 flex-direction: column;
-                gap: 4px;
+                gap: 6px;
             }
             
             .node-info-title {
-                    font-weight: 700;
-                    color: {{ colors.accent }};
-                    margin-bottom: 6px; /* Increased spacing */
-                    font-size: 1.1em; /* Slightly larger title */
-                    border-bottom: 1px solid {{ colors.accent }}30; /* Separator */
-                    padding-bottom: 4px;
-                }
+                font-weight: 700;
+                color: {{ colors.accent }};
+                margin-bottom: 8px;
+                font-size: 1.1em;
+                border-bottom: 1px solid {{ colors.accent }}40;
+                padding-bottom: 6px;
+                font-family: 'Orbitron', sans-serif;
+                letter-spacing: 0.5px;
+            }
                 
-                .node-info-dep {
-                    font-size: 0.8em;
-                    color: {{ colors.text_secondary }};
-                    display: flex;
-                    align-items: center;
-                    gap: 4px;
-                }
+            .node-info-dep {
+                font-size: 0.8em;
+                color: {{ colors.text_secondary }};
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
                 
-                .node-state {
-                    font-size: 0.75em;
-                    padding: 2px 6px;
-                    border-radius: 4px;
-                    margin-top: 6px; /* Increased spacing */
-                    display: inline-block;
-                    width: fit-content;
-                }
+            .node-state {
+                font-size: 0.75em;
+                padding: 4px 8px;
+                border-radius: 6px;
+                margin-top: 8px;
+                display: inline-block;
+                width: fit-content;
+                font-weight: 600;
+                border: 1px solid;
+            }
                 
-                .tooltip-stat {
-                    display: flex;
-                    justify-content: space-between;
-                    gap: 15px;
-                    margin-top: 8px; /* Increased spacing */
-                    padding-top: 8px;
-                    border-top: 1px solid {{ colors.border }}70; /* Clearer separator */
-                    font-size: 0.9em;
-                }
-                .tooltip-stat span:first-child {
-                    color: {{ colors.text_secondary }};
-                }
-                .tooltip-stat span:last-child {
-                    color: {{ colors.text_primary }};
-                    font-weight: 500;
-                }
             .tooltip-stat {
                 display: flex;
                 justify-content: space-between;
                 gap: 15px;
-                margin-top: 4px;
-                padding-top: 4px;
-                border-top: 1px solid {{ colors.border }};
+                margin-top: 8px;
+                padding-top: 8px;
+                border-top: 1px solid {{ colors.border }}50;
                 font-size: 0.9em;
             }
+            
             .tooltip-stat span:first-child {
                 color: {{ colors.text_secondary }};
+                font-weight: 500;
             }
+            
             .tooltip-stat span:last-child {
                 color: {{ colors.text_primary }};
-                font-weight: 500;
+                font-weight: 600;
             }
         </style>
     </head>
@@ -391,24 +482,31 @@ class GraphTemplate(BaseTemplate):
             tfkit (v{{ tfkit_version | default('0.0.0') }}) | <a href="https://github.com/ivasik-k7/tfkit" target="_blank" style="color: {{ colors.text_secondary }};">tfkit.com</a>
         </div>
 
-        <div class="hud">
-            <h2><i class="fas fa-project-diagram"></i> Dependency Graph</h2>
-            <div class="hud-stats">
-                <div class="hud-stat">
-                    <span class="hud-stat-label">Nodes</span>
-                    <span class="hud-stat-value" id="node-count">0</span>
+        <!-- Nexus-style HUD Panel -->
+        <div class="nexus-hud">
+            <div class="nexus-header">
+                <div class="nexus-icon">
+                    <i class="fas fa-project-diagram"></i>
                 </div>
-                <div class="hud-stat">
-                    <span class="hud-stat-label">Dependencies</span>
-                    <span class="hud-stat-value" id="edge-count">0</span>
+                <div class="nexus-title">DEPENDENCIES</div>
+            </div>
+            <div class="nexus-stats">
+                <div class="nexus-stat">
+                    <span class="nexus-stat-label">NODES</span>
+                    <span class="nexus-stat-value" id="node-count">0</span>
                 </div>
-                <div class="hud-stat">
-                    <span class="hud-stat-label">Groups</span>
-                    <span class="hud-stat-value" id="component-count">0</span>
+                <div class="nexus-stat">
+                    <span class="nexus-stat-label">DEPENDENCIES</span>
+                    <span class="nexus-stat-value" id="edge-count">0</span>
+                </div>
+                <div class="nexus-stat">
+                    <span class="nexus-stat-label">COMPONENTS</span>
+                    <span class="nexus-stat-value" id="component-count">0</span>
                 </div>
             </div>
-            <div class="state-indicators" id="state-indicators">
-                </div>
+            <div class="nexus-indicators" id="state-indicators">
+                <!-- State indicators will be populated here -->
+            </div>
         </div>
         
         <div class="legend">
@@ -444,10 +542,11 @@ class GraphTemplate(BaseTemplate):
             let highlightedNodes = new Set();
             let highlightedEdges = new Set();
             let animationTimer = null;
+            let graphG; // Define graphG in global scope for animation functions
             
             // Enhanced configuration
             const config = {
-                zoomSpeed: 0.2, // Adjusts zoom speed for touchpad and buttons
+                zoomSpeed: 0.2,
                 physics: {
                     charge: {
                         healthy: -400, unused: -150, orphan: -100,
@@ -465,7 +564,9 @@ class GraphTemplate(BaseTemplate):
                     }
                 },
                 animation: {
-                    particleInterval: 200, transitionDuration: 300, hoverGlow: true
+                    particleInterval: 50, // More frequent particles
+                    transitionDuration: 300, 
+                    hoverGlow: true
                 }
             };
             
@@ -552,11 +653,10 @@ class GraphTemplate(BaseTemplate):
             Object.entries(summary.state_counts).forEach(([state, count]) => {
                 if (count > 0) {
                     const indicator = document.createElement('div');
-                    indicator.className = `state-indicator state-${state}`;
+                    indicator.className = `nexus-indicator state-${state}`;
                     indicator.textContent = `${state}: ${count}`;
                     indicator.title = `${count} ${state} nodes`;
                     indicator.onclick = () => highlightState(state);
-                    indicator.style.cursor = 'pointer';
                     stateIndicators.appendChild(indicator);
                 }
             });
@@ -564,7 +664,7 @@ class GraphTemplate(BaseTemplate):
             // Enhanced node configuration with theme colors and ICONS
             const nodeConfig = {
                 'resource': { color: '{{ colors.success }}', icon: '\\uf1b3' }, // fa-cube
-                'module': { color: '{{ colors.accent_secondary }}', icon: '\\uf1b6' }, // fa-cubes
+                'module': { color: '{{ colors.accent_secondary }}', icon: '\\uf1b3' }, // fa-cube (using same for consistency)
                 'variable': { color: '{{ colors.warning }}', icon: '\\uf121' }, // fa-code
                 'output': { color: '{{ colors.accent }}', icon: '\\uf061' }, // fa-arrow-right
                 'data': { color: '{{ colors.danger }}', icon: '\\uf1c0' }, // fa-database
@@ -612,7 +712,7 @@ class GraphTemplate(BaseTemplate):
 
                 const defs = svg.append('defs');
 
-                // --- STYLED GRID PATTERN DEFINITION ---
+                // Enhanced grid pattern
                 const grid_size = 50;
                 defs.append('pattern')
                     .attr('id', 'grid')
@@ -630,7 +730,6 @@ class GraphTemplate(BaseTemplate):
                     .attr('width', '100%')
                     .attr('height', '100%')
                     .attr('fill', 'url(#grid)');
-                // --------------------------------------
 
                 // Create arrow markers
                 Object.keys(nodeConfig).forEach(type => {
@@ -649,16 +748,13 @@ class GraphTemplate(BaseTemplate):
                         .style('opacity', '0.7');
                 });
 
-                const g = svg.append('g'); // Group for all graph elements
+                const g = svg.append('g');
+                graphG = g.append('g'); // Assign to global variable
 
-                // --- ZOOM / SCALING FIX ---
-                // Use the d3.zoom.wheelDelta to adjust touchpad/mouse wheel sensitivity
+                // Enhanced zoom behavior
                 const zoom = d3.zoom()
                     .scaleExtent([0.05, 8])
-                    // Custom wheelDelta for smoother, more controlled scaling
                     .wheelDelta(function(event) {
-                        // event.deltaY is typically 3 for touchpad/100 for mouse wheel
-                        // Normalize it and multiply by config.zoomSpeed
                         const delta = -event.deltaY * (event.deltaMode ? 120 : 1) / 500;
                         return delta * config.zoomSpeed;
                     })
@@ -668,13 +764,8 @@ class GraphTemplate(BaseTemplate):
                     });
                     
                 svg.call(zoom)
-                .call(zoom.transform, d3.zoomIdentity); // Apply initial identity transform
+                .call(zoom.transform, d3.zoomIdentity);
 
-                // Apply grid background to the main group so it scales/pans with the graph
-                const graphG = g.append('g');
-                
-                // --- END ZOOM FIX ---
-                
                 // Initialize enhanced force simulation
                 simulation = d3.forceSimulation(graphData.nodes)
                     .force('link', d3.forceLink(graphData.edges)
@@ -720,7 +811,7 @@ class GraphTemplate(BaseTemplate):
                         .strength(d => d.state === 'unused' ? config.physics.force.unusedAttraction : 0)
                         .x(width * 0.7)
                     )
-                    .alphaDecay(0.0228) // Slower decay for smoother settling
+                    .alphaDecay(0.0228)
                     .velocityDecay(0.4);
 
                 // Create links
@@ -738,7 +829,7 @@ class GraphTemplate(BaseTemplate):
                     .style('stroke-width', 1.5)
                     .style('opacity', 0.4);
 
-                // Create nodes
+                // Create nodes with proper icon handling
                 const node = graphG.append('g')
                     .selectAll('g')
                     .data(graphData.nodes)
@@ -753,7 +844,7 @@ class GraphTemplate(BaseTemplate):
                     .on('mouseout', (event, d) => hideTooltip(event, d))
                     .on('click', (event, d) => highlightConnected(event, d));
 
-                // Enhanced node circles with state-based styling
+                // Enhanced node circles
                 node.append('circle')
                     .attr('r', d => {
                         const baseRadius = d.type === 'module' ? 14 : d.type === 'resource' ? 11 : 9;
@@ -765,25 +856,24 @@ class GraphTemplate(BaseTemplate):
                     .style('stroke-width', 2)
                     .style('cursor', 'pointer')
                     .style('filter', d => `drop-shadow(0 0 8px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '40' || '#6666'})`);
-
-                // --- NODE ICON ---
+                    
                 node.append('text')
                     .attr('class', 'node-icon')
                     .attr('text-anchor', 'middle')
                     .attr('dominant-baseline', 'central')
                     .attr('x', 0)
-                    .attr('y', 2) // Slight vertical adjustment for font-awesome
+                    .attr('y', 0)
                     .text(d => nodeConfig[d.type]?.icon || '')
-                    .attr('fill', '{{ colors.bg_primary }}')
-                    .style('font-size', d => d.type === 'module' ? '12px' : '10px');
-                // -----------------
+                    .style('font-size', d => d.type === 'module' ? '12px' : '10px')
+                    .style('fill', '{{ colors.bg_primary }}')
+                    .style('pointer-events', 'none');
 
-                // Enhanced labels with better positioning
+                // Enhanced labels
                 node.append('text')
                     .attr('dx', d => {
                         const radius = d.type === 'module' ? 14 : d.type === 'resource' ? 11 : 9;
                         const dependencyCount = (d.dependencies_out || 0) + (d.dependencies_in || 0);
-                        return radius + Math.min(dependencyCount * 0.6, 6) + 4; // Offset from circle edge + padding
+                        return radius + Math.min(dependencyCount * 0.6, 6) + 4;
                     })
                     .attr('dy', 4)
                     .text(d => {
@@ -796,7 +886,7 @@ class GraphTemplate(BaseTemplate):
                     .style('pointer-events', 'none')
                     .style('text-shadow', `0 1px 4px {{ colors.bg_primary }}`);
 
-                // Enhanced simulation tick for better performance
+                // Enhanced simulation tick
                 simulation.on('tick', () => {
                     link.attr('x1', d => d.source.x)
                         .attr('y1', d => d.source.y)
@@ -805,23 +895,26 @@ class GraphTemplate(BaseTemplate):
                     
                     node.attr('transform', d => `translate(${d.x},${d.y})`);
 
-                    // Update the pattern's transform to counteract the pan/zoom of the main group 'g'
-                    // This makes the grid appear fixed in the background while the graph moves over it.
-                    // We need to invert the pan/scale of the parent 'g'
+                    // Update grid pattern
                     svg.select('#grid')
                         .attr('x', currentTransform.x % grid_size)
                         .attr('y', currentTransform.y % grid_size)
                         .attr('patternTransform', `scale(${currentTransform.k})`);
                 });
                 
-                // Re-export zoom control functions using the closure scope
+                // Export for global access
                 window.zoom = zoom;
                 window.svg = svg;
                 window.width = width;
                 window.height = height;
+
+                // Start animations if enabled
+                if (animationsEnabled) {
+                    startLinkAnimation();
+                }
             }
 
-            // --- ZOOM CONTROL BUTTON FUNCTIONS (FIXED) ---
+            // --- FIXED ZOOM CONTROL FUNCTIONS ---
             function zoomHandler(direction) {
                 const zoomAmount = direction === 'in' ? 1.2 : 1 / 1.2;
                 window.svg.transition().duration(300).call(window.zoom.scaleBy, zoomAmount);
@@ -854,18 +947,16 @@ class GraphTemplate(BaseTemplate):
             
             function resetView() {
                 resetZoom();
-                if (highlightedNodes.size > 0) {
-                    clearHighlight();
-                }
+                clearHighlight();
                 if (!physicsEnabled) {
                     togglePhysics();
                 }
             }
-            // --- END ZOOM CONTROL FIX ---
 
             function togglePhysics() {
                 physicsEnabled = !physicsEnabled;
-                d3.select('#physics-btn').html(physicsEnabled ? '<i class="fas fa-bolt"></i> Physics' : '<i class="fas fa-bolt-lightning"></i> Physics (Off)');
+                const btn = document.getElementById('physics-btn');
+                btn.innerHTML = physicsEnabled ? '<i class="fas fa-bolt"></i> Physics' : '<i class="fas fa-bolt-slash"></i> Physics';
                 
                 if (physicsEnabled) {
                     simulation.alpha(0.3).restart();
@@ -875,106 +966,108 @@ class GraphTemplate(BaseTemplate):
             }
             
             function toggleAnimations() {
-                    animationsEnabled = !animationsEnabled;
-                    const btn = document.getElementById('animations-btn');
-                    if (animationsEnabled) {
-                        btn.innerHTML = '<i class="fas fa-sparkles"></i> Animations';
-                        startLinkAnimation();
-                    } else {
-                        btn.innerHTML = '<i class="fas fa-ban"></i> Animations';
-                        stopLinkAnimation();
-                    }
+                animationsEnabled = !animationsEnabled;
+                const btn = document.getElementById('animations-btn');
+                if (animationsEnabled) {
+                    btn.innerHTML = '<i class="fas fa-sparkles"></i> Animations';
+                    startLinkAnimation();
+                } else {
+                    btn.innerHTML = '<i class="fas fa-ban"></i> Animations';
+                    stopLinkAnimation();
+                }
+            }
+
+            // --- FIXED ANIMATION SYSTEM ---
+            function startLinkAnimation() {
+                if (animationTimer || !animationsEnabled) return;
+                
+                const particles = [];
+                const particleRadius = 1.5;
+
+                function addParticle(edge) {
+                    const particle = {
+                        id: Math.random(),
+                        x: edge.source.x,
+                        y: edge.source.y,
+                        edge: edge,
+                        t: 0,
+                        speed: 0.02 + Math.random() * 0.01
+                    };
+                    particles.push(particle);
                 }
 
-                function startLinkAnimation() {
-                        if (animationTimer) return;
-                        
-                        // Define an object to manage particle data and movement
-                        const particles = [];
-                        const particleRadius = 1.5;
+                animationTimer = d3.interval(() => {
+                    if (!animationsEnabled) return;
 
-                        // Add a particle to the queue for all highlighted links
-                        function addParticle(edge) {
-                            const particle = {
-                                id: Math.random(),
-                                x: edge.source.x,
-                                y: edge.source.y,
-                                edge: edge,
-                                t: 0 // Position along the link (0 to 1)
-                            };
-                            particles.push(particle);
+                    // Add particles for highlighted edges
+                    const edges = graphData.edges.filter(edge => {
+                        const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+                        const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+                        return highlightedEdges.has(sourceId + '->' + targetId);
+                    });
+
+                    edges.forEach(edge => {
+                        if (Math.random() < 0.3) {
+                            addParticle(edge);
                         }
+                    });
 
-                        animationTimer = d3.interval(() => {
-                            if (!animationsEnabled) return;
+                    // Update and remove particles
+                    for (let i = particles.length - 1; i >= 0; i--) {
+                        const p = particles[i];
+                        p.t += p.speed;
 
-                            // Add new particles only for highlighted links
-                            link.filter(d => highlightedEdges.has(d.source.id + '->' + d.target.id))
-                                .each(d => {
-                                    // Control density: add a particle every N milliseconds
-                                    if (Math.random() < 0.1) { 
-                                        addParticle(d);
-                                    }
-                                });
-
-                            // Update particle positions
-                            for (let i = particles.length - 1; i >= 0; i--) {
-                                const p = particles[i];
-                                const speed = 0.02 * (p.edge.value || 1); // Speed based on link value or constant
-                                p.t += speed;
-
-                                if (p.t > 1) {
-                                    particles.splice(i, 1); // Remove when it reaches the end
-                                } else {
-                                    // Interpolate position along the link
-                                    p.x = p.edge.source.x * (1 - p.t) + p.edge.target.x * p.t;
-                                    p.y = p.edge.source.y * (1 - p.t) + p.edge.target.y * p.t;
-                                }
-                            }
-
-                            // Bind particle data to SVG elements
-                            const particleSelection = graphG.selectAll('.particle')
-                                .data(particles, d => d.id)
-                                .join(
-                                    enter => enter.append('circle')
-                                        .attr('class', 'particle')
-                                        .attr('r', particleRadius)
-                                        .attr('cx', d => d.x)
-                                        .attr('cy', d => d.y)
-                                        .attr('opacity', 0)
-                                        .transition()
-                                        .duration(config.animation.transitionDuration)
-                                        .attr('opacity', 0.9),
-                                    update => update
-                                        .attr('cx', d => d.x)
-                                        .attr('cy', d => d.y),
-                                    exit => exit.transition()
-                                        .duration(config.animation.transitionDuration)
-                                        .attr('opacity', 0)
-                                        .remove()
-                                );
-
-                        }, config.animation.particleInterval); // Run update every N ms
+                        if (p.t > 1) {
+                            particles.splice(i, 1);
+                        } else {
+                            p.x = p.edge.source.x * (1 - p.t) + p.edge.target.x * p.t;
+                            p.y = p.edge.source.y * (1 - p.t) + p.edge.target.y * p.t;
+                        }
                     }
+
+                    // Update particle visualization
+                    graphG.selectAll('.particle')
+                        .data(particles, d => d.id)
+                        .join(
+                            enter => enter.append('circle')
+                                .attr('class', 'particle')
+                                .attr('r', particleRadius)
+                                .attr('cx', d => d.x)
+                                .attr('cy', d => d.y)
+                                .attr('opacity', 0)
+                                .transition()
+                                .duration(100)
+                                .attr('opacity', 0.9),
+                            update => update
+                                .attr('cx', d => d.x)
+                                .attr('cy', d => d.y),
+                            exit => exit.transition()
+                                .duration(100)
+                                .attr('opacity', 0)
+                                .remove()
+                        );
+
+                }, config.animation.particleInterval);
+            }
 
             function stopLinkAnimation() {
                 if (animationTimer) {
                     animationTimer.stop();
                     animationTimer = null;
                 }
-                // Clear all particles from the screen
                 graphG.selectAll('.particle').remove();
             }
             
+            // --- ENHANCED TOOLTIP FUNCTIONS ---
             function showTooltip(event, d) {
                 if (hoveredNode) hideTooltip(null, hoveredNode);
                 hoveredNode = d;
 
-                const tooltip = d3.select('#node-tooltip');
+                const tooltip = document.getElementById('node-tooltip');
                 let content = `<div class="node-info-title">${d.label}</div>`;
                 content += `<div class="node-state state-${d.state}">${d.state.charAt(0).toUpperCase() + d.state.slice(1)}</div>`;
                 
-                // Add more data to the tooltip
+                // Enhanced tooltip content
                 if (d.version) content += `<div class="tooltip-stat"><span>Version:</span><span>${d.version}</span></div>`;
                 if (d.resource_id) content += `<div class="tooltip-stat"><span>Resource ID:</span><span>${d.resource_id}</span></div>`;
                 if (d.provider_type) content += `<div class="tooltip-stat"><span>Provider:</span><span>${d.provider_type}</span></div>`;
@@ -985,22 +1078,27 @@ class GraphTemplate(BaseTemplate):
                 content += `<div class="tooltip-stat"><span>In Dependencies:</span><span>${adjacencyList.get(d.id)?.in.length || 0}</span></div>`;
                 content += `<div class="tooltip-stat"><span>Out Dependencies:</span><span>${adjacencyList.get(d.id)?.out.length || 0}</span></div>`;
 
-                tooltip.html(content)
-                    .style('left', (event.pageX + 15) + 'px')
-                    .style('top', (event.pageY + 15) + 'px')
-                    .style('opacity', 1);
+                tooltip.innerHTML = content;
+                tooltip.style.left = (event.pageX + 15) + 'px';
+                tooltip.style.top = (event.pageY + 15) + 'px';
+                tooltip.classList.add('show');
 
-                d3.select(event.currentTarget).select('circle').style('filter', `drop-shadow(0 0 12px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '60' || '#6666'})`);
+                // Enhanced hover effect
+                d3.select(event.currentTarget).select('circle')
+                    .style('filter', `drop-shadow(0 0 15px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '80' || '#6666'})`);
             }
 
             function hideTooltip(event, d) {
-                d3.select('#node-tooltip').style('opacity', 0);
+                const tooltip = document.getElementById('node-tooltip');
+                tooltip.classList.remove('show');
+                
                 if (d && !highlightedNodes.has(d.id)) {
-                    d3.select(event.currentTarget || `[data-id="${d.id}"]`).select('circle').style('filter', `drop-shadow(0 0 8px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '40' || '#6666'})`);
+                    const selector = event ? event.currentTarget : `[data-id="${d.id}"]`;
+                    d3.select(selector).select('circle')
+                        .style('filter', `drop-shadow(0 0 8px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '40' || '#6666'})`);
                 }
                 hoveredNode = null;
             }
-            // --- END ENHANCED TOOLTIP ---
 
             function dragstarted(event, d) {
                 if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -1015,80 +1113,79 @@ class GraphTemplate(BaseTemplate):
 
             function dragended(event, d) {
                 if (!event.active) simulation.alphaTarget(0);
-                // Optionally fix node position after drag
-                // d.fx = d.x;
-                // d.fy = d.y;
             }
             
+            // --- FIXED HIGHLIGHT SYSTEM ---
             function highlightConnected(event, d) {
+                event.stopPropagation(); // Prevent event bubbling
+                
                 if (highlightedNodes.has(d.id)) {
                     clearHighlight();
                     return;
                 }
 
-                clearHighlight(); // Clear previous highlight
-
+                clearHighlight();
                 highlightedNodes.add(d.id);
+
                 const incoming = adjacencyList.get(d.id)?.in || [];
                 const outgoing = adjacencyList.get(d.id)?.out || [];
 
                 incoming.forEach(id => highlightedNodes.add(id));
                 outgoing.forEach(id => highlightedNodes.add(id));
                 
-                // Highlight nodes
-                d3.selectAll('.node').transition().duration(200)
-                    .style('opacity', n => highlightedNodes.has(n.id) ? 1 : 0.1);
+                // Create edge keys for highlighted edges
+                incoming.forEach(id => highlightedEdges.add(id + '->' + d.id));
+                outgoing.forEach(id => highlightedEdges.add(d.id + '->' + id));
+                
+                // Apply highlights
+                d3.selectAll('.node').transition().duration(300)
+                    .style('opacity', n => highlightedNodes.has(n.id) ? 1 : 0.2);
 
-                // Highlight links
-                d3.selectAll('.link').transition().duration(200)
+                d3.selectAll('.link').transition().duration(300)
                     .style('stroke-opacity', edge => {
                         const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
                         const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
-                        
-                        if (sourceId === d.id || targetId === d.id) {
-                            highlightedEdges.add(sourceId + targetId);
-                            return 1;
-                        }
-                        return 0.1;
+                        const edgeKey = sourceId + '->' + targetId;
+                        return highlightedEdges.has(edgeKey) ? 1 : 0.1;
                     })
                     .style('stroke', edge => {
                         const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
                         const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+                        const edgeKey = sourceId + '->' + targetId;
                         const target = nodeMap.get(targetId);
-
-                        if (sourceId === d.id || targetId === d.id) {
-                            return target?.color || '{{ colors.accent }}'; // Highlight active links
-                        }
-                        return '{{ colors.text_secondary }}';
-                    })
-                    .attr('marker-end', edge => {
-                        const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
-                        const target = typeof edge.target === 'object' ? edge.target : nodeMap.get(edge.target);
-                        if (sourceId === d.id) {
-                            return target ? `url(#arrow-${target.type})` : '';
-                        }
-                        return '';
+                        return highlightedEdges.has(edgeKey) ? (target?.color || '{{ colors.accent }}') : '{{ colors.text_secondary }}';
                     });
+
+                // Restart animations for highlighted edges
+                if (animationsEnabled) {
+                    stopLinkAnimation();
+                    startLinkAnimation();
+                }
             }
             
             function clearHighlight() {
                 highlightedNodes.clear();
                 highlightedEdges.clear();
 
-                d3.selectAll('.node').transition().duration(200).style('opacity', 1);
-                d3.selectAll('.link').transition().duration(200).style('stroke-opacity', 0.4).style('stroke', '{{ colors.text_secondary }}')
-                    .attr('marker-end', d => {
-                        const target = typeof d.target === 'object' ? d.target : nodeMap.get(d.target);
-                        return target ? `url(#arrow-${target.type})` : '';
-                    });
+                d3.selectAll('.node').transition().duration(300)
+                    .style('opacity', 1);
+
+                d3.selectAll('.link').transition().duration(300)
+                    .style('stroke-opacity', 0.4)
+                    .style('stroke', '{{ colors.text_secondary }}');
+
+                if (animationsEnabled) {
+                    stopLinkAnimation();
+                }
             }
             
             function highlightState(state) {
                 clearHighlight();
-                d3.selectAll('.node').transition().duration(200)
-                    .style('opacity', n => n.state === state ? 1 : 0.1);
+                d3.selectAll('.node').transition().duration(300)
+                    .style('opacity', n => n.state === state ? 1 : 0.2);
             }
 
+            // Global function exports
             window.highlightState = highlightState;
             window.resetView = resetView;
             window.zoomIn = zoomIn;
@@ -1097,9 +1194,18 @@ class GraphTemplate(BaseTemplate):
             window.centerGraph = centerGraph;
             window.togglePhysics = togglePhysics;
             window.toggleAnimations = toggleAnimations;
+            window.clearHighlight = clearHighlight;
             
+            // Initialize on load and resize
             init();
             window.addEventListener('resize', init);
+            
+            // Add click outside to clear highlights
+            document.addEventListener('click', (event) => {
+                if (!event.target.closest('.node') && !event.target.closest('.nexus-indicator')) {
+                    clearHighlight();
+                }
+            });
         </script>
     </body>
     </html>
