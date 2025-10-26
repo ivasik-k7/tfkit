@@ -20,6 +20,8 @@ class ValidationCategory(Enum):
     SECURITY = "security"
     NAMING = "naming"
     DEPRECATION = "deprecation"
+    PERFORMANCE = "performance"
+    COST = "cost"
 
 
 @dataclass
@@ -33,13 +35,15 @@ class ValidationIssue:
     file_path: str
     line_number: int = 1
     resource_name: Optional[str] = None
+    resource_type: Optional[str] = None
     suggestion: Optional[str] = None
 
-    def __str__(self) -> str:
-        """String representation of the issue."""
-        location = f"{self.file_path}:{self.line_number}"
-        resource = f" [{self.resource_name}]" if self.resource_name else ""
-        return f"{self.severity.value.upper()}: {location}{resource} - {self.message}"
+
+def __str__(self) -> str:
+    """String representation of the issue."""
+    location = f"{self.file_path}:{self.line_number}"
+    resource = f" [{self.resource_name}]" if self.resource_name else ""
+    return f"{self.severity.value.upper()}: {location}{resource} - {self.message}"
 
 
 @dataclass

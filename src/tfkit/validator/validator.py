@@ -1,603 +1,1021 @@
+import json
 import re
-from typing import Dict, List, Optional, Set
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Set
 
-from tfkit.analyzer.models import TerraformProject
-from tfkit.validator.models import (
-    ValidationCategory,
-    ValidationIssue,
-    ValidationResult,
-    ValidationSeverity,
-)
+# --- Updated Imports ---
+# Assumes your models are in files relative to this one
+try:
+    # Adjust this path if your file structure is different
+    from ..analyzer.models import ResourceType, TerraformObject, TerraformProject
+except ImportError:
+    # Fallback for flat structure
+    from analyzer.models import ResourceType, TerraformObject, TerraformProject
+
+try:
+    from .models import (
+        ValidationCategory,
+        ValidationIssue,
+        ValidationResult,
+        ValidationSeverity,
+    )
+except ImportError:
+    from validator.models import (
+        ValidationCategory,
+        ValidationIssue,
+        ValidationResult,
+        ValidationSeverity,
+    )
+
+
+class TerraformRule(ABC):
+    """
+    Abstract Base Class for all Terraform validation rules.
+    Each rule is a self-contained check.
+    """
+
+    # Rule metadata (to be overridden by subclasses)
+    rule_id: str = "TF_BASE_000"
+    description: str = "Base rule description"
+    category: ValidationCategory = ValidationCategory.SYNTAX
+    severity: ValidationSeverity = ValidationSeverity.ERROR
+    suggestion: str = "No suggestion available."
+
+    @abstractmethod
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        """
+        The core validation logic.
+
+        Args:
+            project: The entire parsed Terraform project.
+
+        Returns:
+            A list of ValidationIssue objects found by this rule.
+        """
+        pass
+
+    def _create_issue(
+        self,
+        resource: TerraformObject,
+        message: Optional[str] = None,
+        severity: Optional[ValidationSeverity] = None,
+    ) -> ValidationIssue:
+        """Helper to create a ValidationIssue from this rule."""
+        return ValidationIssue(
+            severity=severity or self.severity,
+            category=self.category,
+            rule_id=self.rule_id,
+            message=message or self.description,
+            file_path=resource.file_path,
+            line_number=resource.line_number,
+            resource_name=resource.full_name,
+            resource_type=resource.resource_type,
+            suggestion=self.suggestion,
+        )
 
 
 class TerraformValidator:
-    """Validates Terraform configurations."""
+    """
+    Validates Terraform configurations by running a set of rules.
+    This class is now a "rule runner" and does not contain
+    any hardcoded validation logic itself.
+    """
 
     def __init__(self, strict: bool = False, ignore_rules: Optional[List[str]] = None):
         """
-        Initialize validator.
+        Initialize the validator.
 
         Args:
-            strict: Enable strict validation mode
-            ignore_rules: List of rule IDs to ignore
+            strict: Enable strict validation mode (e.g., treat warnings as errors).
+            ignore_rules: List of rule IDs to ignore (e.g., ["TF030"]).
         """
         self.strict = strict
         self.ignore_rules = set(ignore_rules or [])
+
+        # --- FIX ---
+        # Initialize ValidationResult with the required empty lists.
         self.result = ValidationResult(passed=[], warnings=[], errors=[], info=[])
+        # --- END FIX ---
+
+        self._rule_registry: List[TerraformRule] = self._discover_rules()
+
+    def _discover_rules(self) -> List[TerraformRule]:
+        """Finds and initializes all TerraformRule subclasses."""
+        # (This method remains the same as my previous answer)
+        rule_classes = [
+            # Syntax Rules
+            ModuleMissingSourceRule,
+            ResourceMissingAttributesRule,
+            # Reference Rules
+            UndefinedReferenceRule,
+            CircularDependencyRule,
+            UnusedVariableRule,
+            # Best Practice Rules
+            MissingVariableDescriptionRule,
+            MissingVariableTypeRule,
+            MissingOutputDescriptionRule,
+            TerraformVersionPinningRule,
+            ProviderVersionPinningRule,
+            ModuleVersionPinningRule,
+            ResourceMissingTagsRule,
+            # Naming Rules
+            ResourceNamingConventionRule,
+            # Security Rules
+            SecurityGroupUnrestrictedIngressRule,
+            SecurityGroupUnrestrictedEgressRule,
+            S3BucketPublicAclRule,
+            S3BucketEncryptionDisabledRule,
+            S3BucketVersioningDisabledRule,
+            IamPolicyWildcardActionRule,
+            IamPolicyWildcardResourceRule,
+            RdsInstancePubliclyAccessibleRule,
+            RdsInstanceEncryptionDisabledRule,
+            HardcodedSecretRule,
+        ]
+        return [RuleClass() for RuleClass in rule_classes]
 
     def validate(
         self,
         project: TerraformProject,
         check_syntax: bool = True,
         check_references: bool = True,
-        check_best_practices: bool = False,
-        check_security: bool = False,
+        check_best_practices: bool = True,
+        check_security: bool = True,
+        check_naming: bool = True,
     ) -> ValidationResult:
         """
-        Run validation checks on Terraform project.
-
-        Args:
-            project: Terraform project to validate
-            check_syntax: Perform syntax validation
-            check_references: Validate resource references
-            check_best_practices: Check best practices compliance
-            check_security: Run security checks
-
-        Returns:
-            ValidationResult with all issues found
+        Run validation checks on the Terraform project.
+        ...
         """
-        if check_syntax:
-            self._validate_syntax(project)
 
-        if check_references:
-            self._validate_references(project)
+        # --- FIX ---
+        # Reset results for this run by initializing with empty lists.
+        self.result = ValidationResult(passed=[], warnings=[], errors=[], info=[])
+        # --- END FIX ---
 
-        if check_best_practices:
-            self._validate_best_practices(project)
+        # Map categories to the check flags
+        category_map = {
+            ValidationCategory.SYNTAX: check_syntax,
+            ValidationCategory.REFERENCE: check_references,
+            ValidationCategory.BEST_PRACTICE: check_best_practices,
+            ValidationCategory.SECURITY: check_security,
+            ValidationCategory.NAMING: check_naming,
+        }
 
-        if check_security:
-            self._validate_security(project)
+        for rule in self._rule_registry:
+            if rule.rule_id in self.ignore_rules:
+                continue
+
+            if not category_map.get(rule.category, True):
+                continue
+
+            try:
+                issues = rule.validate(project)
+                if not issues:
+                    pass
+                else:
+                    for issue in issues:
+                        if self.strict and issue.severity == ValidationSeverity.WARNING:
+                            issue.severity = ValidationSeverity.ERROR
+
+                        # Use the model's add_issue method if it exists
+                        # (otherwise, append directly)
+                        if hasattr(self.result, "add_issue"):
+                            self.result.add_issue(issue)
+                        else:
+                            if issue.severity == ValidationSeverity.ERROR:
+                                self.result.errors.append(issue)
+                            elif issue.severity == ValidationSeverity.WARNING:
+                                self.result.warnings.append(issue)
+                            else:
+                                self.result.info.append(issue)
+
+            except Exception as e:
+                issue = ValidationIssue(
+                    severity=ValidationSeverity.ERROR,
+                    category=ValidationCategory.SYNTAX,
+                    rule_id="TF_RULE_ERROR",
+                    message=f"Error executing rule {rule.rule_id}: {e}",
+                    file_path="<validator>",
+                    line_number=1,  # Add line_number as it's required
+                )
+                if hasattr(self.result, "add_issue"):
+                    self.result.add_issue(issue)
+                else:
+                    self.result.errors.append(issue)
+
+        total_rules_run = 0
+        for rule in self._rule_registry:
+            if rule.rule_id not in self.ignore_rules and category_map.get(
+                rule.category, True
+            ):
+                total_rules_run += 1
+
+        # Calculate total issues
+        total_issues = (
+            len(self.result.errors) + len(self.result.warnings) + len(self.result.info)
+        )
+        passed_check_count = total_rules_run - total_issues
+
+        # Use add_passed method if it exists
+        if hasattr(self.result, "add_passed"):
+            self.result.add_passed(f"{passed_check_count} checks passed.")
+        else:
+            self.result.passed.append(f"{passed_check_count} checks passed.")
 
         return self.result
 
-    def _add_issue(self, issue: ValidationIssue):
-        """Add issue to results if not ignored."""
-        if issue.rule_id in self.ignore_rules:
-            return
 
-        if issue.severity == ValidationSeverity.ERROR:
-            self.result.errors.append(issue)
-        elif issue.severity == ValidationSeverity.WARNING:
-            self.result.warnings.append(issue)
-        else:
-            self.result.info.append(issue)
+#
+# === SYNTAX RULES ===
+#
+class ModuleMissingSourceRule(TerraformRule):
+    rule_id = "TF002"
+    description = "Module missing required 'source' attribute"
+    category = ValidationCategory.SYNTAX
+    severity = ValidationSeverity.ERROR
+    suggestion = "Add a 'source' attribute to the module block."
 
-    def _validate_syntax(self, project: TerraformProject):
-        """Validate HCL syntax and structure."""
-        checks_passed = []
-
-        for name, resource in project.resources.items():
-            if not resource.attributes:
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        category=ValidationCategory.SYNTAX,
-                        rule_id="TF001",
-                        message="Resource has no configuration attributes",
-                        file_path=resource.file_path,
-                        line_number=resource.line_number,
-                        resource_name=name,
-                        suggestion="Add required configuration attributes to the resource block",
-                    )
-                )
-            else:
-                checks_passed.append(f"Resource {name} has valid configuration")
-
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
         for name, module in project.modules.items():
-            if not module.attributes.get("source"):
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        category=ValidationCategory.SYNTAX,
-                        rule_id="TF002",
-                        message="Module missing required 'source' attribute",
-                        file_path=module.file_path,
-                        line_number=module.line_number,
-                        resource_name=name,
-                        suggestion="Add 'source' attribute to module block",
-                    )
-                )
-            else:
-                checks_passed.append(f"Module {name} has valid source")
+            # --- Updated Field ---
+            # Your model provides 'source' directly
+            if not module.source:
+                issues.append(self._create_issue(module))
+        return issues
 
-        # Check variable definitions
-        for name, variable in project.variables.items():
-            if not variable.attributes:
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.WARNING,
-                        category=ValidationCategory.SYNTAX,
-                        rule_id="TF003",
-                        message="Variable has no type or description",
-                        file_path=variable.file_path,
-                        line_number=variable.line_number,
-                        resource_name=name,
-                        suggestion="Add 'type' and 'description' to variable definition",
-                    )
-                )
-            else:
-                checks_passed.append(f"Variable {name} is properly defined")
 
-        if checks_passed:
-            self.result.passed.append(
-                f"Syntax validation passed ({len(checks_passed)} checks)"
-            )
+class ResourceMissingAttributesRule(TerraformRule):
+    rule_id = "TF001"
+    description = "Resource block is empty or has no attributes"
+    category = ValidationCategory.SYNTAX
+    severity = ValidationSeverity.WARNING
+    suggestion = "Add required configuration attributes or remove the empty block."
 
-    def _validate_references(self, project: TerraformProject):
-        """Validate resource and variable references."""
-        checks_passed = []
-
-        # Build set of all available references
-        available_refs = set()
-        available_refs.update(project.resources.keys())
-        available_refs.update(project.data_sources.keys())
-        available_refs.update(project.modules.keys())
-        available_refs.update(project.variables.keys())
-        available_refs.update(project.outputs.keys())
-
-        # Check resource dependencies
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
         for name, resource in project.resources.items():
-            for dep in resource.dependencies:
-                # Clean up dependency reference
-                dep_clean = self._normalize_reference(dep)
+            # This logic remains the same
+            if not resource.attributes:
+                issues.append(self._create_issue(resource))
+        return issues
 
-                if dep_clean and not self._reference_exists(dep_clean, available_refs):
-                    self._add_issue(
-                        ValidationIssue(
-                            severity=ValidationSeverity.ERROR,
-                            category=ValidationCategory.REFERENCE,
-                            rule_id="TF010",
-                            message=f"Reference to undefined resource or variable: {dep}",
-                            file_path=resource.file_path,
-                            line_number=resource.line_number,
-                            resource_name=name,
-                            suggestion=f"Ensure {dep} is defined in your configuration",
-                        )
-                    )
-                else:
-                    checks_passed.append(f"{name} references are valid")
 
-        # Check output dependencies
-        for name, output in project.outputs.items():
-            for dep in output.dependencies:
-                dep_clean = self._normalize_reference(dep)
+#
+# === REFERENCE RULES ===
+#
+class UndefinedReferenceRule(TerraformRule):
+    rule_id = "TF010"
+    description = "Reference to undefined resource, variable, or local"
+    category = ValidationCategory.REFERENCE
+    severity = ValidationSeverity.ERROR
+    suggestion = "Ensure the referenced item is defined and spelled correctly."
 
-                if dep_clean and not self._reference_exists(dep_clean, available_refs):
-                    self._add_issue(
-                        ValidationIssue(
-                            severity=ValidationSeverity.ERROR,
-                            category=ValidationCategory.REFERENCE,
-                            rule_id="TF011",
-                            message=f"Output references undefined resource: {dep}",
-                            file_path=output.file_path,
-                            line_number=output.line_number,
-                            resource_name=name,
-                            suggestion=f"Ensure {dep} is defined before using it in output",
-                        )
-                    )
+    INTERPOLATION_REGEX = re.compile(
+        r'\${([^{}]*)}|"\s*(var|local|module|data\.[^"]*)\s*"'
+    )
 
-        # Check for circular dependencies
-        circular = self._detect_circular_dependencies(project)
-        if circular:
-            for cycle in circular:
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        category=ValidationCategory.REFERENCE,
-                        rule_id="TF012",
-                        message=f"Circular dependency detected: {' -> '.join(cycle)}",
-                        file_path="<multiple>",
-                        line_number=1,
-                        suggestion="Refactor resources to break the circular dependency",
-                    )
-                )
+    def __init__(self):
+        self._available_refs: Set[str] = set()
 
-        if checks_passed:
-            self.result.passed.append(
-                f"Reference validation passed ({len(checks_passed)} resources checked)"
-            )
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        self._available_refs = self._get_available_references(project)
 
-    def _validate_best_practices(self, project: TerraformProject):
-        """Check best practices compliance."""
-        checks_passed = []
+        # Use your project's `all_objects` property
+        for name, item in project.all_objects.items():
+            # Skip vars, locals (they don't have refs in the same way)
+            if item.type in [ResourceType.VARIABLE, ResourceType.LOCAL]:
+                continue
+            issues.extend(self._check_item_dependencies(item, project))
 
-        # Check for resource tagging
-        untagged_resources = []
-        for name, resource in project.resources.items():
-            if self._should_have_tags(name):
-                tags = resource.attributes.get("tags")
-                if not tags:
-                    untagged_resources.append(name)
-                    self._add_issue(
-                        ValidationIssue(
-                            severity=ValidationSeverity.WARNING,
-                            category=ValidationCategory.BEST_PRACTICE,
-                            rule_id="TF020",
-                            message="Resource missing tags",
-                            file_path=resource.file_path,
-                            line_number=resource.line_number,
-                            resource_name=name,
-                            suggestion="Add tags for better resource management and cost tracking",
-                        )
-                    )
-                else:
-                    checks_passed.append(f"{name} has proper tags")
+        return issues
 
-        # Check variable descriptions
-        for name, variable in project.variables.items():
-            attrs = variable.attributes
-            if not attrs.get("description"):
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.INFO,
-                        category=ValidationCategory.BEST_PRACTICE,
-                        rule_id="TF021",
-                        message="Variable missing description",
-                        file_path=variable.file_path,
-                        line_number=variable.line_number,
-                        resource_name=name,
-                        suggestion="Add description to document variable purpose",
-                    )
-                )
-            else:
-                checks_passed.append(f"{name} has description")
+    def _get_available_references(self, project: TerraformProject) -> Set[str]:
+        # Uses your project's .keys() which are the full_names
+        refs = set()
+        refs.update(project.variables.keys())
+        refs.update(project.locals.keys())
+        refs.update(project.resources.keys())
+        refs.update(project.data_sources.keys())
+        refs.update(project.modules.keys())
+        # Add common built-in references
+        refs.update(
+            [
+                "self",
+                "count.index",
+                "each.key",
+                "each.value",
+                "path.module",
+                "path.root",
+                "path.cwd",
+                "terraform.workspace",
+            ]
+        )
+        return refs
 
-            # Check variable type definition
-            if not attrs.get("type"):
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.WARNING,
-                        category=ValidationCategory.BEST_PRACTICE,
-                        rule_id="TF022",
-                        message="Variable missing type constraint",
-                        file_path=variable.file_path,
-                        line_number=variable.line_number,
-                        resource_name=name,
-                        suggestion="Add type constraint for better validation",
-                    )
-                )
+    def _check_item_dependencies(
+        self, item: TerraformObject, project: TerraformProject
+    ) -> List[ValidationIssue]:
+        local_issues = []
 
-        # Check output descriptions
-        for name, output in project.outputs.items():
-            if not output.attributes.get("description"):
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.INFO,
-                        category=ValidationCategory.BEST_PRACTICE,
-                        rule_id="TF023",
-                        message="Output missing description",
-                        file_path=output.file_path,
-                        line_number=output.line_number,
-                        resource_name=name,
-                        suggestion="Add description to document output purpose",
-                    )
-                )
+        # 1. Check explicit 'dependencies' list from your model
+        for dep in item.dependencies:
+            ref = self._normalize_reference(dep)
+            if not self._reference_exists(ref):
+                # --- Updated Field ---
+                msg = f"'{item.full_name}' has explicit 'depends_on' to undefined reference: {dep}"
+                local_issues.append(self._create_issue(item, message=msg))
 
-        # Check naming conventions
-        self._check_naming_conventions(project)
+        # 2. Check implicit dependencies in attributes
+        attr_str = json.dumps(item.attributes)
 
-        if checks_passed:
-            self.result.passed.append(
-                f"Best practices validation completed ({len(checks_passed)} compliant)"
-            )
+        for match in self.INTERPOLATION_REGEX.finditer(attr_str):
+            ref_full = match.group(1) or match.group(2)
+            if not ref_full:
+                continue
 
-    def _validate_security(self, project: TerraformProject):
-        """Run security validation checks."""
-        checks_passed = []
+            potential_refs = re.findall(r"[\w\.-]+", ref_full)
 
-        for name, resource in project.resources.items():
-            attrs = resource.attributes
+            for ref_part in potential_refs:
+                if not (
+                    ref_part.startswith("var.")
+                    or ref_part.startswith("local.")
+                    or ref_part.startswith("module.")
+                    or ref_part.startswith("data.")
+                    or any(ref_part.startswith(res) for res in project.resources.keys())
+                ):
+                    continue
 
-            # Check AWS security groups
-            if "aws_security_group" in name:
-                self._check_security_group(name, resource, attrs)
-                checks_passed.append(f"Security group {name} checked")
-
-            # Check S3 buckets
-            if "aws_s3_bucket" in name:
-                self._check_s3_bucket(name, resource, attrs)
-                checks_passed.append(f"S3 bucket {name} checked")
-
-            # Check IAM policies
-            if "aws_iam" in name and "policy" in name:
-                self._check_iam_policy(name, resource, attrs)
-                checks_passed.append(f"IAM policy {name} checked")
-
-            # Check RDS instances
-            if "aws_db_instance" in name or "aws_rds" in name:
-                self._check_rds_instance(name, resource, attrs)
-                checks_passed.append(f"RDS instance {name} checked")
-
-            # Check for hardcoded secrets
-            self._check_hardcoded_secrets(name, resource, attrs)
-
-        if checks_passed:
-            self.result.passed.append(
-                f"Security validation completed ({len(checks_passed)} resources checked)"
-            )
-
-    def _check_security_group(self, name: str, resource, attrs: Dict):
-        """Check security group configuration."""
-        ingress_rules = attrs.get("ingress", [])
-        if isinstance(ingress_rules, list):
-            for rule in ingress_rules:
-                if isinstance(rule, dict):
-                    cidr_blocks = rule.get("cidr_blocks", [])
-                    if "0.0.0.0/0" in cidr_blocks or "::/0" in cidr_blocks:
-                        self._add_issue(
-                            ValidationIssue(
-                                severity=ValidationSeverity.WARNING,
-                                category=ValidationCategory.SECURITY,
-                                rule_id="TF030",
-                                message="Security group allows unrestricted ingress (0.0.0.0/0)",
-                                file_path=resource.file_path,
-                                line_number=resource.line_number,
-                                resource_name=name,
-                                suggestion="Restrict ingress to specific IP ranges or use VPC security",
-                            )
-                        )
-
-    def _check_s3_bucket(self, name: str, resource, attrs: Dict):
-        """Check S3 bucket security configuration."""
-        # Check for public access
-        acl = attrs.get("acl")
-        if acl in ["public-read", "public-read-write"]:
-            self._add_issue(
-                ValidationIssue(
-                    severity=ValidationSeverity.ERROR,
-                    category=ValidationCategory.SECURITY,
-                    rule_id="TF031",
-                    message="S3 bucket has public ACL",
-                    file_path=resource.file_path,
-                    line_number=resource.line_number,
-                    resource_name=name,
-                    suggestion="Use private ACL and configure bucket policies for controlled access",
-                )
-            )
-
-        # Check for encryption
-        server_side_encryption = attrs.get("server_side_encryption_configuration")
-        if not server_side_encryption:
-            self._add_issue(
-                ValidationIssue(
-                    severity=ValidationSeverity.WARNING,
-                    category=ValidationCategory.SECURITY,
-                    rule_id="TF032",
-                    message="S3 bucket encryption not configured",
-                    file_path=resource.file_path,
-                    line_number=resource.line_number,
-                    resource_name=name,
-                    suggestion="Enable server-side encryption for data at rest",
-                )
-            )
-
-        # Check for versioning
-        versioning = attrs.get("versioning")
-        if not versioning or not versioning.get("enabled"):
-            self._add_issue(
-                ValidationIssue(
-                    severity=ValidationSeverity.INFO,
-                    category=ValidationCategory.SECURITY,
-                    rule_id="TF033",
-                    message="S3 bucket versioning not enabled",
-                    file_path=resource.file_path,
-                    line_number=resource.line_number,
-                    resource_name=name,
-                    suggestion="Enable versioning for data protection and recovery",
-                )
-            )
-
-    def _check_iam_policy(self, name: str, resource, attrs: Dict):
-        """Check IAM policy for overly permissive permissions."""
-        policy = attrs.get("policy")
-        if policy and isinstance(policy, str):
-            # Check for wildcard actions
-            if '"Action": "*"' in policy or '"Action":"*"' in policy:
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        category=ValidationCategory.SECURITY,
-                        rule_id="TF034",
-                        message="IAM policy allows all actions (*)",
-                        file_path=resource.file_path,
-                        line_number=resource.line_number,
-                        resource_name=name,
-                        suggestion="Use principle of least privilege and specify exact actions",
-                    )
-                )
-
-            # Check for wildcard resources
-            if '"Resource": "*"' in policy or '"Resource":"*"' in policy:
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.WARNING,
-                        category=ValidationCategory.SECURITY,
-                        rule_id="TF035",
-                        message="IAM policy applies to all resources (*)",
-                        file_path=resource.file_path,
-                        line_number=resource.line_number,
-                        resource_name=name,
-                        suggestion="Limit policy to specific resources",
-                    )
-                )
-
-    def _check_rds_instance(self, name: str, resource, attrs: Dict):
-        """Check RDS instance security configuration."""
-        # Check for public accessibility
-        publicly_accessible = attrs.get("publicly_accessible")
-        if publicly_accessible:
-            self._add_issue(
-                ValidationIssue(
-                    severity=ValidationSeverity.ERROR,
-                    category=ValidationCategory.SECURITY,
-                    rule_id="TF036",
-                    message="RDS instance is publicly accessible",
-                    file_path=resource.file_path,
-                    line_number=resource.line_number,
-                    resource_name=name,
-                    suggestion="Set publicly_accessible = false and use VPC for access",
-                )
-            )
-
-        # Check for encryption
-        storage_encrypted = attrs.get("storage_encrypted")
-        if not storage_encrypted:
-            self._add_issue(
-                ValidationIssue(
-                    severity=ValidationSeverity.WARNING,
-                    category=ValidationCategory.SECURITY,
-                    rule_id="TF037",
-                    message="RDS instance storage not encrypted",
-                    file_path=resource.file_path,
-                    line_number=resource.line_number,
-                    resource_name=name,
-                    suggestion="Enable storage_encrypted for data at rest protection",
-                )
-            )
-
-    def _check_hardcoded_secrets(self, name: str, resource, attrs: Dict):
-        """Check for hardcoded secrets in configuration."""
-        attrs_str = str(attrs).lower()
-
-        # Check for potential secrets
-        secret_patterns = [
-            (r"password\s*=\s*['\"](?!var\.|data\.)(.+)['\"]", "password"),
-            (r"secret\s*=\s*['\"](?!var\.|data\.)(.+)['\"]", "secret"),
-            (r"api[_-]?key\s*=\s*['\"](?!var\.|data\.)(.+)['\"]", "API key"),
-            (r"access[_-]?key\s*=\s*['\"](?!var\.|data\.)(.+)['\"]", "access key"),
-        ]
-
-        for pattern, secret_type in secret_patterns:
-            if re.search(pattern, attrs_str, re.IGNORECASE):
-                self._add_issue(
-                    ValidationIssue(
-                        severity=ValidationSeverity.ERROR,
-                        category=ValidationCategory.SECURITY,
-                        rule_id="TF038",
-                        message=f"Potential hardcoded {secret_type} detected",
-                        file_path=resource.file_path,
-                        line_number=resource.line_number,
-                        resource_name=name,
-                        suggestion=f"Use variables or secret management service for {secret_type}",
-                    )
-                )
-
-    def _check_naming_conventions(self, project: TerraformProject):
-        """Check resource naming conventions."""
-        for name, resource in project.resources.items():
-            # Extract resource name (after the type)
-            parts = name.split(".", 1)
-            if len(parts) == 2:
-                resource_name = parts[1]
-
-                # Check snake_case convention
-                if not re.match(r"^[a-z][a-z0-9_]*$", resource_name):
-                    self._add_issue(
-                        ValidationIssue(
-                            severity=ValidationSeverity.INFO,
-                            category=ValidationCategory.NAMING,
-                            rule_id="TF040",
-                            message="Resource name doesn't follow snake_case convention",
-                            file_path=resource.file_path,
-                            line_number=resource.line_number,
-                            resource_name=name,
-                            suggestion="Use lowercase letters, numbers, and underscores only",
-                        )
-                    )
-
-    def _should_have_tags(self, resource_name: str) -> bool:
-        """Determine if a resource should have tags."""
-        taggable_resources = [
-            "aws_instance",
-            "aws_s3_bucket",
-            "aws_vpc",
-            "aws_subnet",
-            "aws_security_group",
-            "aws_db_instance",
-            "aws_lambda_function",
-            "aws_ecs_cluster",
-            "aws_ecs_service",
-            "aws_elasticache_cluster",
-            "azure_virtual_machine",
-            "azurerm_resource_group",
-            "google_compute_instance",
-        ]
-
-        return any(tag_type in resource_name for tag_type in taggable_resources)
+                ref = self._normalize_reference(ref_part)
+                if not self._reference_exists(ref):
+                    # --- Updated Field ---
+                    msg = f"'{item.full_name}' has an implicit reference to undefined item: {ref_part}"
+                    local_issues.append(self._create_issue(item, message=msg))
+        return local_issues
 
     def _normalize_reference(self, ref: str) -> str:
-        """Normalize a reference for comparison."""
-        # Remove attribute access
-        if "." in ref:
-            parts = ref.split(".")
-            if len(parts) >= 2:
-                # Keep only resource type and name
-                return ".".join(parts[:2])
+        """Strips attributes/indices from a reference string."""
+        ref = ref.split("[", 1)[0].strip()  # Remove index access
+        parts = ref.split(".")
+
+        if not parts:
+            return ref
+
+        # `var.foo`, `local.bar`
+        if parts[0] in ["var", "local"] and len(parts) >= 2:
+            return f"{parts[0]}.{parts[1]}"
+        # `module.foo`
+        if parts[0] == "module" and len(parts) >= 2:
+            return f"{parts[0]}.{parts[1]}"
+        # `data.aws_iam_policy.foo`
+        if parts[0] == "data" and len(parts) >= 3:
+            return f"data.{parts[1]}.{parts[2]}"
+        # `aws_instance.foo`
+        if len(parts) == 2:
+            return f"{parts[0]}.{parts[1]}"
+        # Built-ins
+        if parts[0] in ["self", "path", "terraform", "count", "each"]:
+            return ref
+
+        # Fallback for resource.name.attribute
+        if len(parts) > 2:
+            return f"{parts[0]}.{parts[1]}"
+
         return ref
 
-    def _reference_exists(self, ref: str, available_refs: Set[str]) -> bool:
-        """Check if a reference exists in available references."""
-        if ref in available_refs:
+    def _reference_exists(self, ref: str) -> bool:
+        """Checks if a normalized reference exists."""
+        if ref in self._available_refs:
             return True
 
-        # Check partial matches for complex references
-        for available in available_refs:
-            if ref.startswith(available):
+        # Handle splat expressions 'aws_instance.foo.*'
+        if ref.endswith(".*"):
+            if ref[:-2] in self._available_refs:
                 return True
 
         return False
 
-    def _detect_circular_dependencies(
-        self, project: TerraformProject
-    ) -> List[List[str]]:
-        """Detect circular dependencies in the project."""
-        # Build adjacency list
-        graph = {}
-        all_resources = {**project.resources, **project.modules}
 
-        for name, resource in all_resources.items():
-            graph[name] = [
-                dep
-                for dep in resource.dependencies
-                if self._normalize_reference(dep) in all_resources
-            ]
+class CircularDependencyRule(TerraformRule):
+    rule_id = "TF012"
+    description = "Circular dependency detected between resources"
+    category = ValidationCategory.REFERENCE
+    severity = ValidationSeverity.ERROR
+    suggestion = "Refactor resources to break the circular dependency."
 
-        # Find cycles using DFS
-        cycles = []
-        visited = set()
-        rec_stack = set()
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        # --- Use Built-in Method ---
+        # Leverage the method from your TerraformProject model
+        cycles = project.get_circular_dependencies()
 
-        def dfs(node, path):
-            visited.add(node)
-            rec_stack.add(node)
-            path.append(node)
+        for cycle in cycles:
+            # We can't point to a single object, so we create an issue
+            # without the helper
+            cycle_path = " -> ".join(cycle)
 
-            for neighbor in graph.get(node, []):
-                neighbor_clean = self._normalize_reference(neighbor)
-                if neighbor_clean not in visited:
-                    if dfs(neighbor_clean, path.copy()):
-                        return True
-                elif neighbor_clean in rec_stack:
-                    # Found a cycle
-                    cycle_start = path.index(neighbor_clean)
-                    cycles.append(path[cycle_start:] + [neighbor_clean])
-                    return True
+            # Try to find the file/line of the first item in the cycle
+            first_obj = project.find_object(cycle[0])
+            file_path = first_obj.file_path if first_obj else "<multiple>"
+            line_num = first_obj.line_number if first_obj else 1
 
-            rec_stack.remove(node)
+            issues.append(
+                ValidationIssue(
+                    severity=self.severity,
+                    category=self.category,
+                    rule_id=self.rule_id,
+                    message=f"Circular dependency detected: {cycle_path}",
+                    file_path=file_path,
+                    line_number=line_num,
+                    resource_name=cycle[0],  # Report against the first item
+                    suggestion=self.suggestion,
+                )
+            )
+        return issues
+
+
+class UnusedVariableRule(TerraformRule):
+    rule_id = "TF013"
+    description = "Variable is defined but not used"
+    category = ValidationCategory.REFERENCE
+    severity = ValidationSeverity.INFO
+    suggestion = "Remove the unused variable definition."
+
+    def __init__(self):
+        self._used_vars: Set[str] = set()
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        self._used_vars = set()
+
+        # 1. Find all variable uses in all objects (including outputs)
+        for item in project.all_objects.values():
+            attr_str = json.dumps(item.attributes)
+            for match in re.finditer(r"var\.(\w+)", attr_str):
+                self._used_vars.add(match.group(1))
+
+        # 2. Check against definitions
+        for name, var in project.variables.items():
+            # --- Updated Field ---
+            # 'var.name' is 'my_var', which matches the regex capture
+            if var.name not in self._used_vars:
+                issues.append(self._create_issue(var))
+
+        return issues
+
+
+#
+# === BEST PRACTICE RULES ===
+#
+class MissingVariableDescriptionRule(TerraformRule):
+    rule_id = "TF021"
+    description = "Variable is missing a 'description' attribute"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.INFO
+    suggestion = "Add a 'description' to the variable to document its purpose."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, var in project.variables.items():
+            # --- Updated Field ---
+            if not var.description:
+                issues.append(self._create_issue(var))
+        return issues
+
+
+class MissingVariableTypeRule(TerraformRule):
+    rule_id = "TF022"
+    description = "Variable is missing a 'type' constraint"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Add a 'type' constraint for better validation and clarity (e.g., type = string)."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, var in project.variables.items():
+            # --- Updated Field ---
+            if not var.variable_type:
+                issues.append(self._create_issue(var))
+        return issues
+
+
+class MissingOutputDescriptionRule(TerraformRule):
+    rule_id = "TF023"
+    description = "Output is missing a 'description' attribute"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.INFO
+    suggestion = "Add a 'description' to the output to document its purpose."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, output in project.outputs.items():
+            # --- Updated Field ---
+            if not output.description:
+                issues.append(self._create_issue(output))
+        return issues
+
+
+class TerraformVersionPinningRule(TerraformRule):
+    rule_id = "TF100"
+    description = (
+        "Terraform block missing 'required_version' or uses a permissive version"
+    )
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Pin the Terraform version (e.g., 'required_version = \"~> 1.5\"')."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        # --- Updated Field ---
+        # Use 'terraform_blocks' dict
+        if not project.terraform_blocks:
+            # This could be an issue itself, but for this rule, we just exit.
+            return []
+
+        # Check all terraform blocks, though usually there's one
+        for tf_block in project.terraform_blocks.values():
+            req_version = tf_block.attributes.get("required_version")
+            if not req_version:
+                issues.append(
+                    self._create_issue(
+                        tf_block, message="Terraform block missing 'required_version'"
+                    )
+                )
+            elif str(req_version) in ["> 0", "latest", "*", ">= 0"]:
+                issues.append(
+                    self._create_issue(
+                        tf_block,
+                        message=f"Terraform 'required_version' ({req_version}) is too permissive.",
+                    )
+                )
+        return issues
+
+
+class ProviderVersionPinningRule(TerraformRule):
+    rule_id = "TF101"
+    description = "Provider configuration missing version constraint"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Pin all provider versions in 'required_providers' (e.g., 'version = \"~> 4.0\"')."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        # --- Updated Field ---
+        if not project.terraform_blocks:
+            return []
+
+        # Check all terraform blocks
+        for tf_block in project.terraform_blocks.values():
+            required_providers = tf_block.attributes.get("required_providers")
+            if not isinstance(required_providers, dict):
+                continue
+
+            for name, config in required_providers.items():
+                if isinstance(config, dict) and not config.get("version"):
+                    msg = f"Provider '{name}' in '{tf_block.full_name}' is missing a 'version' constraint."
+                    # Point to the terraform block itself
+                    issues.append(self._create_issue(tf_block, message=msg))
+        return issues
+
+
+class ModuleVersionPinningRule(TerraformRule):
+    rule_id = "TF102"
+    description = "Module 'source' uses a non-pinned reference (e.g., 'main' branch)"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = (
+        "Pin module 'source' to a specific tag or version (e.g., '..._?ref=v1.2.3_')."
+    )
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, module in project.modules.items():
+            # --- Updated Field ---
+            source = module.source or ""
+
+            # Check for Git sources without a 'ref'
+            if source.startswith("git@") or source.startswith("https://"):
+                if "?ref=" not in source:
+                    # --- Updated Field ---
+                    msg = f"Module '{module.full_name}' Git source is not pinned to a specific ref/tag."
+                    issues.append(self._create_issue(module, message=msg))
+
+            # Check for registry sources without a 'version'
+            elif re.match(r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$", source):
+                if not module.attributes.get("version"):
+                    # --- Updated Field ---
+                    msg = f"Module '{module.full_name}' from registry is missing a 'version' constraint."
+                    issues.append(self._create_issue(module, message=msg))
+        return issues
+
+
+class ResourceNamingConventionRule(TerraformRule):
+    rule_id = "TF040"
+    description = "Resource name does not follow snake_case convention"
+    category = ValidationCategory.NAMING
+    severity = ValidationSeverity.INFO
+    suggestion = "Use lowercase letters, numbers, and underscores (snake_case) for resource names."
+
+    SNAKE_CASE_REGEX = re.compile(r"^[a-z0-9_]+$")
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        # Check resources, data, vars, outputs, modules
+        # 'locals' often use camelCase, so we skip them.
+        items_to_check = {
+            **project.resources,
+            **project.data_sources,
+            **project.variables,
+            **project.outputs,
+            **project.modules,
+        }
+
+        for full_name, item in items_to_check.items():
+            # --- Updated Fields ---
+            # Your model's 'name' field is the declared name (e.g., 'my_instance')
+            # This is much cleaner!
+            declared_name = item.name
+
+            if not self.SNAKE_CASE_REGEX.match(declared_name):
+                # 'item.type.value' gives 'resource', 'variable', etc.
+                msg = f"{item.type.value.capitalize()} '{item.full_name}' name part '{declared_name}' does not follow snake_case convention."
+                issues.append(self._create_issue(item, message=msg))
+        return issues
+
+
+class ResourceMissingTagsRule(TerraformRule):
+    rule_id = "TF020"
+    description = "Resource is missing 'tags' attribute"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.WARNING
+    suggestion = "Add 'tags' for cost allocation, automation, and resource management."
+
+    TAGGABLE_RESOURCE_TYPES = {
+        # AWS
+        "aws_instance",
+        "aws_s3_bucket",
+        "aws_vpc",
+        "aws_subnet",
+        "aws_security_group",
+        "aws_db_instance",
+        "aws_lambda_function",
+        "aws_ecs_cluster",
+        "aws_ecs_service",
+        "aws_elb",
+        "aws_alb",
+        "aws_nat_gateway",
+        "aws_iam_role",
+        "aws_iam_policy",
+        # Azure
+        "azurerm_resource_group",
+        "azurerm_virtual_network",
+        "azurerm_virtual_machine",
+        "azurerm_storage_account",
+        "azurerm_kubernetes_cluster",
+        # GCP
+        "google_compute_instance",
+        "google_storage_bucket",
+        "google_compute_network",
+        "google_sql_database_instance",
+        "google_container_cluster",
+    }
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            # --- Correct Field ---
+            # 'resource.resource_type' (e.g., 'aws_instance') is correct
+            if resource.resource_type in self.TAGGABLE_RESOURCE_TYPES:
+                tags = resource.attributes.get("tags")
+                if not isinstance(tags, dict) or not tags:
+                    issues.append(self._create_issue(resource))
+        return issues
+
+
+#
+# === SECURITY RULES ===
+#
+class SecurityGroupUnrestrictedIngressRule(TerraformRule):
+    rule_id = "TF030"
+    description = "Security group allows unrestricted ingress (0.0.0.0/0 or ::/0)"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.ERROR
+    suggestion = "Restrict ingress to specific, trusted IP ranges."
+
+    UNRESTRICTED_CIDRS = {"0.0.0.0/0", "::/0"}
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type == "aws_security_group":
+                rules = resource.attributes.get("ingress", [])
+                if not isinstance(rules, list):
+                    continue
+                for i, rule in enumerate(rules):
+                    if isinstance(rule, dict):
+                        cidrs = set(
+                            rule.get("cidr_blocks", [])
+                            + rule.get("ipv6_cidr_blocks", [])
+                        )
+                        if not cidrs.isdisjoint(self.UNRESTRICTED_CIDRS):
+                            # --- Updated Field ---
+                            msg = f"Security group '{resource.full_name}' has unrestricted ingress in inline rule #{i}."
+                            issues.append(self._create_issue(resource, message=msg))
+
+            elif resource.resource_type in [
+                "aws_security_group_rule",
+                "aws_vpc_security_group_ingress_rule",
+            ]:
+                if resource.attributes.get("type", "ingress") == "ingress":
+                    cidrs = set(
+                        resource.attributes.get("cidr_blocks", [])
+                        + resource.attributes.get("ipv6_cidr_blocks", [])
+                    )
+                    if not cidrs.isdisjoint(self.UNRESTRICTED_CIDRS):
+                        issues.append(self._create_issue(resource))
+        return issues
+
+
+class SecurityGroupUnrestrictedEgressRule(TerraformRule):
+    rule_id = "TF103"
+    description = "Security group allows unrestricted egress (0.0.0.0/0 or ::/0)"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.WARNING
+
+    UNRESTRICTED_CIDRS = {"0.0.0.0/0", "::/0"}
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type == "aws_security_group":
+                rules = resource.attributes.get("egress", [])
+                if not isinstance(rules, list):
+                    continue
+                for i, rule in enumerate(rules):
+                    if isinstance(rule, dict):
+                        cidrs = set(
+                            rule.get("cidr_blocks", [])
+                            + rule.get("ipv6_cidr_blocks", [])
+                        )
+                        if not cidrs.isdisjoint(self.UNRESTRICTED_CIDRS):
+                            # --- Updated Field ---
+                            msg = f"Security group '{resource.full_name}' has unrestricted egress in inline rule #{i}."
+                            issues.append(self._create_issue(resource, message=msg))
+
+            elif resource.resource_type in [
+                "aws_security_group_rule",
+                "aws_vpc_security_group_egress_rule",
+            ]:
+                if resource.attributes.get("type") == "egress":
+                    cidrs = set(
+                        resource.attributes.get("cidr_blocks", [])
+                        + resource.attributes.get("ipv6_cidr_blocks", [])
+                    )
+                    if not cidrs.isdisjoint(self.UNRESTRICTED_CIDRS):
+                        issues.append(self._create_issue(resource))
+        return issues
+
+
+class S3BucketPublicAclRule(TerraformRule):
+    rule_id = "TF031"
+    description = "S3 bucket has a public ACL"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.ERROR
+    suggestion = "Set ACL to 'private'. Use 'aws_s3_bucket_public_access_block' and bucket policies for access."
+
+    PUBLIC_ACLS = {"public-read", "public-read-write", "website"}
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type == "aws_s3_bucket":
+                acl = resource.attributes.get("acl")
+                if acl in self.PUBLIC_ACLS:
+                    issues.append(self._create_issue(resource))
+
+            elif resource.resource_type == "aws_s3_bucket_acl":
+                acl = resource.attributes.get("acl")
+                if acl in self.PUBLIC_ACLS:
+                    issues.append(self._create_issue(resource))
+        return issues
+
+
+class S3BucketEncryptionDisabledRule(TerraformRule):
+    rule_id = "TF032"
+    description = "S3 bucket server-side encryption is not configured"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.WARNING
+    suggestion = "Enable server-side encryption by adding a 'server_side_encryption_configuration' block."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type == "aws_s3_bucket":
+                encryption = resource.attributes.get(
+                    "server_side_encryption_configuration"
+                )
+                if not isinstance(encryption, dict) or not encryption:
+                    issues.append(self._create_issue(resource))
+        return issues
+
+
+class S3BucketVersioningDisabledRule(TerraformRule):
+    rule_id = "TF033"
+    description = "S3 bucket versioning is not enabled"
+    category = ValidationCategory.BEST_PRACTICE
+    severity = ValidationSeverity.INFO
+    suggestion = "Enable versioning for data protection and recovery by setting 'versioning.enabled = true'."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type == "aws_s3_bucket":
+                versioning = resource.attributes.get("versioning")
+                if not isinstance(versioning, dict) or not versioning.get("enabled"):
+                    issues.append(self._create_issue(resource))
+        return issues
+
+
+class IamPolicyWildcardActionRule(TerraformRule):
+    rule_id = "TF034"
+    description = "IAM policy allows all actions ('Action: \"*\"')"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.ERROR
+    suggestion = "Follow the principle of least privilege. Specify exact actions instead of using '*'."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        return self._validate_policy(project, self._check_action)
+
+    def _check_action(
+        self, stmt: Dict, resource: TerraformObject
+    ) -> Optional[ValidationIssue]:
+        actions = stmt.get("Action", [])
+        if not isinstance(actions, list):
+            actions = [actions]
+        if "*" in actions or any(a.strip() == "*" for a in actions):
+            # --- Updated Field ---
+            msg = f"IAM policy '{resource.full_name}' contains 'Action: *'"
+            return self._create_issue(resource, message=msg)
+        return None
+
+    def _validate_policy(
+        self, project: TerraformProject, check_func
+    ) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if (
+                not resource.resource_type
+                or "aws_iam_" not in resource.resource_type
+                or "policy" not in resource.resource_type
+            ):
+                continue
+
+            policy_str = resource.attributes.get("policy")
+            if (
+                not policy_str
+                or not isinstance(policy_str, str)
+                or not policy_str.strip().startswith("{")
+            ):
+                continue
+
+            try:
+                policy_doc = json.loads(policy_str)
+                statements = policy_doc.get("Statement", [])
+                if not isinstance(statements, list):
+                    statements = [statements]
+
+                for stmt in statements:
+                    if stmt.get("Effect", "Allow") != "Allow":
+                        continue
+
+                    issue = check_func(stmt, resource)
+                    if issue:
+                        issues.append(issue)
+
+            except json.JSONDecodeError:
+                pass
+        return issues
+
+
+class IamPolicyWildcardResourceRule(IamPolicyWildcardActionRule):
+    rule_id = "TF035"
+    description = "IAM policy applies to all resources ('Resource: \"*\"')"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.WARNING
+    suggestion = "Limit policy to specific ARNs. Avoid using 'Resource: *'."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        return self._validate_policy(project, self._check_resource)
+
+    def _check_resource(
+        self, stmt: Dict, resource: TerraformObject
+    ) -> Optional[ValidationIssue]:
+        resources = stmt.get("Resource", [])
+        if not isinstance(resources, list):
+            resources = [resources]
+        if "*" in resources or any(r.strip() == "*" for r in resources):
+            # --- Updated Field ---
+            msg = f"IAM policy '{resource.full_name}' contains 'Resource: *'"
+            return self._create_issue(resource, message=msg)
+        return None
+
+
+class RdsInstancePubliclyAccessibleRule(TerraformRule):
+    rule_id = "TF036"
+    description = "RDS instance is publicly accessible"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.ERROR
+    suggestion = "Set 'publicly_accessible = false' and access the DB via a VPC."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type in [
+                "aws_db_instance",
+                "aws_rds_cluster_instance",
+            ]:
+                if resource.attributes.get("publicly_accessible") is True:
+                    issues.append(self._create_issue(resource))
+        return issues
+
+
+class RdsInstanceEncryptionDisabledRule(TerraformRule):
+    rule_id = "TF037"
+    description = "RDS instance storage encryption is not enabled"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.WARNING
+    suggestion = "Set 'storage_encrypted = true' for data-at-rest protection."
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        for name, resource in project.resources.items():
+            if resource.resource_type == "aws_db_instance":
+                if resource.attributes.get("storage_encrypted") is False:
+                    if not resource.attributes.get("replicate_source_db"):
+                        issues.append(self._create_issue(resource))
+        return issues
+
+
+class HardcodedSecretRule(TerraformRule):
+    rule_id = "TF038"
+    description = "Potential hardcoded secret detected in resource attribute"
+    category = ValidationCategory.SECURITY
+    severity = ValidationSeverity.ERROR
+    suggestion = "Use variables (from .tfvars or env) or a secret manager."
+
+    SECRET_KEY_REGEX = re.compile(
+        r"password|secret|token|api_key|access_key|private_key|key_material|client_secret",
+        re.IGNORECASE,
+    )
+    VALUE_WHITELIST = {"", "true", "false", "1", "0", "null", "none"}
+
+    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
+        issues = []
+        all_items = {**project.resources, **project.modules}
+
+        for name, item in all_items.items():
+            issues.extend(self._check_attributes(item, item.attributes))
+        return issues
+
+    def _check_attributes(
+        self, item: TerraformObject, attrs: Any
+    ) -> List[ValidationIssue]:
+        """Recursively scan attributes for hardcoded secrets."""
+        local_issues = []
+        if isinstance(attrs, dict):
+            for key, value in attrs.items():
+                if self.SECRET_KEY_REGEX.search(key):
+                    if self._is_hardcoded_secret(value):
+                        msg = f"Potential hardcoded secret in attribute '{key}' of '{item.full_name}'"
+                        local_issues.append(self._create_issue(item, message=msg))
+
+                local_issues.extend(self._check_attributes(item, value))
+
+        elif isinstance(attrs, list):
+            for value in attrs:
+                local_issues.extend(self._check_attributes(item, value))
+
+        return local_issues
+
+    def _is_hardcoded_secret(self, value: Any) -> bool:
+        if not isinstance(value, str) or value in self.VALUE_WHITELIST:
             return False
 
-        for node in graph:
-            if node not in visited:
-                dfs(node, [])
+        val_str = value.strip()
 
-        return cycles
+        # Check if it's an interpolation or reference
+        if (
+            val_str.startswith("${")
+            or val_str.startswith("var.")
+            or val_str.startswith("local.")
+            or val_str.startswith("data.")
+            or val_str.startswith("module.")
+            or val_str.startswith("file(")
+            or val_str.startswith("templatefile(")
+            or val_str.startswith("nonsensitive(")
+        ):
+            return False
+
+        return True
