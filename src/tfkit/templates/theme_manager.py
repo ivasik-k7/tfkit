@@ -15,7 +15,6 @@ class ThemeColors(TypedDict):
     warning: str
     danger: str
     info: str
-    purple: str
 
 
 class ThemeManager:
@@ -35,7 +34,6 @@ class ThemeManager:
             "warning": "#ffc107",
             "danger": "#dc3545",
             "info": "#0dcaf0",
-            "purple": "#6610f2",
         },
         "dark": {
             "bg_primary": "#0a0e27",
@@ -50,22 +48,20 @@ class ThemeManager:
             "warning": "#f59e0b",
             "danger": "#ef4444",
             "info": "#06b6d4",
-            "purple": "#8b5cf6",
         },
         "cyber": {
-            "bg_primary": "#000000",
-            "bg_secondary": "#0d0d0d",
+            "bg_primary": "#0a0a0a",
+            "bg_secondary": "#111111",
             "bg_tertiary": "#1a1a1a",
-            "text_primary": "#00ffff",
-            "text_secondary": "#00cccc",
-            "border": "#00ffff",
-            "accent": "#ff00ff",
-            "accent_secondary": "#00ff00",
-            "success": "#00ff00",
+            "text_primary": "#00ff88",
+            "text_secondary": "#00cc6a",
+            "border": "#ff0088",
+            "accent": "#00ffff",
+            "accent_secondary": "#ff0088",
+            "success": "#00ff88",
             "warning": "#ffff00",
-            "danger": "#ff0000",
+            "danger": "#ff0044",
             "info": "#00ffff",
-            "purple": "#ff00ff",
         },
         "nord": {
             "bg_primary": "#2e3440",
@@ -80,7 +76,20 @@ class ThemeManager:
             "warning": "#ebcb8b",
             "danger": "#bf616a",
             "info": "#5e81ac",
-            "purple": "#b48ead",
+        },
+        "github-dark": {
+            "bg_primary": "#0d1117",
+            "bg_secondary": "#161b22",
+            "bg_tertiary": "#21262d",
+            "text_primary": "#f0f6fc",
+            "text_secondary": "#8b949e",
+            "border": "#30363d",
+            "accent": "#58a6ff",
+            "accent_secondary": "#bc8cff",
+            "success": "#3fb950",
+            "warning": "#d29922",
+            "danger": "#f85149",
+            "info": "#2f81f7",
         },
     }
 

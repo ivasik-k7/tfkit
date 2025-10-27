@@ -1,11 +1,13 @@
-"""Data models for Terraform analysis."""
+"""Enhanced data models for Terraform analysis with clear state management."""
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 
 class ResourceType(Enum):
+    """Types of Terraform objects."""
+
     RESOURCE = "resource"
     DATA = "data"
     MODULE = "module"
@@ -16,225 +18,330 @@ class ResourceType(Enum):
     LOCAL = "local"
 
 
+class ObjectState(Enum):
+    """
+    Semantic states for Terraform objects based on their role and usage.
+
+    ACTIVE: Object is properly integrated into the infrastructure
+    UNUSED: Object exists but is not referenced by anything
+    ISOLATED: Object has no dependencies or dependents (standalone)
+    INPUT: Object serves as an input (variables, data sources)
+    OUTPUT_INTERFACE: Object exports values for external consumption
+    CONFIGURATION: Object configures system behavior (providers, terraform blocks)
+    ORPHANED: Object depends on others but nothing uses it
+    INCOMPLETE: Object is missing required dependencies or configuration
+    """
+
+    ACTIVE = "active"
+    UNUSED = "unused"
+    ISOLATED = "isolated"
+    INPUT = "input"
+    OUTPUT_INTERFACE = "output_interface"
+    CONFIGURATION = "configuration"
+    ORPHANED = "orphaned"
+    INCOMPLETE = "incomplete"
+
+
+@dataclass
+class DependencyInfo:
+    """Structured information about an object's dependencies."""
+
+    # Dependencies this object needs
+    explicit_dependencies: List[str] = field(default_factory=list)
+    implicit_dependencies: List[str] = field(default_factory=list)
+
+    # Objects that depend on this object
+    dependent_objects: List[str] = field(default_factory=list)
+
+    @property
+    def all_dependencies(self) -> List[str]:
+        """Get all dependencies (explicit + implicit)."""
+        return self.explicit_dependencies + self.implicit_dependencies
+
+    @property
+    def dependency_count(self) -> int:
+        """Total number of dependencies."""
+        return len(self.all_dependencies)
+
+    @property
+    def dependent_count(self) -> int:
+        """Number of objects that depend on this object."""
+        return len(self.dependent_objects)
+
+    @property
+    def is_leaf(self) -> bool:
+        """True if object has no dependencies."""
+        return self.dependency_count == 0
+
+    @property
+    def is_unused(self) -> bool:
+        """True if nothing depends on this object."""
+        return self.dependent_count == 0
+
+    @property
+    def is_isolated(self) -> bool:
+        """True if object has no dependencies and no dependents."""
+        return self.is_leaf and self.is_unused
+
+
+@dataclass
+class ProviderInfo:
+    """Provider-specific information."""
+
+    provider_name: str
+    provider_alias: Optional[str] = None
+    provider_version: Optional[str] = None
+
+    @property
+    def full_provider_reference(self) -> str:
+        """Get full provider reference including alias."""
+        if self.provider_alias:
+            return f"{self.provider_name}.{self.provider_alias}"
+        return self.provider_name
+
+
+@dataclass
+class LocationInfo:
+    """Location information for an object."""
+
+    file_path: str
+    line_number: int
+    relative_path: Optional[str] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "file_path": self.file_path,
+            "line_number": self.line_number,
+            "relative_path": self.relative_path,
+        }
+
+
 @dataclass
 class TerraformObject:
+    """
+    Enhanced Terraform object with clear state management and structured data.
+    """
+
     type: ResourceType
     name: str
     full_name: str
-    attributes: Dict[str, Any]
-    dependencies: List[str]
-    file_path: str
-    line_number: int
 
-    resource_type: Optional[str] = None
-    provider: Optional[str] = None
-    source: Optional[str] = None
+    # Location
+    location: LocationInfo
+
+    # Dependencies (structured)
+    dependency_info: DependencyInfo = field(default_factory=DependencyInfo)
+
+    # Attributes (raw configuration)
+    attributes: Dict[str, Any] = field(default_factory=dict)
+
+    # Type-specific information
+    resource_type: Optional[str] = None  # e.g., "aws_instance"
+    provider_info: Optional[ProviderInfo] = None
+
+    # Variable-specific
     variable_type: Optional[str] = None
     default_value: Optional[Any] = None
-    description: Optional[str] = None
+
+    # Output-specific
     sensitive: bool = False
-    alias: Optional[str] = None
 
+    # Module-specific
+    source: Optional[str] = None
 
-@dataclass
-class TerraformProject:
-    resources: Dict[str, TerraformObject] = field(default_factory=dict)
-    data_sources: Dict[str, TerraformObject] = field(default_factory=dict)
-    modules: Dict[str, TerraformObject] = field(default_factory=dict)
-    variables: Dict[str, TerraformObject] = field(default_factory=dict)
-    outputs: Dict[str, TerraformObject] = field(default_factory=dict)
-    providers: Dict[str, TerraformObject] = field(default_factory=dict)
-    terraform_blocks: Dict[str, TerraformObject] = field(default_factory=dict)
-    locals: Dict[str, TerraformObject] = field(default_factory=dict)
+    # Common metadata
+    description: Optional[str] = None
+    tags: Dict[str, str] = field(default_factory=dict)
 
-    tfvars_files: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    backend_config: Optional[Dict[str, Any]] = None
-    dependency_graph: Optional[Dict[str, Any]] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    # State (computed)
+    _state: Optional[ObjectState] = None
+    _state_reason: Optional[str] = None
+
+    @property
+    def state(self) -> ObjectState:
+        """Get the computed state of this object."""
+        if self._state is None:
+            self._state, self._state_reason = self._compute_state()
+        return self._state
+
+    @property
+    def state_reason(self) -> str:
+        """Get the reason for the current state."""
+        if self._state_reason is None:
+            self._state, self._state_reason = self._compute_state()
+        return self._state_reason
+
+    def invalidate_state(self) -> None:
+        """Invalidate cached state (call when dependencies change)."""
+        self._state = None
+        self._state_reason = None
+
+    def _compute_state(self) -> tuple[ObjectState, str]:
+        """
+        Compute the semantic state of this object based on its type and dependencies.
+
+        Returns:
+            Tuple of (ObjectState, reason_string)
+        """
+        dep_info = self.dependency_info
+
+        # Variables are always inputs
+        if self.type == ResourceType.VARIABLE:
+            if dep_info.is_unused:
+                return ObjectState.UNUSED, "Variable declared but never referenced"
+            return (
+                ObjectState.INPUT,
+                f"Input variable used by {dep_info.dependent_count} object(s)",
+            )
+
+        # Outputs are always output interfaces
+        if self.type == ResourceType.OUTPUT:
+            if dep_info.is_leaf:
+                return ObjectState.INCOMPLETE, "Output has no value source"
+            return (
+                ObjectState.OUTPUT_INTERFACE,
+                "Value exported for external consumption",
+            )
+
+        # Providers and terraform blocks are configuration
+        if self.type in (ResourceType.PROVIDER, ResourceType.TERRAFORM):
+            if self.type == ResourceType.PROVIDER and dep_info.is_unused:
+                return ObjectState.UNUSED, "Provider configured but not used"
+            return ObjectState.CONFIGURATION, "System configuration"
+
+        # Data sources are external inputs
+        if self.type == ResourceType.DATA:
+            if dep_info.is_unused:
+                return ObjectState.UNUSED, "Data source declared but never referenced"
+            return (
+                ObjectState.INPUT,
+                f"External data source for {dep_info.dependent_count} object(s)",
+            )
+
+        # For resources, modules, and locals - analyze connection patterns
+        if dep_info.is_isolated:
+            return ObjectState.ISOLATED, "Not connected to any other infrastructure"
+
+        if dep_info.is_unused:
+            if dep_info.dependency_count > 0:
+                return (
+                    ObjectState.ORPHANED,
+                    f"Has {dep_info.dependency_count} dependencies but is not used",
+                )
+            return ObjectState.UNUSED, "Not referenced by any other object"
+
+        # Has dependencies and is used - this is healthy/active
+        return (
+            ObjectState.ACTIVE,
+            f"Integrated with {dep_info.dependency_count} dep(s), used by {dep_info.dependent_count} object(s)",
+        )
+
+    @property
+    def provider_prefix(self) -> Optional[str]:
+        """Extract provider prefix from resource_type (e.g., 'aws' from 'aws_instance')."""
+        if self.resource_type:
+            parts = self.resource_type.split("_", 1)
+            if parts:
+                return parts[0]
+        return None
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert project to dictionary with all enhanced fields."""
+        """Convert to dictionary for serialization."""
         return {
-            "resources": {k: asdict(v) for k, v in self.resources.items()},
-            "data_sources": {k: asdict(v) for k, v in self.data_sources.items()},
-            "modules": {k: asdict(v) for k, v in self.modules.items()},
-            "variables": {k: asdict(v) for k, v in self.variables.items()},
-            "outputs": {k: asdict(v) for k, v in self.outputs.items()},
-            "providers": {k: asdict(v) for k, v in self.providers.items()},
-            "terraform_blocks": {
-                k: asdict(v) for k, v in self.terraform_blocks.items()
+            "type": self.type.value,
+            "name": self.name,
+            "full_name": self.full_name,
+            "location": self.location.to_dict(),
+            "state": self.state.value,
+            "state_reason": self.state_reason,
+            "resource_type": self.resource_type,
+            "provider": self.provider_info.full_provider_reference
+            if self.provider_info
+            else None,
+            "source": self.source,
+            "variable_type": self.variable_type,
+            "default_value": self.default_value,
+            "description": self.description,
+            "sensitive": self.sensitive,
+            "tags": self.tags,
+            "dependencies": {
+                "explicit": self.dependency_info.explicit_dependencies,
+                "implicit": self.dependency_info.implicit_dependencies,
+                "dependents": self.dependency_info.dependent_objects,
+                "counts": {
+                    "dependencies": self.dependency_info.dependency_count,
+                    "dependents": self.dependency_info.dependent_count,
+                },
             },
-            "locals": {k: asdict(v) for k, v in self.locals.items()},
-            "tfvars_files": self.tfvars_files,
-            "backend_config": self.backend_config,
-            "metadata": self.metadata,
-            "dependency_graph": self.dependency_graph,
+            "attributes": self.attributes,
         }
 
-    @property
-    def total_resources(self) -> int:
-        """Total number of resources in the project."""
-        return len(self.resources)
+    @classmethod
+    def create_resource(
+        cls,
+        name: str,
+        full_name: str,
+        resource_type: str,
+        location: LocationInfo,
+        attributes: Dict[str, Any],
+        provider: Optional[str] = None,
+    ) -> "TerraformObject":
+        """Factory method for creating resource objects."""
+        provider_info = None
+        if provider:
+            provider_info = ProviderInfo(provider_name=provider)
 
-    @property
-    def total_data_sources(self) -> int:
-        """Total number of data sources in the project."""
-        return len(self.data_sources)
+        return cls(
+            type=ResourceType.RESOURCE,
+            name=name,
+            full_name=full_name,
+            location=location,
+            resource_type=resource_type,
+            attributes=attributes,
+            provider_info=provider_info,
+        )
 
-    @property
-    def total_modules(self) -> int:
-        """Total number of modules in the project."""
-        return len(self.modules)
+    @classmethod
+    def create_variable(
+        cls,
+        name: str,
+        full_name: str,
+        location: LocationInfo,
+        variable_type: Optional[str] = None,
+        default_value: Optional[Any] = None,
+        description: Optional[str] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> "TerraformObject":
+        """Factory method for creating variable objects."""
+        return cls(
+            type=ResourceType.VARIABLE,
+            name=name,
+            full_name=full_name,
+            location=location,
+            variable_type=variable_type,
+            default_value=default_value,
+            description=description,
+            attributes=attributes or {},
+        )
 
-    @property
-    def total_variables(self) -> int:
-        """Total number of variables in the project."""
-        return len(self.variables)
-
-    @property
-    def total_outputs(self) -> int:
-        """Total number of outputs in the project."""
-        return len(self.outputs)
-
-    @property
-    def total_providers(self) -> int:
-        """Total number of provider configurations in the project."""
-        return len(self.providers)
-
-    @property
-    def total_locals(self) -> int:
-        """Total number of local values in the project."""
-        return len(self.locals)
-
-    @property
-    def all_objects(self) -> Dict[str, TerraformObject]:
-        """Get all Terraform objects in a single dictionary."""
-        all_objs = {}
-        all_objs.update(self.resources)
-        all_objs.update(self.data_sources)
-        all_objs.update(self.modules)
-        all_objs.update(self.variables)
-        all_objs.update(self.outputs)
-        all_objs.update(self.providers)
-        all_objs.update(self.terraform_blocks)
-        all_objs.update(self.locals)
-        return all_objs
-
-    def get_objects_by_type(
-        self, resource_type: ResourceType
-    ) -> Dict[str, TerraformObject]:
-        """Get all objects of a specific type."""
-        type_map = {
-            ResourceType.RESOURCE: self.resources,
-            ResourceType.DATA: self.data_sources,
-            ResourceType.MODULE: self.modules,
-            ResourceType.VARIABLE: self.variables,
-            ResourceType.OUTPUT: self.outputs,
-            ResourceType.PROVIDER: self.providers,
-            ResourceType.TERRAFORM: self.terraform_blocks,
-            ResourceType.LOCAL: self.locals,
-        }
-        return type_map.get(resource_type, {})
-
-    def get_objects_by_file(self, file_path: str) -> Dict[str, TerraformObject]:
-        """Get all objects defined in a specific file."""
-        return {
-            name: obj
-            for name, obj in self.all_objects.items()
-            if obj.file_path == file_path
-        }
-
-    def find_object(self, full_name: str) -> Optional[TerraformObject]:
-        """Find an object by its full name."""
-        return self.all_objects.get(full_name)
-
-    def get_providers_used(self) -> List[str]:
-        """Get list of all providers used in the project."""
-        providers = set()
-
-        for resource in self.resources.values():
-            if resource.provider:
-                providers.add(resource.provider)
-
-        for data_source in self.data_sources.values():
-            if data_source.provider:
-                providers.add(data_source.provider)
-
-        for provider in self.providers.values():
-            providers.add(provider.name)
-
-        return sorted(providers)
-
-    def get_resource_counts_by_type(self) -> Dict[str, int]:
-        """Get counts of resources by type."""
-        counts = {}
-        for resource in self.resources.values():
-            if resource.resource_type:
-                counts[resource.resource_type] = (
-                    counts.get(resource.resource_type, 0) + 1
-                )
-        return counts
-
-    def get_circular_dependencies(self) -> List[List[str]]:
-        """Get circular dependencies from the dependency graph."""
-        if not self.dependency_graph:
-            return []
-
-        circular = []
-        visited = set()
-        path = set()
-
-        def _visit(node: str):
-            if node in path:
-                cycle_start = list(path).index(node)
-                cycle = list(path)[cycle_start:]
-                if cycle not in circular:
-                    circular.append(cycle)
-                return
-            if node in visited:
-                return
-
-            visited.add(node)
-            path.add(node)
-
-            if node in self.dependency_graph:
-                for dep in self.dependency_graph[node].get("dependencies", []):
-                    if dep in self.dependency_graph:
-                        _visit(dep)
-
-            path.remove(node)
-
-        for node in self.dependency_graph:
-            if node not in visited:
-                _visit(node)
-
-        return circular
-
-    def get_dependents(self, object_name: str) -> List[str]:
-        """Get all objects that depend on the specified object."""
-        if not self.dependency_graph or object_name not in self.dependency_graph:
-            return []
-        return self.dependency_graph[object_name].get("dependents", [])
-
-    def validate(self) -> List[str]:
-        """Perform basic validation on the project structure."""
-        issues = []
-
-        # Check for undefined references in dependencies
-        all_object_names = set(self.all_objects.keys())
-
-        for obj_name, obj in self.all_objects.items():
-            for dep in obj.dependencies:
-                if dep not in all_object_names and not dep.startswith(
-                    ("var.", "local.")
-                ):
-                    # This might be a cross-module reference or external dependency
-                    # We'll just warn about potentially undefined references
-                    if not any(
-                        dep.startswith(prefix) for prefix in ["data.", "module."]
-                    ):
-                        issues.append(
-                            f"Potential undefined reference: {dep} in {obj_name}"
-                        )
-
-        return issues
+    @classmethod
+    def create_output(
+        cls,
+        name: str,
+        full_name: str,
+        location: LocationInfo,
+        sensitive: bool = False,
+        description: Optional[str] = None,
+        attributes: Optional[Dict[str, Any]] = None,
+    ) -> "TerraformObject":
+        """Factory method for creating output objects."""
+        return cls(
+            type=ResourceType.OUTPUT,
+            name=name,
+            full_name=full_name,
+            location=location,
+            sensitive=sensitive,
+            description=description,
+            attributes=attributes or {},
+        )

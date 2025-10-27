@@ -3,7 +3,7 @@ from .base_template import BaseTemplate
 
 
 class ClassicTemplate(BaseTemplate):
-    """Clean, intuitive classic template with graph nodes and enhanced visualization."""
+    """Modern, intuitive classic template with enhanced UI and search functionality."""
 
     @property
     def template_string(self) -> str:
@@ -17,35 +17,14 @@ class ClassicTemplate(BaseTemplate):
         <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
         <style>
-            {% set colors = {
-                'light': {
-                    'bg': '#ffffff', 'bg_alt': '#f8f9fa', 'text': '#212529', 'text_muted': '#6c757d',
-                    'border': '#dee2e6', 'accent': '#0d6efd', 'success': '#198754', 'warning': '#ffc107',
-                    'danger': '#dc3545', 'info': '#0dcaf0', 'purple': '#6610f2'
-                },
-                'dark': {
-                    'bg': '#1a1d29', 'bg_alt': '#252837', 'text': '#e4e6eb', 'text_muted': '#9ca3af',
-                    'border': '#3a3f52', 'accent': '#3b82f6', 'success': '#10b981', 'warning': '#f59e0b',
-                    'danger': '#ef4444', 'info': '#06b6d4', 'purple': '#8b5cf6'
-                },
-                'cyber': {
-                    'bg': '#000000', 'bg_alt': '#0a0a0a', 'text': '#00ffff', 'text_muted': '#00cccc',
-                    'border': '#00ffff', 'accent': '#ff00ff', 'success': '#00ff00', 'warning': '#ffff00',
-                    'danger': '#ff0000', 'info': '#00ffff', 'purple': '#ff00ff'
-                },
-                'nord': {
-                    'bg': '#2e3440', 'bg_alt': '#3b4252', 'text': '#eceff4', 'text_muted': '#d8dee9',
-                    'border': '#4c566a', 'accent': '#88c0d0', 'success': '#a3be8c', 'warning': '#ebcb8b',
-                    'danger': '#bf616a', 'info': '#5e81ac', 'purple': '#b48ead'
-                }
-            }[theme] %}
+            {% set colors = theme_colors %}
             
             * { margin: 0; padding: 0; box-sizing: border-box; }
             
             body {
                 font-family: 'Exo 2', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-                background: {{ colors.bg }};
-                color: {{ colors.text }};
+                background: {{ colors.bg_primary }};
+                color: {{ colors.text_primary }};
                 line-height: 1.6;
             }
             
@@ -55,114 +34,260 @@ class ClassicTemplate(BaseTemplate):
                 padding: 20px;
             }
             
+            /* --- MODERN HEADER --- */
             .header {
-                background: {{ colors.bg_alt }};
-                padding: 24px 28px;
-                border-radius: 12px;
+                background: linear-gradient(135deg, {{ colors.bg_secondary }} 0%, {{ colors.bg_tertiary }} 100%);
+                padding: 28px 32px;
+                border-radius: 16px;
                 margin-bottom: 24px;
                 border: 1px solid {{ colors.border }};
-                border-left: 4px solid {{ colors.accent }};
+                border-left: 6px solid {{ colors.accent }};
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             }
             
             .header h1 {
                 color: {{ colors.accent }};
-                font-size: 1.75em;
+                font-size: 2em;
                 font-weight: 700;
-                margin-bottom: 6px;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
             }
             
             .header .meta {
-                color: {{ colors.text_muted }};
-                font-size: 0.875em;
+                color: {{ colors.text_secondary }};
+                font-size: 1em;
                 font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 8px;
             }
             
+            /* --- MODERN STATS GRID --- */
             .stats-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                gap: 16px;
-                margin-bottom: 24px;
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+                gap: 20px;
+                margin-bottom: 32px;
             }
             
             .stat-card {
-                background: {{ colors.bg_alt }};
-                padding: 20px;
-                border-radius: 8px;
+                background: linear-gradient(135deg, {{ colors.bg_secondary }} 0%, {{ colors.bg_tertiary }} 100%);
+                padding: 24px;
+                border-radius: 12px;
                 border: 1px solid {{ colors.border }};
-                text-align: center;
-                transition: transform 0.2s ease;
+                position: relative;
+                overflow: hidden;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            }
+            
+            .stat-card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 4px;
+                height: 100%;
+                background: {{ colors.accent }};
             }
             
             .stat-card:hover {
-                transform: translateY(-2px);
+                transform: translateY(-4px);
+                box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                border-color: {{ colors.accent }}40;
+            }
+            
+            .stat-card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 16px;
+            }
+            
+            .stat-icon {
+                width: 48px;
+                height: 48px;
+                background: {{ colors.accent }}20;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.4em;
+                color: {{ colors.accent }};
             }
             
             .stat-value {
-                font-size: 2em;
-                font-weight: 700;
-                color: {{ colors.accent }};
+                font-size: 2.5em;
+                font-weight: 800;
+                color: {{ colors.text_primary }};
                 line-height: 1;
                 margin-bottom: 8px;
+                font-family: 'Exo 2', sans-serif;
             }
             
             .stat-label {
-                font-size: 0.85em;
-                color: {{ colors.text_muted }};
+                font-size: 0.9em;
+                color: {{ colors.text_secondary }};
+                font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.5px;
-                font-weight: 600;
             }
             
-            .state-indicators {
-                display: flex;
-                gap: 6px;
-                margin-top: 8px;
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .state-indicator {
-                font-size: 0.7em;
-                padding: 3px 8px;
+            .stat-trend {
+                font-size: 0.8em;
+                padding: 4px 8px;
                 border-radius: 6px;
                 font-weight: 600;
-                cursor: pointer;
-                transition: all 0.2s ease;
+                margin-top: 8px;
+                display: inline-block;
             }
             
-            .state-indicator:hover {
-                transform: scale(1.05);
+            .stat-trend.positive {
+                background: {{ colors.success }}20;
+                color: {{ colors.success }};
             }
             
-            .state-healthy { background: {{ colors.success }}15; color: {{ colors.success }}; border: 1px solid {{ colors.success }}30; }
-            .state-unused { background: {{ colors.danger }}15; color: {{ colors.danger }}; border: 1px solid {{ colors.danger }}30; }
-            .state-external { background: {{ colors.info }}15; color: {{ colors.info }}; border: 1px solid {{ colors.info }}30; }
-            .state-leaf { background: {{ colors.success }}15; color: {{ colors.success }}; border: 1px solid {{ colors.success }}30; }
-            .state-orphan { background: {{ colors.warning }}15; color: {{ colors.warning }}; border: 1px solid {{ colors.warning }}30; }
-            .state-warning { background: {{ colors.warning }}15; color: {{ colors.warning }}; border: 1px solid {{ colors.warning }}30; }
+            .stat-trend.negative {
+                background: {{ colors.danger }}20;
+                color: {{ colors.danger }};
+            }
             
-            .main-panel {
-                background: {{ colors.bg_alt }};
-                border: 1px solid {{ colors.border }};
+            .state-breakdown {
+                margin-top: 16px;
+                padding-top: 16px;
+                border-top: 1px solid {{ colors.border }}40;
+            }
+            
+            .state-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 6px 0;
+                font-size: 0.85em;
+            }
+            
+            .state-item:last-child {
+                padding-bottom: 0;
+            }
+            
+            .state-name {
+                color: {{ colors.text_secondary }};
+                font-weight: 500;
+            }
+            
+            .state-count {
+                color: {{ colors.text_primary }};
+                font-weight: 700;
+                background: {{ colors.bg_primary }}30;
+                padding: 2px 8px;
                 border-radius: 12px;
+                min-width: 24px;
+                text-align: center;
+            }
+            
+            /* --- ENHANCED SEARCH BAR --- */
+            .search-container {
+                position: relative;
+                margin: 0 20px 20px 20px;
+            }
+            
+            .search-box {
+                width: 100%;
+                padding: 16px 52px 16px 48px;
+                border: 2px solid {{ colors.border }};
+                background: {{ colors.bg_primary }};
+                color: {{ colors.text_primary }};
+                border-radius: 12px;
+                font-size: 1em;
+                transition: all 0.3s ease;
+                font-family: 'Exo 2', sans-serif;
+            }
+            
+            .search-box:focus {
+                outline: none;
+                border-color: {{ colors.accent }};
+                box-shadow: 0 0 0 3px {{ colors.accent }}20;
+            }
+            
+            .search-box::placeholder {
+                color: {{ colors.text_secondary }};
+            }
+            
+            .search-icon {
+                position: absolute;
+                left: 16px;
+                top: 50%;
+                transform: translateY(-50%);
+                color: {{ colors.text_secondary }};
+                font-size: 1.1em;
+            }
+            
+            .search-clear {
+                position: absolute;
+                right: 16px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: none;
+                border: none;
+                color: {{ colors.text_secondary }};
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 4px;
+                transition: all 0.2s ease;
+                opacity: 0;
+            }
+            
+            .search-clear:hover {
+                color: {{ colors.danger }};
+                background: {{ colors.danger }}15;
+            }
+            
+            .search-clear.visible {
+                opacity: 1;
+            }
+            
+            .search-hint {
+                position: absolute;
+                right: 16px;
+                top: -24px;
+                font-size: 0.75em;
+                color: {{ colors.text_secondary }};
+                background: {{ colors.bg_secondary }};
+                padding: 2px 8px;
+                border-radius: 6px;
+                border: 1px solid {{ colors.border }};
+            }
+            
+            /* --- REST OF THE STYLES (keeping your existing styles with minor updates) --- */
+            .main-panel {
+                background: {{ colors.bg_secondary }};
+                border: 1px solid {{ colors.border }};
+                border-radius: 16px;
                 overflow: hidden;
                 margin-bottom: 24px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.08);
             }
             
             .panel-header {
-                padding: 16px 20px;
+                padding: 20px 24px;
                 border-bottom: 1px solid {{ colors.border }};
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 flex-wrap: wrap;
-                gap: 12px;
+                gap: 16px;
+                background: {{ colors.bg_tertiary }};
             }
             
             .panel-title {
-                font-size: 1.125em;
-                font-weight: 600;
-                color: {{ colors.text }};
+                font-size: 1.25em;
+                font-weight: 700;
+                color: {{ colors.text_primary }};
+                display: flex;
+                align-items: center;
+                gap: 8px;
             }
             
             .controls {
@@ -172,52 +297,32 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .btn {
-                padding: 8px 16px;
+                padding: 10px 16px;
                 border: 1px solid {{ colors.border }};
-                background: {{ colors.bg }};
-                color: {{ colors.text }};
-                border-radius: 6px;
-                font-size: 0.875em;
+                background: {{ colors.bg_primary }};
+                color: {{ colors.text_primary }};
+                border-radius: 8px;
+                font-size: 0.9em;
                 cursor: pointer;
                 transition: all 0.2s;
                 display: flex;
                 align-items: center;
                 gap: 6px;
-                font-weight: 500;
+                font-weight: 600;
+                font-family: 'Exo 2', sans-serif;
             }
             
             .btn:hover {
                 background: {{ colors.accent }};
                 border-color: {{ colors.accent }};
-                color: {{ colors.bg }};
+                color: {{ colors.bg_primary }};
+                transform: translateY(-1px);
             }
             
             .btn.active {
                 background: {{ colors.accent }};
                 border-color: {{ colors.accent }};
-                color: {{ colors.bg }};
-            }
-            
-            .search-box {
-                width: 100%;
-                padding: 12px 16px;
-                border: 1px solid {{ colors.border }};
-                background: {{ colors.bg }};
-                color: {{ colors.text }};
-                border-radius: 8px;
-                font-size: 0.9em;
-                margin: 16px 20px;
-                max-width: calc(100% - 40px);
-                transition: border-color 0.2s;
-            }
-            
-            .search-box:focus {
-                outline: none;
-                border-color: {{ colors.accent }};
-            }
-            
-            .search-box::placeholder {
-                color: {{ colors.text_muted }};
+                color: {{ colors.bg_primary }};
             }
             
             .graph-container {
@@ -231,7 +336,7 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .graph-container::-webkit-scrollbar-track {
-                background: {{ colors.bg }};
+                background: {{ colors.bg_primary }};
             }
             
             .graph-container::-webkit-scrollbar-thumb {
@@ -240,28 +345,30 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .graph-container::-webkit-scrollbar-thumb:hover {
-                background: {{ colors.text_muted }};
+                background: {{ colors.text_secondary }};
             }
             
             .graph-nodes {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-                gap: 16px;
+                grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+                gap: 20px;
             }
             
             .graph-node {
-                background: {{ colors.bg }};
+                background: {{ colors.bg_primary }};
                 border: 1px solid {{ colors.border }};
-                border-radius: 10px;
-                padding: 20px;
+                border-radius: 12px;
+                padding: 24px;
                 transition: all 0.3s ease;
                 position: relative;
                 overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
             }
             
             .graph-node:hover {
                 border-color: {{ colors.accent }};
                 transform: translateY(-2px);
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             }
             
             .node-unused { border-left: 4px solid {{ colors.danger }}; }
@@ -274,21 +381,21 @@ class ClassicTemplate(BaseTemplate):
             .graph-node-header {
                 display: flex;
                 align-items: flex-start;
-                margin-bottom: 12px;
-                gap: 12px;
+                margin-bottom: 16px;
+                gap: 16px;
             }
             
             .graph-node-icon {
-                width: 40px;
-                height: 40px;
+                width: 48px;
+                height: 48px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                border-radius: 8px;
+                border-radius: 10px;
                 background: {{ colors.accent }};
                 flex-shrink: 0;
-                font-size: 1.2em;
-                color: {{ colors.bg }};
+                font-size: 1.3em;
+                color: {{ colors.bg_primary }};
             }
             
             .graph-node-title-container {
@@ -297,34 +404,37 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .graph-node-title {
-                font-weight: 600;
-                font-size: 1.1em;
-                margin-bottom: 4px;
+                font-weight: 700;
+                font-size: 1.2em;
+                margin-bottom: 6px;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                color: {{ colors.text_primary }};
             }
             
             .graph-node-type {
-                color: {{ colors.text_muted }};
-                font-size: 0.85em;
+                color: {{ colors.text_secondary }};
+                font-size: 0.9em;
                 font-weight: 500;
-                margin-bottom: 4px;
+                margin-bottom: 8px;
             }
             
             .graph-node-state {
                 font-size: 0.8em;
-                font-weight: 600;
-                padding: 3px 8px;
-                border-radius: 4px;
+                font-weight: 700;
+                padding: 6px 12px;
+                border-radius: 6px;
                 display: inline-block;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
             }
             
             .graph-node-badges {
                 display: flex;
                 gap: 6px;
                 flex-wrap: wrap;
-                margin-top: 8px;
+                margin-top: 12px;
             }
             
             .graph-node-badge {
@@ -338,7 +448,7 @@ class ClassicTemplate(BaseTemplate):
             
             .graph-node-badge.warning {
                 background: {{ colors.warning }};
-                color: {{ colors.bg }};
+                color: {{ colors.bg_primary }};
             }
             
             .graph-node-badge.danger {
@@ -348,31 +458,32 @@ class ClassicTemplate(BaseTemplate):
             
             .graph-node-dependencies {
                 display: flex;
-                gap: 16px;
-                margin-top: 12px;
-                padding-top: 12px;
-                border-top: 1px solid {{ colors.border }};
+                gap: 20px;
+                margin-top: 16px;
+                padding-top: 16px;
+                border-top: 1px solid {{ colors.border }}40;
             }
             
             .graph-node-deps-item {
                 display: flex;
                 align-items: center;
-                gap: 6px;
-                font-size: 0.85em;
-                color: {{ colors.text_muted }};
+                gap: 8px;
+                font-size: 0.9em;
+                color: {{ colors.text_secondary }};
+                font-weight: 500;
             }
             
             .graph-node-deps-count {
                 background: {{ colors.info }};
                 color: white;
                 border-radius: 12px;
-                min-width: 20px;
-                height: 20px;
+                min-width: 24px;
+                height: 24px;
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 0.75em;
-                font-weight: 600;
+                font-size: 0.8em;
+                font-weight: 700;
             }
             
             .graph-node-deps-count.outgoing {
@@ -384,47 +495,54 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .graph-node-reason {
-                font-size: 0.8em;
-                color: {{ colors.text_muted }};
+                font-size: 0.85em;
+                color: {{ colors.text_secondary }};
                 font-style: italic;
-                margin-top: 8px;
+                margin-top: 12px;
+                line-height: 1.4;
             }
             
             .empty-state {
-                padding: 60px 20px;
+                padding: 80px 20px;
                 text-align: center;
-                color: {{ colors.text_muted }};
+                color: {{ colors.text_secondary }};
             }
             
             .empty-state-icon {
-                font-size: 3em;
-                margin-bottom: 16px;
+                font-size: 4em;
+                margin-bottom: 20px;
                 opacity: 0.5;
+            }
+            
+            .empty-state h3 {
+                font-size: 1.5em;
+                margin-bottom: 12px;
+                color: {{ colors.text_primary }};
             }
             
             .footer {
                 margin-top: 40px;
-                padding: 16px;
+                padding: 20px;
                 text-align: center;
+                border-top: 1px solid {{ colors.border }};
             }
 
             #watermark {
-                font-size: 0.75em;
-                color: {{ colors.text_muted }};
+                font-size: 0.85em;
+                color: {{ colors.text_secondary }};
                 user-select: none;
-                z-index: 1000;
                 font-family: 'Exo 2', sans-serif;
                 font-weight: 500;
                 letter-spacing: 0.3px;
             }
 
             #watermark a {
-                color: {{ colors.text_muted }};
+                color: {{ colors.text_secondary }};
                 text-decoration: none;
                 font-weight: 600;
                 transition: all 0.2s ease;
-                padding: 2px 6px;
-                border-radius: 4px;
+                padding: 4px 8px;
+                border-radius: 6px;
             }
 
             #watermark a:hover {
@@ -433,16 +551,16 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .filter-info {
-                background: {{ colors.bg_alt }};
+                background: {{ colors.bg_tertiary }};
                 border: 1px solid {{ colors.border }};
-                border-radius: 8px;
-                padding: 12px 16px;
-                margin-bottom: 16px;
+                border-radius: 10px;
+                padding: 16px 20px;
+                margin: 0 20px 20px 20px;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 flex-wrap: wrap;
-                gap: 12px;
+                gap: 16px;
             }
             
             .filter-tags {
@@ -452,16 +570,30 @@ class ClassicTemplate(BaseTemplate):
             }
             
             .filter-tag {
+                background: {{ colors.accent }};
                 color: white;
-                padding: 4px 8px;
+                padding: 6px 12px;
                 border-radius: 12px;
-                font-size: 0.8em;
-                font-weight: 500;
+                font-size: 0.85em;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            
+            .filter-tag .remove {
+                cursor: pointer;
+                opacity: 0.8;
+                transition: opacity 0.2s;
+            }
+            
+            .filter-tag .remove:hover {
+                opacity: 1;
             }
             
             @media (max-width: 768px) {
                 .stats-grid {
-                    grid-template-columns: repeat(2, 1fr);
+                    grid-template-columns: 1fr;
                 }
                 .controls {
                     flex-direction: column;
@@ -477,24 +609,38 @@ class ClassicTemplate(BaseTemplate):
                     flex-direction: column;
                     align-items: stretch;
                 }
+                .search-hint {
+                    display: none;
+                }
             }
             
             @media (max-width: 480px) {
-                .stats-grid {
-                    grid-template-columns: 1fr;
+                .container {
+                    padding: 12px;
+                }
+                .header {
+                    padding: 20px;
+                }
+                .header h1 {
+                    font-size: 1.5em;
                 }
             }
         </style>
     </head>
     <body>
         <div class="container">
+            <!-- Modern Stats Grid -->
             <div class="stats-grid" id="stats-grid">
                 <!-- Stats will be populated by JavaScript -->
             </div>
             
+            <!-- Main Content Panel -->
             <div class="main-panel">
                 <div class="panel-header">
-                    <div class="panel-title">Components</div>
+                    <div class="panel-title">
+                        <i class="fas fa-cubes"></i>
+                        Infrastructure Components
+                    </div>
                     <div class="controls">
                         <button class="btn" onclick="sortNodes('name')" id="sort-name">
                             <i class="fas fa-sort-alpha-down"></i> Name
@@ -517,6 +663,20 @@ class ClassicTemplate(BaseTemplate):
                     </div>
                 </div>
                 
+                <!-- Enhanced Search Bar -->
+                <div class="search-container">
+                    <div class="search-hint">
+                        <kbd>/</kbd> to search • <kbd>Esc</kbd> to clear
+                    </div>
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="search-box" placeholder="Search components by name, type, state, or reason..." 
+                           id="search-input" />
+                    <button class="search-clear" id="search-clear" onclick="clearSearch()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Filter Info -->
                 <div class="filter-info" id="filter-info" style="display: none;">
                     <div>
                         <strong>Active Filters:</strong>
@@ -527,16 +687,16 @@ class ClassicTemplate(BaseTemplate):
                     </button>
                 </div>
                 
-                <input type="text" class="search-box" placeholder="Search components by name, type, or state..." onkeyup="debounceFilter(this.value)" />
-                
+                <!-- Graph Content -->
                 <div class="graph-container">
                     <div class="graph-nodes" id="graph-nodes-container"></div>
                 </div>
             </div>
             
+            <!-- Footer -->
             <div class="footer">
                 <div id="watermark">
-                    tfkit (v{{ tfkit_version | default('0.0.0') }}) | <a href="https://github.com/ivasik-k7/tfkit" target="_blank" style="color: {{ colors.text_secondary }};">tfkit.com</a>
+                    tfkit (v{{ tfkit_version | default('0.0.0') }}) | <a href="https://github.com/ivasik-k7/tfkit" target="_blank">tfkit.com</a>
                 </div>
             </div>         
         </div>
@@ -548,12 +708,41 @@ class ClassicTemplate(BaseTemplate):
             let currentSearch = '';
             let filterTimeout = null;
 
+            // Enhanced search functionality
+            function initializeSearch() {
+                const searchInput = document.getElementById('search-input');
+                const searchClear = document.getElementById('search-clear');
+                
+                searchInput.addEventListener('input', function(e) {
+                    const query = e.target.value;
+                    updateSearchClear(query);
+                    debounceFilter(query);
+                });
+                
+                // Show/hide clear button based on input
+                function updateSearchClear(query) {
+                    if (query.length > 0) {
+                        searchClear.classList.add('visible');
+                    } else {
+                        searchClear.classList.remove('visible');
+                    }
+                }
+            }
+            
+            function clearSearch() {
+                const searchInput = document.getElementById('search-input');
+                searchInput.value = '';
+                searchInput.focus();
+                updateSearchClear('');
+                filterNodes('');
+            }
+            
             // Performance optimization: Debounce search
             function debounceFilter(query) {
                 clearTimeout(filterTimeout);
                 filterTimeout = setTimeout(() => {
                     filterNodes(query);
-                }, 150);
+                }, 100); // Reduced from 150ms for better responsiveness
             }
 
             // Calculate summary statistics
@@ -577,7 +766,9 @@ class ClassicTemplate(BaseTemplate):
                 'variable': 'fas fa-code',
                 'output': 'fas fa-arrow-right',
                 'data': 'fas fa-database',
-                'provider': 'fas fa-cog'
+                'provider': 'fas fa-cog',
+                'local': 'fas fa-code',
+                'terraform': 'fas fa-sitemap'
             };
             
             // State configuration
@@ -592,29 +783,67 @@ class ClassicTemplate(BaseTemplate):
 
             function initializeStats() {
                 const statsGrid = document.getElementById('stats-grid');
+                
+                // Calculate health score
+                const totalNodes = summary.total_nodes;
+                const healthyNodes = summary.state_counts.healthy;
+                const healthScore = totalNodes > 0 ? Math.round((healthyNodes / totalNodes) * 100) : 100;
+                
                 statsGrid.innerHTML = `
                     <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-cubes"></i>
+                            </div>
+                        </div>
                         <div class="stat-value">${summary.total_nodes}</div>
                         <div class="stat-label">Total Components</div>
-                        <div class="state-indicators">
-                            ${Object.entries(summary.state_counts).map(([state, count]) => 
-                                count > 0 ? `<div class="state-indicator state-${state}" onclick="filterByState('${state}')">${state}: ${count}</div>` : ''
-                            ).join('')}
-                        </div>
+    
                     </div>
+                    
                     <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-project-diagram"></i>
+                            </div>
+                        </div>
                         <div class="stat-value">${summary.total_edges}</div>
                         <div class="stat-label">Dependencies</div>
+                        <div class="stat-trend positive">
+                            <i class="fas fa-chart-line"></i> ${calculateAverageDependencies()} avg per component
+                        </div>
                     </div>
+                    
                     <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                        </div>
                         <div class="stat-value">${calculateConnectedComponents()}</div>
                         <div class="stat-label">Connected Groups</div>
                     </div>
+                    
                     <div class="stat-card">
-                        <div class="stat-value">${Object.keys(nodeIcons).length}</div>
-                        <div class="stat-label">Resource Types</div>
+                        <div class="stat-card-header">
+                            <div class="stat-icon">
+                                <i class="fas fa-heart"></i>
+                            </div>
+                        </div>
+                        <div class="stat-value">${healthScore}%</div>
+                        <div class="stat-label">Health Score</div>
+                        <div class="stat-trend ${healthScore > 80 ? 'positive' : 'negative'}">
+                            ${healthScore > 80 ? '<i class="fas fa-arrow-up"></i> Excellent' : '<i class="fas fa-arrow-down"></i> Needs Attention'}
+                        </div>
                     </div>
                 `;
+            }
+
+            function calculateAverageDependencies() {
+                if (graphData.nodes.length === 0) return 0;
+                const totalDeps = graphData.nodes.reduce((sum, node) => 
+                    sum + (node.dependencies_out || 0) + (node.dependencies_in || 0), 0);
+                return (totalDeps / graphData.nodes.length).toFixed(1);
             }
 
             function calculateConnectedComponents() {
@@ -663,11 +892,16 @@ class ClassicTemplate(BaseTemplate):
                     
                     if (currentSearch) {
                         const searchTerm = currentSearch.toLowerCase();
-                        return node.label.toLowerCase().includes(searchTerm) ||
-                               node.type.toLowerCase().includes(searchTerm) || 
-                               (node.subtype && node.subtype.toLowerCase().includes(searchTerm)) ||
-                               node.state.toLowerCase().includes(searchTerm) ||
-                               (node.state_reason && node.state_reason.toLowerCase().includes(searchTerm));
+                        const searchableText = [
+                            node.label,
+                            node.type,
+                            node.subtype || '',
+                            node.state,
+                            node.state_reason || '',
+                            JSON.stringify(node.details || {})
+                        ].join(' ').toLowerCase();
+                        
+                        return searchableText.includes(searchTerm);
                     }
                     
                     return true;
@@ -695,6 +929,9 @@ class ClassicTemplate(BaseTemplate):
                             <div class="empty-state-icon"><i class="fas fa-search"></i></div>
                             <h3>No components found</h3>
                             <p>Try adjusting your search or filter criteria</p>
+                            <p style="margin-top: 12px; font-size: 0.9em; color: {{ colors.text_secondary }};">
+                                Search across: name, type, state, description, and file paths
+                            </p>
                         </div>
                     `;
                     return;
@@ -717,6 +954,7 @@ class ClassicTemplate(BaseTemplate):
             function createNodeElement(node) {
                 const nodeElement = document.createElement('div');
                 const state = stateConfig[node.state] || stateConfig.healthy;
+                const details = node.details || {};
                 
                 nodeElement.className = `graph-node ${state.class}`;
                 
@@ -727,6 +965,9 @@ class ClassicTemplate(BaseTemplate):
                 }
                 if ((node.dependencies_out || 0) > 5 || (node.dependencies_in || 0) > 5) {
                     badges.push('<span class="graph-node-badge"><i class="fas fa-hubspot"></i> HUB</span>');
+                }
+                if (details.sensitive) {
+                    badges.push('<span class="graph-node-badge warning"><i class="fas fa-lock"></i> SENSITIVE</span>');
                 }
 
                 nodeElement.innerHTML = `
@@ -754,6 +995,7 @@ class ClassicTemplate(BaseTemplate):
                         </div>
                     </div>
                     ${node.state_reason ? `<div class="graph-node-reason">${node.state_reason}</div>` : ''}
+                    ${details.file_path ? `<div class="graph-node-reason"><i class="fas fa-file"></i> ${details.file_path}${details.line_number ? `:${details.line_number}` : ''}</div>` : ''}
                 `;
                 
                 return nodeElement;
@@ -790,7 +1032,8 @@ class ClassicTemplate(BaseTemplate):
                 
                 document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
                 document.getElementById('sort-name').classList.add('active');
-                document.querySelector('.search-box').value = '';
+                document.getElementById('search-input').value = '';
+                document.getElementById('search-clear').classList.remove('visible');
                 
                 renderGraphNodes();
             }
@@ -807,16 +1050,36 @@ class ClassicTemplate(BaseTemplate):
                 if (activeFilters.length > 0) {
                     filterInfo.style.display = 'flex';
                     filterTags.innerHTML = activeFilters.map(filter => 
-                        `<span class="filter-tag">${filter}</span>`
+                        `<span class="filter-tag">${filter} <span class="remove" onclick="removeFilter('${filter.split(':')[0].trim().toLowerCase()}')"><i class="fas fa-times"></i></span></span>`
                     ).join('');
                 } else {
                     filterInfo.style.display = 'none';
                 }
             }
             
+            function removeFilter(filterType) {
+                switch (filterType) {
+                    case 'search':
+                        clearSearch();
+                        break;
+                    case 'state':
+                        currentStateFilter = null;
+                        document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+                        document.getElementById('sort-name').classList.add('active');
+                        break;
+                    case 'sorted':
+                        currentSort = 'name';
+                        document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+                        document.getElementById('sort-name').classList.add('active');
+                        break;
+                }
+                renderGraphNodes();
+            }
+            
             // Initialize
             function initialize() {
                 initializeStats();
+                initializeSearch();
                 document.getElementById('sort-name').classList.add('active');
                 renderGraphNodes();
             }
@@ -825,7 +1088,7 @@ class ClassicTemplate(BaseTemplate):
             document.addEventListener('keydown', (e) => {
                 if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
                     e.preventDefault();
-                    document.querySelector('.search-box').focus();
+                    document.getElementById('search-input').focus();
                 } else if (e.key === 'Escape') {
                     resetFilters();
                 }

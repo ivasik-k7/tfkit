@@ -391,16 +391,16 @@ class GraphTemplate(BaseTemplate):
                 transition: opacity 0.1s;
             }
             
-            /* --- ENHANCED TOOLTIP --- */
+            /* --- ENHANCED TOOLTIP - MULTI-THEME SUPPORT --- */
             .node-tooltip {
                 position: absolute;
-                background: linear-gradient(135deg, rgba(10, 25, 47, 0.95) 0%, rgba(15, 32, 55, 0.95) 100%);
-                border: 1px solid {{ colors.accent }}80;
+                background: linear-gradient(135deg, {{ colors.bg_secondary }}ee 0%, {{ colors.bg_tertiary }}dd 100%);
+                border: 1px solid {{ colors.accent }}60;
                 backdrop-filter: blur(12px) saturate(180%);
                 box-shadow: 
-                    0 0 25px {{ colors.accent }}30,
-                    0 8px 40px rgba(0,0,0,0.5),
-                    inset 0 1px 0 {{ colors.accent }}20;
+                    0 0 25px {{ colors.accent }}20,
+                    0 8px 40px rgba(0,0,0,0.3),
+                    inset 0 1px 0 {{ colors.accent }}15;
                 font-family: 'Exo 2', monospace;
                 border-radius: 12px;
                 padding: 16px;
@@ -429,7 +429,7 @@ class GraphTemplate(BaseTemplate):
                 color: {{ colors.accent }};
                 margin-bottom: 8px;
                 font-size: 1.1em;
-                border-bottom: 1px solid {{ colors.accent }}40;
+                border-bottom: 1px solid {{ colors.accent }}30;
                 padding-bottom: 6px;
                 font-family: 'Orbitron', sans-serif;
                 letter-spacing: 0.5px;
@@ -452,6 +452,39 @@ class GraphTemplate(BaseTemplate):
                 width: fit-content;
                 font-weight: 600;
                 border: 1px solid;
+                background: {{ colors.bg_primary }}20;
+            }
+
+            /* Theme-specific state colors */
+            .node-state.healthy { 
+                color: {{ colors.success }};
+                border-color: {{ colors.success }}40;
+                background: {{ colors.success }}15;
+            }
+            .node-state.unused { 
+                color: {{ colors.danger }};
+                border-color: {{ colors.danger }}40;
+                background: {{ colors.danger }}15;
+            }
+            .node-state.external { 
+                color: {{ colors.info }};
+                border-color: {{ colors.info }}40;
+                background: {{ colors.info }}15;
+            }
+            .node-state.leaf { 
+                color: {{ colors.success }};
+                border-color: {{ colors.success }}40;
+                background: {{ colors.success }}15;
+            }
+            .node-state.orphan { 
+                color: {{ colors.warning }};
+                border-color: {{ colors.warning }}40;
+                background: {{ colors.warning }}15;
+            }
+            .node-state.warning { 
+                color: {{ colors.warning }};
+                border-color: {{ colors.warning }}40;
+                background: {{ colors.warning }}15;
             }
                 
             .tooltip-stat {
@@ -460,7 +493,7 @@ class GraphTemplate(BaseTemplate):
                 gap: 15px;
                 margin-top: 8px;
                 padding-top: 8px;
-                border-top: 1px solid {{ colors.border }}50;
+                border-top: 1px solid {{ colors.border }}40;
                 font-size: 0.9em;
             }
             
@@ -472,6 +505,37 @@ class GraphTemplate(BaseTemplate):
             .tooltip-stat span:last-child {
                 color: {{ colors.text_primary }};
                 font-weight: 600;
+            }
+
+            /* Theme-specific tooltip enhancements */
+            .tooltip-section {
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid {{ colors.border }}30;
+            }
+
+            .tooltip-label {
+                font-size: 0.75em;
+                color: {{ colors.text_secondary }};
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
+            }
+
+            .tooltip-value {
+                font-size: 0.85em;
+                color: {{ colors.text_primary }};
+                font-family: 'Exo 2', monospace;
+            }
+
+            /* Responsive tooltip for different themes */
+            @media (max-width: 768px) {
+                .node-tooltip {
+                    max-width: 280px;
+                    font-size: 0.8em;
+                    padding: 12px;
+                }
             }
         </style>
     </head>
@@ -535,7 +599,29 @@ class GraphTemplate(BaseTemplate):
         <div class="node-tooltip" id="node-tooltip"></div>
         
         <script>
-            const graphData = {{ graph_data|safe }};
+            // Process the graph data to match expected format
+            const rawGraphData = {{ graph_data|safe }};
+            
+            // Transform nodes to expected format
+            const graphData = {
+                nodes: rawGraphData.nodes.map(node => ({
+                    id: node.id,
+                    label: node.label,
+                    type: node.type,
+                    subtype: node.subtype,
+                    state: node.state,
+                    dependencies_out: node.dependencies_out,
+                    dependencies_in: node.dependencies_in,
+                    details: node.details || {}
+                })),
+                edges: rawGraphData.edges.map(edge => ({
+                    source: edge.source,
+                    target: edge.target,
+                    type: edge.type,
+                    strength: edge.strength
+                }))
+            };
+            
             let simulation, physicsEnabled = true, animationsEnabled = true;
             let currentTransform = d3.zoomIdentity;
             let hoveredNode = null;
@@ -570,6 +656,7 @@ class GraphTemplate(BaseTemplate):
                 }
             };
             
+            // Calculate summary statistics
             const summary = {
                 total_nodes: graphData.nodes.length,
                 total_edges: graphData.edges.length,
@@ -668,7 +755,9 @@ class GraphTemplate(BaseTemplate):
                 'variable': { color: '{{ colors.warning }}', icon: '\\uf121' }, // fa-code
                 'output': { color: '{{ colors.accent }}', icon: '\\uf061' }, // fa-arrow-right
                 'data': { color: '{{ colors.danger }}', icon: '\\uf1c0' }, // fa-database
-                'provider': { color: '{{ colors.info }}', icon: '\\uf013' } // fa-cog
+                'provider': { color: '{{ colors.info }}', icon: '\\uf013' }, // fa-cog
+                'local': { color: '{{ colors.info }}', icon: '\\uf121' }, // fa-code for locals
+                'terraform': { color: '{{ colors.accent }}', icon: '\\uf0e8' } // fa-sitemap for terraform
             };
             
             // Enhanced state-based styling
@@ -1067,16 +1156,47 @@ class GraphTemplate(BaseTemplate):
                 let content = `<div class="node-info-title">${d.label}</div>`;
                 content += `<div class="node-state state-${d.state}">${d.state.charAt(0).toUpperCase() + d.state.slice(1)}</div>`;
                 
-                // Enhanced tooltip content
-                if (d.version) content += `<div class="tooltip-stat"><span>Version:</span><span>${d.version}</span></div>`;
-                if (d.resource_id) content += `<div class="tooltip-stat"><span>Resource ID:</span><span>${d.resource_id}</span></div>`;
-                if (d.provider_type) content += `<div class="tooltip-stat"><span>Provider:</span><span>${d.provider_type}</span></div>`;
-                if (d.source_file) content += `<div class="tooltip-stat"><span>Source File:</span><span>${d.source_file}</span></div>`;
-                if (d.line_number) content += `<div class="tooltip-stat"><span>Line:</span><span>${d.line_number}</span></div>`;
+                // Enhanced tooltip content using details
+                const details = d.details || {};
                 
-                content += `<div class="tooltip-stat"><span>Type:</span><span>${d.type}</span></div>`;
-                content += `<div class="tooltip-stat"><span>In Dependencies:</span><span>${adjacencyList.get(d.id)?.in.length || 0}</span></div>`;
-                content += `<div class="tooltip-stat"><span>Out Dependencies:</span><span>${adjacencyList.get(d.id)?.out.length || 0}</span></div>`;
+                // Resource-specific information
+                if (details.resource_type) {
+                    content += `<div class="tooltip-section">`;
+                    content += `<div class="tooltip-label">Resource</div>`;
+                    content += `<div class="tooltip-stat"><span>Type:</span><span>${details.resource_type}</span></div>`;
+                    if (details.provider) {
+                        content += `<div class="tooltip-stat"><span>Provider:</span><span>${details.provider}</span></div>`;
+                    }
+                    content += `</div>`;
+                }
+                
+                // Location information
+                if (details.file_path || details.line_number) {
+                    content += `<div class="tooltip-section">`;
+                    content += `<div class="tooltip-label">Location</div>`;
+                    if (details.file_path) {
+                        content += `<div class="tooltip-stat"><span>File:</span><span>${details.file_path}</span></div>`;
+                    }
+                    if (details.line_number) {
+                        content += `<div class="tooltip-stat"><span>Line:</span><span>${details.line_number}</span></div>`;
+                    }
+                    content += `</div>`;
+                }
+                
+                // Dependencies information
+                content += `<div class="tooltip-section">`;
+                content += `<div class="tooltip-label">Dependencies</div>`;
+                content += `<div class="tooltip-stat"><span>Incoming:</span><span>${adjacencyList.get(d.id)?.in.length || 0}</span></div>`;
+                content += `<div class="tooltip-stat"><span>Outgoing:</span><span>${adjacencyList.get(d.id)?.out.length || 0}</span></div>`;
+                content += `</div>`;
+
+                // Additional details
+                if (details.description) {
+                    content += `<div class="tooltip-section">`;
+                    content += `<div class="tooltip-label">Description</div>`;
+                    content += `<div class="tooltip-value">${details.description}</div>`;
+                    content += `</div>`;
+                }
 
                 tooltip.innerHTML = content;
                 tooltip.style.left = (event.pageX + 15) + 'px';
@@ -1087,7 +1207,6 @@ class GraphTemplate(BaseTemplate):
                 d3.select(event.currentTarget).select('circle')
                     .style('filter', `drop-shadow(0 0 15px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '80' || '#6666'})`);
             }
-
             function hideTooltip(event, d) {
                 const tooltip = document.getElementById('node-tooltip');
                 tooltip.classList.remove('show');

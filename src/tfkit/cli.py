@@ -6,7 +6,6 @@ from datetime import datetime
 from pathlib import Path
 
 import click
-from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -21,21 +20,20 @@ from rich.text import Text
 from rich.tree import Tree
 
 from tfkit import __version__
-from tfkit.analyzer.models import ResourceType
 from tfkit.analyzer.terraform_analyzer import TerraformAnalyzer
 from tfkit.validator.models import ValidationSeverity
 from tfkit.validator.validator import TerraformValidator
-from tfkit.visualizer.html_generator import HTMLVisualizer
+from tfkit.visualizer.generator import ReportGenerator
 
 console = Console()
 
 TFKIT_BANNER = """
 ████████╗███████╗██╗  ██╗██╗████████╗
 ╚══██╔══╝██╔════╝██║ ██╔╝██║╚══██╔══╝
-   ██║   █████╗  █████╔╝ ██║   ██║   
-   ██║   ██╔══╝  ██╔═██╗ ██║   ██║   
-   ██║   ██║     ██║  ██╗██║   ██║   
-   ╚═╝   ╚═╝     ╚═╝  ╚═╝╚═╝   ╚═╝   
+   ██║   █████╗  █████╔╝ ██║   ██║
+   ██║   ██╔══╝  ██╔═██╗ ██║   ██║
+   ██║   ██║     ██║  ██╗██║   ██║
+   ╚═╝   ╚═╝     ╚═╝  ╚═╝╚═╝   ╚═╝
 """
 
 TFKIT_TAGLINE = "[bold cyan]Terraform Intelligence & Analysis Suite[/bold cyan]"
@@ -151,17 +149,17 @@ def cli(ctx, version, welcome, debug):
 )
 @click.option(
     "--theme",
-    type=click.Choice(["light", "dark", "cyber", "nord"], case_sensitive=False),
+    type=click.Choice(
+        ["light", "dark", "cyber", "nord", "github-dark"], case_sensitive=False
+    ),
     default="dark",
     help="Visualization theme (default: dark)",
 )
 @click.option(
     "--layout",
-    type=click.Choice(
-        ["interactive", "classic", "graph", "dashboard"], case_sensitive=False
-    ),
-    default="interactive",
-    help="Visualization layout (default: interactive)",
+    type=click.Choice(["classic", "graph", "dashboard"], case_sensitive=False),
+    default="graph",
+    help="Visualization layout (default: graph)",
 )
 def scan(path, output, format, open, quiet, save, theme, layout):
     """Quick scan of Terraform project for rapid insights.
@@ -198,34 +196,31 @@ def scan(path, output, format, open, quiet, save, theme, layout):
             progress.update(task, advance=40, description="Building resource map...")
             progress.update(task, advance=30, description="Finalizing analysis...")
 
-        if format == "table":
-            _display_scan_results(project, quiet)
-        elif format == "json":
-            console.print(json.dumps(_get_scan_data(project), indent=2))
-        elif format == "yaml":
-            _export_yaml(_get_scan_data(project))
-        else:
-            _display_simple_results(project)
+        # if format == "table":
+        #     _display_scan_results(project, quiet)
+        # elif format == "json":
+        #     console.print(json.dumps(_get_scan_data(project), indent=2))
+        # elif format == "yaml":
+        #     _export_yaml(_get_scan_data(project))
+        # else:
+        #     _display_simple_results(project)
 
         if save:
             with save.open("w") as f:
-                json.dump(_get_scan_data(project), f, indent=2, default=str)
+                json.dump(project.to_dict(), f, indent=2, default=str)
             if not quiet:
                 console.print(f"\n✓ Results saved to: [green]{save}[/green]")
 
         if open:
-            visualizer = HTMLVisualizer(theme=theme, layout=layout)
-            html_file = visualizer.generate_visualization(
+            generator = ReportGenerator()
+            html_file = generator.generate_analysis_report(
                 project,
                 output,
                 theme=theme,
                 layout=layout,
-                title=f"Quick Scan - {path.name}",
-                include_graph=True,
-                include_metrics=True,
-                project_path=str(path),
             )
-            visualizer.open_in_browser(html_file)
+
+            generator.open_in_browser(html_file)
             if not quiet:
                 console.print(
                     f"\n🌐 Opened {layout} visualization: [green]{html_file}[/green]"
@@ -241,262 +236,262 @@ def scan(path, output, format, open, quiet, save, theme, layout):
 # ============================================================================
 
 
-@cli.command()
-@click.argument("path", type=click.Path(exists=True, path_type=Path), default=".")
-@click.option(
-    "--deep", "-d", is_flag=True, help="Enable deep analysis with dependency tracking"
-)
-@click.option(
-    "--include-dependencies", "-D", is_flag=True, help="Analyze module dependencies"
-)
-@click.option(
-    "--include-security", "-S", is_flag=True, help="Include security analysis"
-)
-@click.option("--include-costs", "-C", is_flag=True, help="Include cost estimation")
-@click.option(
-    "--output",
-    "-o",
-    type=click.Path(path_type=Path),
-    help="Output directory for reports",
-)
-@click.option("--export-json", type=click.Path(path_type=Path), help="Export as JSON")
-@click.option("--export-yaml", type=click.Path(path_type=Path), help="Export as YAML")
-@click.option(
-    "--export-markdown",
-    type=click.Path(path_type=Path),
-    help="Export as Markdown report",
-)
-@click.option(
-    "--export-csv", type=click.Path(path_type=Path), help="Export resource list as CSV"
-)
-@click.option(
-    "--open-browser", "-b", is_flag=True, help="Open visualization in browser"
-)
-@click.option("--quiet", "-q", is_flag=True, help="Suppress progress output")
-@click.option("--verbose", "-v", is_flag=True, help="Show detailed analysis steps")
-@click.option(
-    "--threads",
-    "-t",
-    type=int,
-    default=4,
-    help="Number of analysis threads (default: 4)",
-)
-@click.option(
-    "--exclude",
-    "-e",
-    multiple=True,
-    help="Exclude patterns (can be used multiple times)",
-)
-@click.option("--include-only", "-i", multiple=True, help="Include only these patterns")
-@click.option("--max-depth", type=int, help="Maximum module depth to analyze")
-@click.option("--tags", multiple=True, help="Filter resources by tags")
-@click.option("--providers", multiple=True, help="Filter by provider types")
-def analyze(
-    path,
-    deep,
-    include_dependencies,
-    include_security,
-    include_costs,
-    output,
-    export_json,
-    export_yaml,
-    export_markdown,
-    export_csv,
-    open_browser,
-    quiet,
-    verbose,
-    threads,
-    exclude,
-    include_only,
-    max_depth,
-    tags,
-    providers,
-):
-    """Deep analysis of Terraform projects with advanced features.
+# @cli.command()
+# @click.argument("path", type=click.Path(exists=True, path_type=Path), default=".")
+# @click.option(
+#     "--deep", "-d", is_flag=True, help="Enable deep analysis with dependency tracking"
+# )
+# @click.option(
+#     "--include-dependencies", "-D", is_flag=True, help="Analyze module dependencies"
+# )
+# @click.option(
+#     "--include-security", "-S", is_flag=True, help="Include security analysis"
+# )
+# @click.option("--include-costs", "-C", is_flag=True, help="Include cost estimation")
+# @click.option(
+#     "--output",
+#     "-o",
+#     type=click.Path(path_type=Path),
+#     help="Output directory for reports",
+# )
+# @click.option("--export-json", type=click.Path(path_type=Path), help="Export as JSON")
+# @click.option("--export-yaml", type=click.Path(path_type=Path), help="Export as YAML")
+# @click.option(
+#     "--export-markdown",
+#     type=click.Path(path_type=Path),
+#     help="Export as Markdown report",
+# )
+# @click.option(
+#     "--export-csv", type=click.Path(path_type=Path), help="Export resource list as CSV"
+# )
+# @click.option(
+#     "--open-browser", "-b", is_flag=True, help="Open visualization in browser"
+# )
+# @click.option("--quiet", "-q", is_flag=True, help="Suppress progress output")
+# @click.option("--verbose", "-v", is_flag=True, help="Show detailed analysis steps")
+# @click.option(
+#     "--threads",
+#     "-t",
+#     type=int,
+#     default=4,
+#     help="Number of analysis threads (default: 4)",
+# )
+# @click.option(
+#     "--exclude",
+#     "-e",
+#     multiple=True,
+#     help="Exclude patterns (can be used multiple times)",
+# )
+# @click.option("--include-only", "-i", multiple=True, help="Include only these patterns")
+# @click.option("--max-depth", type=int, help="Maximum module depth to analyze")
+# @click.option("--tags", multiple=True, help="Filter resources by tags")
+# @click.option("--providers", multiple=True, help="Filter by provider types")
+# def analyze(
+#     path,
+#     deep,
+#     include_dependencies,
+#     include_security,
+#     include_costs,
+#     output,
+#     export_json,
+#     export_yaml,
+#     export_markdown,
+#     export_csv,
+#     open_browser,
+#     quiet,
+#     verbose,
+#     threads,
+#     exclude,
+#     include_only,
+#     max_depth,
+#     tags,
+#     providers,
+# ):
+#     """Deep analysis of Terraform projects with advanced features.
 
-    Performs comprehensive analysis including resource relationships,
-    module dependencies, security scanning, and cost estimation.
+#     Performs comprehensive analysis including resource relationships,
+#     module dependencies, security scanning, and cost estimation.
 
-    \b
-    Analysis Modes:
-      --deep                  Full deep analysis (recommended)
-      --include-dependencies  Track module dependencies
-      --include-security      Security and compliance checks
-      --include-costs         Cost estimation analysis
+#     \b
+#     Analysis Modes:
+#       --deep                  Full deep analysis (recommended)
+#       --include-dependencies  Track module dependencies
+#       --include-security      Security and compliance checks
+#       --include-costs         Cost estimation analysis
 
-    \b
-    Export Options:
-      --export-json          JSON format (machine-readable)
-      --export-yaml          YAML format (human-readable)
-      --export-markdown      Markdown report (documentation)
-      --export-csv           CSV resource list (spreadsheet)
+#     \b
+#     Export Options:
+#       --export-json          JSON format (machine-readable)
+#       --export-yaml          YAML format (human-readable)
+#       --export-markdown      Markdown report (documentation)
+#       --export-csv           CSV resource list (spreadsheet)
 
-    \b
-    Filtering:
-      --exclude PATTERN      Exclude resources matching pattern
-      --include-only PATTERN Include only matching resources
-      --tags TAG             Filter by resource tags
-      --providers PROVIDER   Filter by provider (aws, azure, gcp, etc.)
+#     \b
+#     Filtering:
+#       --exclude PATTERN      Exclude resources matching pattern
+#       --include-only PATTERN Include only matching resources
+#       --tags TAG             Filter by resource tags
+#       --providers PROVIDER   Filter by provider (aws, azure, gcp, etc.)
 
-    \b
-    Examples:
-      # Full analysis with all features
-      tfkit analyze --deep -D -S -C --open-browser
+#     \b
+#     Examples:
+#       # Full analysis with all features
+#       tfkit analyze --deep -D -S -C --open-browser
 
-      # Analysis with exports
-      tfkit analyze --export-json data.json --export-markdown report.md
+#       # Analysis with exports
+#       tfkit analyze --export-json data.json --export-markdown report.md
 
-      # Filtered analysis
-      tfkit analyze --providers aws --tags production
+#       # Filtered analysis
+#       tfkit analyze --providers aws --tags production
 
-      # Fast analysis with exclusions
-      tfkit analyze --exclude "*.test.tf" --threads 8
+#       # Fast analysis with exclusions
+#       tfkit analyze --exclude "*.test.tf" --threads 8
 
-      # Security-focused analysis
-      tfkit analyze --include-security --export-markdown security-report.md
+#       # Security-focused analysis
+#       tfkit analyze --include-security --export-markdown security-report.md
 
-    PATH: Path to Terraform project (default: current directory)
-    """
-    if not quiet:
-        print_banner(show_version=False)
-        mode = (
-            "[bold yellow]DEEP ANALYSIS[/bold yellow]"
-            if deep
-            else "[bold]Standard Analysis[/bold]"
-        )
-        console.print(f"{mode} Mode")
-        console.print(f"   Target: [cyan]{path.resolve()}[/cyan]")
-        console.print(f"   Threads: [yellow]{threads}[/yellow]")
+#     PATH: Path to Terraform project (default: current directory)
+#     """
+#     if not quiet:
+#         print_banner(show_version=False)
+#         mode = (
+#             "[bold yellow]DEEP ANALYSIS[/bold yellow]"
+#             if deep
+#             else "[bold]Standard Analysis[/bold]"
+#         )
+#         console.print(f"{mode} Mode")
+#         console.print(f"   Target: [cyan]{path.resolve()}[/cyan]")
+#         console.print(f"   Threads: [yellow]{threads}[/yellow]")
 
-        features = []
-        if include_dependencies:
-            features.append("Dependencies")
-        if include_security:
-            features.append("Security")
-        if include_costs:
-            features.append("Costs")
-        if features:
-            console.print(f"   Features: [green]{', '.join(features)}[/green]")
+#         features = []
+#         if include_dependencies:
+#             features.append("Dependencies")
+#         if include_security:
+#             features.append("Security")
+#         if include_costs:
+#             features.append("Costs")
+#         if features:
+#             console.print(f"   Features: [green]{', '.join(features)}[/green]")
 
-        if exclude:
-            console.print(f"   Excluding: [dim]{', '.join(exclude)}[/dim]")
-        if providers:
-            console.print(f"   Providers: [blue]{', '.join(providers)}[/blue]")
-        console.print()
+#         if exclude:
+#             console.print(f"   Excluding: [dim]{', '.join(exclude)}[/dim]")
+#         if providers:
+#             console.print(f"   Providers: [blue]{', '.join(providers)}[/blue]")
+#         console.print()
 
-    try:
-        if verbose and not quiet:
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console,
-            ) as progress:
-                main_task = progress.add_task("[cyan]Analyzing project...", total=100)
+#     try:
+#         if verbose and not quiet:
+#             with Progress(
+#                 SpinnerColumn(),
+#                 TextColumn("[progress.description]{task.description}"),
+#                 BarColumn(),
+#                 TaskProgressColumn(),
+#                 console=console,
+#             ) as progress:
+#                 main_task = progress.add_task("[cyan]Analyzing project...", total=100)
 
-                progress.update(
-                    main_task, advance=10, description="[cyan]Initializing analyzer..."
-                )
-                analyzer = TerraformAnalyzer()
+#                 progress.update(
+#                     main_task, advance=10, description="[cyan]Initializing analyzer..."
+#                 )
+#                 analyzer = TerraformAnalyzer()
 
-                progress.update(
-                    main_task,
-                    advance=20,
-                    description="[cyan]Parsing Terraform files...",
-                )
-                project = analyzer.analyze_project(path)
+#                 progress.update(
+#                     main_task,
+#                     advance=20,
+#                     description="[cyan]Parsing Terraform files...",
+#                 )
+#                 project = analyzer.analyze_project(path)
 
-                progress.update(
-                    main_task,
-                    advance=30,
-                    description="[cyan]Building resource graph...",
-                )
+#                 progress.update(
+#                     main_task,
+#                     advance=30,
+#                     description="[cyan]Building resource graph...",
+#                 )
 
-                if include_dependencies:
-                    progress.update(
-                        main_task,
-                        advance=15,
-                        description="[yellow]Analyzing dependencies...",
-                    )
+#                 if include_dependencies:
+#                     progress.update(
+#                         main_task,
+#                         advance=15,
+#                         description="[yellow]Analyzing dependencies...",
+#                     )
 
-                if include_security:
-                    progress.update(
-                        main_task, advance=15, description="[red]Security scanning..."
-                    )
+#                 if include_security:
+#                     progress.update(
+#                         main_task, advance=15, description="[red]Security scanning..."
+#                     )
 
-                if include_costs:
-                    progress.update(
-                        main_task, advance=10, description="[green]Cost estimation..."
-                    )
+#                 if include_costs:
+#                     progress.update(
+#                         main_task, advance=10, description="[green]Cost estimation..."
+#                     )
 
-                progress.update(
-                    main_task, advance=100, description="[green]✓ Analysis complete"
-                )
-        else:
-            analyzer = TerraformAnalyzer()
-            project = analyzer.analyze_project(path)
+#                 progress.update(
+#                     main_task, advance=100, description="[green]✓ Analysis complete"
+#                 )
+#         else:
+#             analyzer = TerraformAnalyzer()
+#             project = analyzer.analyze_project(path)
 
-        if providers:
-            _apply_provider_filter(project, providers)
+#         if providers:
+#             _apply_provider_filter(project, providers)
 
-        exports_completed = []
+#         exports_completed = []
 
-        if export_json:
-            with export_json.open("w") as f:
-                json.dump(project.to_dict(), f, indent=2, default=str)
-            exports_completed.append(f"JSON → {export_json}")
+#         if export_json:
+#             with export_json.open("w") as f:
+#                 json.dump(project.to_dict(), f, indent=2, default=str)
+#             exports_completed.append(f"JSON → {export_json}")
 
-        if export_yaml:
-            _export_yaml_file(project.to_dict(), export_yaml)
-            exports_completed.append(f"YAML → {export_yaml}")
+#         if export_yaml:
+#             _export_yaml_file(project.to_dict(), export_yaml)
+#             exports_completed.append(f"YAML → {export_yaml}")
 
-        if export_markdown:
-            _export_markdown_report(
-                project, export_markdown, include_security, include_costs
-            )
-            exports_completed.append(f"Markdown → {export_markdown}")
+#         if export_markdown:
+#             _export_markdown_report(
+#                 project, export_markdown, include_security, include_costs
+#             )
+#             exports_completed.append(f"Markdown → {export_markdown}")
 
-        if export_csv:
-            _export_csv_resources(project, export_csv)
-            exports_completed.append(f"CSV → {export_csv}")
+#         if export_csv:
+#             _export_csv_resources(project, export_csv)
+#             exports_completed.append(f"CSV → {export_csv}")
 
-        if exports_completed and not quiet:
-            console.print("\n[bold]📦 Exports completed:[/bold]")
-            for export in exports_completed:
-                console.print(f"   ✓ {export}")
+#         if exports_completed and not quiet:
+#             console.print("\n[bold]📦 Exports completed:[/bold]")
+#             for export in exports_completed:
+#                 console.print(f"   ✓ {export}")
 
-        if output or open_browser:
-            if verbose and not quiet:
-                console.print("\n📊 Generating visualization...")
-            visualizer = HTMLVisualizer()
-            html_file = visualizer.generate_visualization(project, output)
-            if not quiet:
-                console.print(f"   ✓ Visualization: [green]{html_file}[/green]")
+#         if output or open_browser:
+#             if verbose and not quiet:
+#                 console.print("\n📊 Generating visualization...")
+#             generator = ReportGenerator()
+#             html_file = generator.generate_visualization(project, output)
+#             if not quiet:
+#                 console.print(f"   ✓ Visualization: [green]{html_file}[/green]")
 
-            if open_browser:
-                visualizer.open_in_browser(html_file)
-                if not quiet:
-                    console.print("   🌐 Opened in browser")
+#             if open_browser:
+#                 generator.open_in_browser(html_file)
+#                 if not quiet:
+#                     console.print("   🌐 Opened in browser")
 
-        if not quiet:
-            console.print()
-            _display_detailed_analysis_summary(
-                project,
-                deep,
-                include_dependencies,
-                include_security,
-                include_costs,
-                verbose,
-            )
+#         if not quiet:
+#             console.print()
+#             # _display_detailed_analysis_summary(
+#             #     project,
+#             #     deep,
+#             #     include_dependencies,
+#             #     include_security,
+#             #     include_costs,
+#             #     verbose,
+#             # )
 
-        return project
+#         return project
 
-    except Exception as e:
-        console.print(f"\n[red]✗ Analysis failed:[/red] {e}")
-        if verbose:
-            console.print_exception()
-        sys.exit(1)
+#     except Exception as e:
+#         console.print(f"\n[red]✗ Analysis failed:[/red] {e}")
+#         if verbose:
+#             console.print_exception()
+#         sys.exit(1)
 
 
 # ============================================================================
@@ -504,621 +499,621 @@ def analyze(
 # ============================================================================
 
 
-@cli.command()
-@click.argument(
-    "component_type",
-    type=click.Choice(
-        [
-            "resource",
-            "module",
-            "variable",
-            "output",
-            "provider",
-            "data",
-            "local",
-            "terraform",
-        ],
-        case_sensitive=False,
-    ),
-)
-@click.argument("path", type=click.Path(exists=True, path_type=Path), default=".")
-@click.option("--name", "-n", help="Specific component name to inspect")
-@click.option(
-    "--type", "-t", "resource_type", help="Filter by resource type (e.g., aws_instance)"
-)
-@click.option("--show-dependencies", "-d", is_flag=True, help="Show dependency tree")
-@click.option("--show-dependents", is_flag=True, help="Show dependent components")
-@click.option("--show-references", "-r", is_flag=True, help="Show all references")
-@click.option("--show-attributes", "-a", is_flag=True, help="Show all attributes")
-@click.option("--show-metadata", "-m", is_flag=True, help="Show enhanced metadata")
-@click.option("--show-locations", "-l", is_flag=True, help="Show file locations")
-@click.option(
-    "--format",
-    "-f",
-    type=click.Choice(
-        ["tree", "table", "json", "detailed", "yaml"], case_sensitive=False
-    ),
-    default="tree",
-    help="Display format",
-)
-@click.option(
-    "--export", "-e", type=click.Path(path_type=Path), help="Export inspection results"
-)
-@click.option(
-    "--filter", "filters", multiple=True, help="Filter by attribute (key=value)"
-)
-@click.option("--sort", help="Sort by field (name, type, file, line)")
-@click.option("--limit", type=int, help="Limit number of results")
-def inspect(
-    component_type,
-    path,
-    name,
-    resource_type,
-    show_dependencies,
-    show_dependents,
-    show_references,
-    show_attributes,
-    show_metadata,
-    show_locations,
-    format,
-    export,
-    filters,
-    sort,
-    limit,
-):
-    """Inspect specific Terraform components in detail.
-
-    Provides deep inspection of resources, modules, variables, outputs,
-    providers, data sources, locals, and terraform blocks with comprehensive details.
-
-    \b
-    Component Types:
-      resource     Inspect Terraform resources
-      module       Inspect module configurations
-      variable     Inspect input variables
-      output       Inspect output values
-      provider     Inspect provider configurations
-      data         Inspect data sources
-      local        Inspect local values
-      terraform    Inspect terraform configuration blocks
-
-    \b
-    Display Options:
-      --show-dependencies   Display dependency tree
-      --show-dependents     Show components that depend on this
-      --show-references     Show all references to/from component
-      --show-attributes     Display all attributes and values
-      --show-metadata       Display enhanced metadata
-      --show-locations      Show detailed file locations
-      --format tree         Tree view (default, hierarchical)
-      --format table        Table view (structured)
-      --format json         JSON output (machine-readable)
-      --format yaml         YAML output
-      --format detailed     Detailed prose format
-
-    \b
-    Examples:
-      # Inspect all resources
-      tfkit inspect resource
-
-      # Inspect specific resource with enhanced metadata
-      tfkit inspect resource --name aws_instance.web --show-metadata
-
-      # Inspect with dependencies and dependents
-      tfkit inspect resource --name aws_instance.web --show-dependencies --show-dependents
-
-      # Filter by type and show attributes
-      tfkit inspect resource --type aws_instance --show-attributes
-
-      # Inspect modules with enhanced information
-      tfkit inspect module --show-attributes --show-metadata --format table
-
-      # Export inspection results
-      tfkit inspect resource --export inspection.json
-
-      # Filter by attributes and sort results
-      tfkit inspect resource --filter "provider=aws" --sort name --limit 10
-    """
-    print_banner(show_version=False)
-    console.print(f"[bold]🔎 Inspecting {component_type.upper()}S[/bold]")
-    console.print(f"   Location: [cyan]{path.resolve()}[/cyan]")
-    if name:
-        console.print(f"   Target: [yellow]{name}[/yellow]")
-    if resource_type:
-        console.print(f"   Type: [blue]{resource_type}[/blue]")
-    if filters:
-        console.print(f"   Filters: [dim]{', '.join(filters)}[/dim]")
-    console.print()
-
-    try:
-        with console.status("[bold cyan]Analyzing Terraform project..."):
-            analyzer = TerraformAnalyzer()
-            project = analyzer.analyze_project(str(path))
-
-        components = _get_components_by_type(
-            project, component_type, name, resource_type, filters
-        )
-
-        if not components:
-            console.print(
-                f"[yellow]⚠[/yellow]  No {component_type}s found matching criteria"
-            )
-            # Show available components of this type
-            available = _get_components_by_type(project, component_type, None, None, [])
-            if available:
-                console.print(f"\n[dim]Available {component_type}s:[/dim]")
-                for comp_name in sorted(available.keys())[:10]:
-                    console.print(f"  • {comp_name}")
-                if len(available) > 10:
-                    console.print(f"  • ... and {len(available) - 10} more")
-            sys.exit(0)
-
-        components = _apply_sorting_and_limits(components, sort, limit)
-
-        if format == "tree":
-            _display_component_tree(
-                components,
-                component_type,
-                show_dependencies,
-                show_references,
-                show_attributes,
-            )
-        # elif format == "table":
-        #     _display_component_table(
-        #         project,
-        #         components,
-        #         component_type,
-        #         show_attributes,
-        #         show_metadata,
-        #         show_locations,
-        #     )
-        # elif format == "json":
-        #     _display_component_json(project, components, component_type)
-        # elif format == "yaml":
-        #     _display_component_yaml(project, components, component_type)
-        else:
-            _display_component_detailed(
-                project,
-                components,
-                component_type,
-                show_dependencies,
-                show_dependents,
-                show_references,
-                show_attributes,
-                show_metadata,
-                show_locations,
-            )
-
-        if export:
-            export_data = _prepare_export_data(project, components, component_type)
-            with export.open("w") as f:
-                if export.suffix.lower() == ".yaml":
-                    try:
-                        import yaml
-
-                        yaml.dump(export_data, f, default_flow_style=False)
-                    except ImportError:
-                        json.dump(export_data, f, indent=2, default=str)
-                else:
-                    json.dump(export_data, f, indent=2, default=str)
-            console.print(
-                f"\n✓ Inspection results exported to: [green]{export}[/green]"
-            )
-
-    except Exception as e:
-        console.print(f"\n[red]✗ Inspection failed:[/red] {e}")
-        sys.exit(1)
-
-
-def _get_components_by_type(project, component_type, name, resource_type, filters):
-    """Get components filtered by type and criteria."""
-    type_map = {
-        "resource": (ResourceType.RESOURCE, project.resources),
-        "module": (ResourceType.MODULE, project.modules),
-        "variable": (ResourceType.VARIABLE, project.variables),
-        "output": (ResourceType.OUTPUT, project.outputs),
-        "provider": (ResourceType.PROVIDER, project.providers),
-        "data": (ResourceType.DATA, project.data_sources),
-        "local": (ResourceType.LOCAL, project.locals),
-        "terraform": (ResourceType.TERRAFORM, project.terraform_blocks),
-    }
-
-    _, components = type_map.get(component_type, (None, {}))
-
-    # Filter by name if specified
-    if name:
-        if name in components:
-            components = {name: components[name]}
-        else:
-            # Try partial match
-            matches = {k: v for k, v in components.items() if name in k}
-            if matches:
-                components = matches
-            else:
-                return {}
-
-    # Filter by resource type
-    if resource_type and component_type in ["resource", "data"]:
-        components = {
-            k: v
-            for k, v in components.items()
-            if hasattr(v, "resource_type") and v.resource_type == resource_type
-        }
-
-    # Apply attribute filters
-    if filters:
-        for filter_str in filters:
-            if "=" in filter_str:
-                key, value = filter_str.split("=", 1)
-                components = {
-                    k: v
-                    for k, v in components.items()
-                    if _component_matches_filter(v, key, value)
-                }
-
-    return components
-
-
-def _component_matches_filter(component, key, value):
-    """Check if component matches filter criteria."""
-    # Check attributes
-    if key in component.attributes:
-        attr_value = component.attributes[key]
-        return str(attr_value) == value
-
-    # Check enhanced fields
-    enhanced_fields = ["resource_type", "provider", "source", "variable_type", "alias"]
-    for field in enhanced_fields:
-        if hasattr(component, field) and getattr(component, field) == value:
-            return True
-
-    # Check file path
-    if key == "file" and value in component.file_path:
-        return True
-
-    return False
-
-
-def _apply_sorting_and_limits(components, sort, limit):
-    """Apply sorting and limiting to components."""
-    sorted_components = dict(sorted(components.items()))
-
-    if sort:
-        if sort == "type":
-            sorted_components = dict(
-                sorted(
-                    components.items(),
-                    key=lambda x: getattr(x[1], "resource_type", x[0]),
-                )
-            )
-        elif sort == "file":
-            sorted_components = dict(
-                sorted(components.items(), key=lambda x: x[1].file_path)
-            )
-        elif sort == "line":
-            sorted_components = dict(
-                sorted(components.items(), key=lambda x: x[1].line_number)
-            )
-
-    if limit and limit > 0:
-        limited = dict(list(sorted_components.items())[:limit])
-        return limited
-
-    return sorted_components
-
-
-def _display_component_tree(
-    project,
-    components,
-    component_type,
-    show_dependencies,
-    show_dependents,
-    show_attributes,
-    show_metadata,
-    show_locations,
-):
-    """Display components in tree format."""
-    tree = Tree(f"📁 [bold]{component_type.upper()}S[/bold]")
-
-    for comp_name, component in components.items():
-        branch = tree.add(f"[cyan]{comp_name}[/cyan]")
-
-        # Basic info
-        if hasattr(component, "resource_type") and component.resource_type:
-            branch.add(f"📦 Type: [yellow]{component.resource_type}[/yellow]")
-
-        if show_locations:
-            branch.add(
-                f"📄 File: [dim]{component.file_path}:{component.line_number}[/dim]"
-            )
-
-        # Enhanced metadata
-        if show_metadata:
-            _add_metadata_to_branch(branch, component)
-
-        # Dependencies
-        if show_dependencies and component.dependencies:
-            dep_branch = branch.add("🔗 Dependencies")
-            for dep in component.dependencies:
-                dep_obj = project.find_object(dep)
-                status = "✓" if dep_obj else "✗"
-                dep_branch.add(f"{status} [blue]{dep}[/blue]")
-
-        # Dependents
-        if show_dependents:
-            dependents = project.get_dependents(comp_name)
-            if dependents:
-                dep_branch = branch.add("📤 Dependents")
-                for dep in dependents:
-                    dep_branch.add(f"• [green]{dep}[/green]")
-
-        # Attributes
-        if show_attributes and component.attributes:
-            attr_branch = branch.add("⚙️  Attributes")
-            for key, value in list(component.attributes.items())[:5]:  # Show first 5
-                attr_branch.add(f"[dim]{key}:[/dim] {str(value)[:50]}...")
-            if len(component.attributes) > 5:
-                attr_branch.add(
-                    f"[dim]... and {len(component.attributes) - 5} more[/dim]"
-                )
-
-    console.print(tree)
-
-
-def _add_metadata_to_branch(branch, component):
-    """Add enhanced metadata to tree branch."""
-    metadata_added = False
-
-    if hasattr(component, "provider") and component.provider:
-        branch.add(f"🏭 Provider: [blue]{component.provider}[/blue]")
-        metadata_added = True
-
-    if hasattr(component, "source") and component.source:
-        branch.add(f"📦 Source: [dim]{component.source}[/dim]")
-        metadata_added = True
-
-    if hasattr(component, "variable_type") and component.variable_type:
-        branch.add(f"📊 Variable Type: [yellow]{component.variable_type}[/yellow]")
-        metadata_added = True
-
-    if hasattr(component, "default_value") and component.default_value is not None:
-        branch.add(f"⚡ Default: [green]{component.default_value}[/green]")
-        metadata_added = True
-
-    if hasattr(component, "description") and component.description:
-        branch.add(f"📝 Description: [white]{component.description}[/white]")
-        metadata_added = True
-
-    if hasattr(component, "sensitive") and component.sensitive:
-        branch.add("🔒 [red]Sensitive: True[/red]")
-        metadata_added = True
-
-    if hasattr(component, "alias") and component.alias:
-        branch.add(f"🏷️  Alias: [cyan]{component.alias}[/cyan]")
-        metadata_added = True
-
-
-def _display_component_table(
-    project,
-    components,
-    component_type,
-    show_attributes,
-    show_metadata,
-    show_locations,
-):
-    """Display components in table format."""
-    table = Table(
-        title=f"{component_type.upper()}S ({len(components)} found)",
-        show_header=True,
-        border_style="green",
-    )
-
-    # Base columns
-    table.add_column("Name", style="cyan")
-
-    if component_type in ["resource", "data"]:
-        table.add_column("Type", style="yellow")
-        table.add_column("Provider", style="blue")
-    elif component_type == "module":
-        table.add_column("Source", style="dim", max_width=30)
-
-    if show_locations:
-        table.add_column("File:Line", style="dim")
-
-    # Enhanced metadata columns
-    if show_metadata:
-        if component_type == "variable":
-            table.add_column("Type", style="yellow")
-            table.add_column("Default", style="green")
-        elif component_type == "output":
-            table.add_column("Description", style="white", max_width=30)
-            table.add_column("Sensitive", style="red")
-
-    if show_attributes:
-        table.add_column("Attributes", style="dim", justify="right")
-
-    # Add rows
-    for comp_name, component in components.items():
-        row = [comp_name]
-
-        if component_type in ["resource", "data"]:
-            row.extend([component.resource_type or "", component.provider or ""])
-        elif component_type == "module":
-            row.append(component.source or "")
-
-        if show_locations:
-            row.append(f"{Path(component.file_path).name}:{component.line_number}")
-
-        if show_metadata:
-            if component_type == "variable":
-                row.extend(
-                    [
-                        component.variable_type or "",
-                        str(component.default_value)
-                        if component.default_value is not None
-                        else "",
-                    ]
-                )
-            elif component_type == "output":
-                row.extend(
-                    [component.description or "", "🔒" if component.sensitive else ""]
-                )
-
-        if show_attributes:
-            row.append(str(len(component.attributes)))
-
-        table.add_row(*row)
-
-    console.print(table)
-
-
-def _display_component_json(project, components, component_type):
-    """Display components in JSON format."""
-    from dataclasses import asdict
-
-    output = {
-        "component_type": component_type,
-        "count": len(components),
-        "components": {
-            name: asdict(component) for name, component in components.items()
-        },
-        "project_metadata": project.metadata,
-    }
-    console.print(json.dumps(output, indent=2, default=str))
-
-
-def _display_component_yaml(project, components, component_type):
-    """Display components in YAML format."""
-    from dataclasses import asdict
-
-    try:
-        import yaml
-
-        output = {
-            "component_type": component_type,
-            "count": len(components),
-            "components": {
-                name: asdict(component) for name, component in components.items()
-            },
-            "project_metadata": project.metadata,
-        }
-        console.print(yaml.dump(output, default_flow_style=False))
-    except ImportError:
-        console.print(
-            "[yellow]YAML output requires PyYAML package. Falling back to JSON.[/yellow]"
-        )
-        _display_component_json(project, components, component_type)
-
-
-def _display_component_detailed(
-    project,
-    components,
-    component_type,
-    show_dependencies,
-    show_dependents,
-    show_references,
-    show_attributes,
-    show_metadata,
-    show_locations,
-):
-    for comp_name, component in components.items():
-        console.print(
-            Panel.fit(
-                f"[bold cyan]{comp_name}[/bold cyan] ([dim]{component.type.value}[/dim])",
-                border_style="green",
-            )
-        )
-
-        # Basic information
-        info_text = Text()
-        info_text.append("📍 ", style="bold")
-        info_text.append(f"{component.file_path}:{component.line_number}\n")
-
-        if hasattr(component, "resource_type") and component.resource_type:
-            info_text.append("📦 ", style="bold")
-            info_text.append(f"Type: {component.resource_type}\n")
-
-        # Enhanced metadata
-        if show_metadata:
-            _add_metadata_to_text(info_text, component)
-
-        console.print(info_text)
-
-        # Dependencies and dependents
-        if show_dependencies and component.dependencies:
-            console.print("🔗 [bold]Dependencies:[/bold]")
-            for dep in component.dependencies:
-                dep_obj = project.find_object(dep)
-                status = "✓" if dep_obj else "✗"
-                console.print(f"   {status} {dep}")
-            console.print()
-
-        if show_dependents:
-            dependents = project.get_dependents(comp_name)
-            if dependents:
-                console.print("📤 [bold]Dependents:[/bold]")
-                for dep in dependents:
-                    console.print(f"   • {dep}")
-                console.print()
-
-        # References (if show_references is used)
-        if show_references:
-            # You can implement references display here if needed
-            console.print("🔗 [bold]References:[/bold]")
-            console.print("   [dim]References display not yet implemented[/dim]")
-            console.print()
-
-        # Attributes
-        if show_attributes and component.attributes:
-            console.print("⚙️  [bold]Attributes:[/bold]")
-            for key, value in component.attributes.items():
-                value_str = str(value)
-                if len(value_str) > 100:
-                    value_str = value_str[:100] + "..."
-                console.print(f"   [dim]{key}:[/dim] {value_str}")
-
-        console.print()  # Spacing between components
-
-
-def _add_metadata_to_text(text: Text, component):
-    """Add enhanced metadata to text output."""
-    metadata_fields = [
-        ("provider", "🏭 Provider: ", "blue"),
-        ("source", "📦 Source: ", "dim"),
-        ("variable_type", "📊 Type: ", "yellow"),
-        ("default_value", "⚡ Default: ", "green"),
-        ("description", "📝 Description: ", "white"),
-        ("alias", "🏷️  Alias: ", "cyan"),
-    ]
-
-    for field, prefix, style in metadata_fields:
-        if hasattr(component, field) and getattr(component, field):
-            value = getattr(component, field)
-            if field == "sensitive" and value:
-                text.append("🔒 ", style="bold red")
-                text.append("Sensitive: True\n", style="red")
-            else:
-                text.append(prefix, style="bold")
-                text.append(f"{value}\n", style=style)
-
-
-def _prepare_export_data(project, components, component_type):
-    """Prepare data for export."""
-    from dataclasses import asdict
-
-    return {
-        "export_timestamp": str(datetime.now()),
-        "project_path": project.metadata.get("project_path", ""),
-        "component_type": component_type,
-        "components": {
-            name: asdict(component) for name, component in components.items()
-        },
-        "project_metadata": project.metadata,
-        "analysis_metadata": {
-            "total_components": len(components),
-            "export_format": "enhanced",
-        },
-    }
+# @cli.command()
+# @click.argument(
+#     "component_type",
+#     type=click.Choice(
+#         [
+#             "resource",
+#             "module",
+#             "variable",
+#             "output",
+#             "provider",
+#             "data",
+#             "local",
+#             "terraform",
+#         ],
+#         case_sensitive=False,
+#     ),
+# )
+# @click.argument("path", type=click.Path(exists=True, path_type=Path), default=".")
+# @click.option("--name", "-n", help="Specific component name to inspect")
+# @click.option(
+#     "--type", "-t", "resource_type", help="Filter by resource type (e.g., aws_instance)"
+# )
+# @click.option("--show-dependencies", "-d", is_flag=True, help="Show dependency tree")
+# @click.option("--show-dependents", is_flag=True, help="Show dependent components")
+# @click.option("--show-references", "-r", is_flag=True, help="Show all references")
+# @click.option("--show-attributes", "-a", is_flag=True, help="Show all attributes")
+# @click.option("--show-metadata", "-m", is_flag=True, help="Show enhanced metadata")
+# @click.option("--show-locations", "-l", is_flag=True, help="Show file locations")
+# @click.option(
+#     "--format",
+#     "-f",
+#     type=click.Choice(
+#         ["tree", "table", "json", "detailed", "yaml"], case_sensitive=False
+#     ),
+#     default="tree",
+#     help="Display format",
+# )
+# @click.option(
+#     "--export", "-e", type=click.Path(path_type=Path), help="Export inspection results"
+# )
+# @click.option(
+#     "--filter", "filters", multiple=True, help="Filter by attribute (key=value)"
+# )
+# @click.option("--sort", help="Sort by field (name, type, file, line)")
+# @click.option("--limit", type=int, help="Limit number of results")
+# def inspect(
+#     component_type,
+#     path,
+#     name,
+#     resource_type,
+#     show_dependencies,
+#     show_dependents,
+#     show_references,
+#     show_attributes,
+#     show_metadata,
+#     show_locations,
+#     format,
+#     export,
+#     filters,
+#     sort,
+#     limit,
+# ):
+#     """Inspect specific Terraform components in detail.
+
+#     Provides deep inspection of resources, modules, variables, outputs,
+#     providers, data sources, locals, and terraform blocks with comprehensive details.
+
+#     \b
+#     Component Types:
+#       resource     Inspect Terraform resources
+#       module       Inspect module configurations
+#       variable     Inspect input variables
+#       output       Inspect output values
+#       provider     Inspect provider configurations
+#       data         Inspect data sources
+#       local        Inspect local values
+#       terraform    Inspect terraform configuration blocks
+
+#     \b
+#     Display Options:
+#       --show-dependencies   Display dependency tree
+#       --show-dependents     Show components that depend on this
+#       --show-references     Show all references to/from component
+#       --show-attributes     Display all attributes and values
+#       --show-metadata       Display enhanced metadata
+#       --show-locations      Show detailed file locations
+#       --format tree         Tree view (default, hierarchical)
+#       --format table        Table view (structured)
+#       --format json         JSON output (machine-readable)
+#       --format yaml         YAML output
+#       --format detailed     Detailed prose format
+
+#     \b
+#     Examples:
+#       # Inspect all resources
+#       tfkit inspect resource
+
+#       # Inspect specific resource with enhanced metadata
+#       tfkit inspect resource --name aws_instance.web --show-metadata
+
+#       # Inspect with dependencies and dependents
+#       tfkit inspect resource --name aws_instance.web --show-dependencies --show-dependents
+
+#       # Filter by type and show attributes
+#       tfkit inspect resource --type aws_instance --show-attributes
+
+#       # Inspect modules with enhanced information
+#       tfkit inspect module --show-attributes --show-metadata --format table
+
+#       # Export inspection results
+#       tfkit inspect resource --export inspection.json
+
+#       # Filter by attributes and sort results
+#       tfkit inspect resource --filter "provider=aws" --sort name --limit 10
+#     """
+#     print_banner(show_version=False)
+#     console.print(f"[bold]🔎 Inspecting {component_type.upper()}S[/bold]")
+#     console.print(f"   Location: [cyan]{path.resolve()}[/cyan]")
+#     if name:
+#         console.print(f"   Target: [yellow]{name}[/yellow]")
+#     if resource_type:
+#         console.print(f"   Type: [blue]{resource_type}[/blue]")
+#     if filters:
+#         console.print(f"   Filters: [dim]{', '.join(filters)}[/dim]")
+#     console.print()
+
+#     try:
+#         with console.status("[bold cyan]Analyzing Terraform project..."):
+#             analyzer = TerraformAnalyzer()
+#             project = analyzer.analyze_project(str(path))
+
+#         components = _get_components_by_type(
+#             project, component_type, name, resource_type, filters
+#         )
+
+#         if not components:
+#             console.print(
+#                 f"[yellow]⚠[/yellow]  No {component_type}s found matching criteria"
+#             )
+#             # Show available components of this type
+#             available = _get_components_by_type(project, component_type, None, None, [])
+#             if available:
+#                 console.print(f"\n[dim]Available {component_type}s:[/dim]")
+#                 for comp_name in sorted(available.keys())[:10]:
+#                     console.print(f"  • {comp_name}")
+#                 if len(available) > 10:
+#                     console.print(f"  • ... and {len(available) - 10} more")
+#             sys.exit(0)
+
+#         components = _apply_sorting_and_limits(components, sort, limit)
+
+#         if format == "tree":
+#             _display_component_tree(
+#                 components,
+#                 component_type,
+#                 show_dependencies,
+#                 show_references,
+#                 show_attributes,
+#             )
+#         # elif format == "table":
+#         #     _display_component_table(
+#         #         project,
+#         #         components,
+#         #         component_type,
+#         #         show_attributes,
+#         #         show_metadata,
+#         #         show_locations,
+#         #     )
+#         # elif format == "json":
+#         #     _display_component_json(project, components, component_type)
+#         # elif format == "yaml":
+#         #     _display_component_yaml(project, components, component_type)
+#         else:
+#             _display_component_detailed(
+#                 project,
+#                 components,
+#                 component_type,
+#                 show_dependencies,
+#                 show_dependents,
+#                 show_references,
+#                 show_attributes,
+#                 show_metadata,
+#                 show_locations,
+#             )
+
+#         if export:
+#             export_data = _prepare_export_data(project, components, component_type)
+#             with export.open("w") as f:
+#                 if export.suffix.lower() == ".yaml":
+#                     try:
+#                         import yaml
+
+#                         yaml.dump(export_data, f, default_flow_style=False)
+#                     except ImportError:
+#                         json.dump(export_data, f, indent=2, default=str)
+#                 else:
+#                     json.dump(export_data, f, indent=2, default=str)
+#             console.print(
+#                 f"\n✓ Inspection results exported to: [green]{export}[/green]"
+#             )
+
+#     except Exception as e:
+#         console.print(f"\n[red]✗ Inspection failed:[/red] {e}")
+#         sys.exit(1)
+
+
+# def _get_components_by_type(project, component_type, name, resource_type, filters):
+#     """Get components filtered by type and criteria."""
+#     type_map = {
+#         "resource": (ResourceType.RESOURCE, project.resources),
+#         "module": (ResourceType.MODULE, project.modules),
+#         "variable": (ResourceType.VARIABLE, project.variables),
+#         "output": (ResourceType.OUTPUT, project.outputs),
+#         "provider": (ResourceType.PROVIDER, project.providers),
+#         "data": (ResourceType.DATA, project.data_sources),
+#         "local": (ResourceType.LOCAL, project.locals),
+#         "terraform": (ResourceType.TERRAFORM, project.terraform_blocks),
+#     }
+
+#     _, components = type_map.get(component_type, (None, {}))
+
+#     # Filter by name if specified
+#     if name:
+#         if name in components:
+#             components = {name: components[name]}
+#         else:
+#             # Try partial match
+#             matches = {k: v for k, v in components.items() if name in k}
+#             if matches:
+#                 components = matches
+#             else:
+#                 return {}
+
+#     # Filter by resource type
+#     if resource_type and component_type in ["resource", "data"]:
+#         components = {
+#             k: v
+#             for k, v in components.items()
+#             if hasattr(v, "resource_type") and v.resource_type == resource_type
+#         }
+
+#     # Apply attribute filters
+#     if filters:
+#         for filter_str in filters:
+#             if "=" in filter_str:
+#                 key, value = filter_str.split("=", 1)
+#                 components = {
+#                     k: v
+#                     for k, v in components.items()
+#                     if _component_matches_filter(v, key, value)
+#                 }
+
+#     return components
+
+
+# def _component_matches_filter(component, key, value):
+#     """Check if component matches filter criteria."""
+#     # Check attributes
+#     if key in component.attributes:
+#         attr_value = component.attributes[key]
+#         return str(attr_value) == value
+
+#     # Check enhanced fields
+#     enhanced_fields = ["resource_type", "provider", "source", "variable_type", "alias"]
+#     for field in enhanced_fields:
+#         if hasattr(component, field) and getattr(component, field) == value:
+#             return True
+
+#     # Check file path
+#     if key == "file" and value in component.file_path:
+#         return True
+
+#     return False
+
+
+# def _apply_sorting_and_limits(components, sort, limit):
+#     """Apply sorting and limiting to components."""
+#     sorted_components = dict(sorted(components.items()))
+
+#     if sort:
+#         if sort == "type":
+#             sorted_components = dict(
+#                 sorted(
+#                     components.items(),
+#                     key=lambda x: getattr(x[1], "resource_type", x[0]),
+#                 )
+#             )
+#         elif sort == "file":
+#             sorted_components = dict(
+#                 sorted(components.items(), key=lambda x: x[1].file_path)
+#             )
+#         elif sort == "line":
+#             sorted_components = dict(
+#                 sorted(components.items(), key=lambda x: x[1].line_number)
+#             )
+
+#     if limit and limit > 0:
+#         limited = dict(list(sorted_components.items())[:limit])
+#         return limited
+
+#     return sorted_components
+
+
+# def _display_component_tree(
+#     project,
+#     components,
+#     component_type,
+#     show_dependencies,
+#     show_dependents,
+#     show_attributes,
+#     show_metadata,
+#     show_locations,
+# ):
+#     """Display components in tree format."""
+#     tree = Tree(f"📁 [bold]{component_type.upper()}S[/bold]")
+
+#     for comp_name, component in components.items():
+#         branch = tree.add(f"[cyan]{comp_name}[/cyan]")
+
+#         # Basic info
+#         if hasattr(component, "resource_type") and component.resource_type:
+#             branch.add(f"📦 Type: [yellow]{component.resource_type}[/yellow]")
+
+#         if show_locations:
+#             branch.add(
+#                 f"📄 File: [dim]{component.file_path}:{component.line_number}[/dim]"
+#             )
+
+#         # Enhanced metadata
+#         if show_metadata:
+#             _add_metadata_to_branch(branch, component)
+
+#         # Dependencies
+#         if show_dependencies and component.dependencies:
+#             dep_branch = branch.add("🔗 Dependencies")
+#             for dep in component.dependencies:
+#                 dep_obj = project.find_object(dep)
+#                 status = "✓" if dep_obj else "✗"
+#                 dep_branch.add(f"{status} [blue]{dep}[/blue]")
+
+#         # Dependents
+#         if show_dependents:
+#             dependents = project.get_dependents(comp_name)
+#             if dependents:
+#                 dep_branch = branch.add("📤 Dependents")
+#                 for dep in dependents:
+#                     dep_branch.add(f"• [green]{dep}[/green]")
+
+#         # Attributes
+#         if show_attributes and component.attributes:
+#             attr_branch = branch.add("⚙️  Attributes")
+#             for key, value in list(component.attributes.items())[:5]:  # Show first 5
+#                 attr_branch.add(f"[dim]{key}:[/dim] {str(value)[:50]}...")
+#             if len(component.attributes) > 5:
+#                 attr_branch.add(
+#                     f"[dim]... and {len(component.attributes) - 5} more[/dim]"
+#                 )
+
+#     console.print(tree)
+
+
+# def _add_metadata_to_branch(branch, component):
+#     """Add enhanced metadata to tree branch."""
+#     metadata_added = False
+
+#     if hasattr(component, "provider") and component.provider:
+#         branch.add(f"🏭 Provider: [blue]{component.provider}[/blue]")
+#         metadata_added = True
+
+#     if hasattr(component, "source") and component.source:
+#         branch.add(f"📦 Source: [dim]{component.source}[/dim]")
+#         metadata_added = True
+
+#     if hasattr(component, "variable_type") and component.variable_type:
+#         branch.add(f"📊 Variable Type: [yellow]{component.variable_type}[/yellow]")
+#         metadata_added = True
+
+#     if hasattr(component, "default_value") and component.default_value is not None:
+#         branch.add(f"⚡ Default: [green]{component.default_value}[/green]")
+#         metadata_added = True
+
+#     if hasattr(component, "description") and component.description:
+#         branch.add(f"📝 Description: [white]{component.description}[/white]")
+#         metadata_added = True
+
+#     if hasattr(component, "sensitive") and component.sensitive:
+#         branch.add("🔒 [red]Sensitive: True[/red]")
+#         metadata_added = True
+
+#     if hasattr(component, "alias") and component.alias:
+#         branch.add(f"🏷️  Alias: [cyan]{component.alias}[/cyan]")
+#         metadata_added = True
+
+
+# def _display_component_table(
+#     project,
+#     components,
+#     component_type,
+#     show_attributes,
+#     show_metadata,
+#     show_locations,
+# ):
+#     """Display components in table format."""
+#     table = Table(
+#         title=f"{component_type.upper()}S ({len(components)} found)",
+#         show_header=True,
+#         border_style="green",
+#     )
+
+#     # Base columns
+#     table.add_column("Name", style="cyan")
+
+#     if component_type in ["resource", "data"]:
+#         table.add_column("Type", style="yellow")
+#         table.add_column("Provider", style="blue")
+#     elif component_type == "module":
+#         table.add_column("Source", style="dim", max_width=30)
+
+#     if show_locations:
+#         table.add_column("File:Line", style="dim")
+
+#     # Enhanced metadata columns
+#     if show_metadata:
+#         if component_type == "variable":
+#             table.add_column("Type", style="yellow")
+#             table.add_column("Default", style="green")
+#         elif component_type == "output":
+#             table.add_column("Description", style="white", max_width=30)
+#             table.add_column("Sensitive", style="red")
+
+#     if show_attributes:
+#         table.add_column("Attributes", style="dim", justify="right")
+
+#     # Add rows
+#     for comp_name, component in components.items():
+#         row = [comp_name]
+
+#         if component_type in ["resource", "data"]:
+#             row.extend([component.resource_type or "", component.provider or ""])
+#         elif component_type == "module":
+#             row.append(component.source or "")
+
+#         if show_locations:
+#             row.append(f"{Path(component.file_path).name}:{component.line_number}")
+
+#         if show_metadata:
+#             if component_type == "variable":
+#                 row.extend(
+#                     [
+#                         component.variable_type or "",
+#                         str(component.default_value)
+#                         if component.default_value is not None
+#                         else "",
+#                     ]
+#                 )
+#             elif component_type == "output":
+#                 row.extend(
+#                     [component.description or "", "🔒" if component.sensitive else ""]
+#                 )
+
+#         if show_attributes:
+#             row.append(str(len(component.attributes)))
+
+#         table.add_row(*row)
+
+#     console.print(table)
+
+
+# def _display_component_json(project, components, component_type):
+#     """Display components in JSON format."""
+#     from dataclasses import asdict
+
+#     output = {
+#         "component_type": component_type,
+#         "count": len(components),
+#         "components": {
+#             name: asdict(component) for name, component in components.items()
+#         },
+#         "project_metadata": project.metadata,
+#     }
+#     console.print(json.dumps(output, indent=2, default=str))
+
+
+# def _display_component_yaml(project, components, component_type):
+#     """Display components in YAML format."""
+#     from dataclasses import asdict
+
+#     try:
+#         import yaml
+
+#         output = {
+#             "component_type": component_type,
+#             "count": len(components),
+#             "components": {
+#                 name: asdict(component) for name, component in components.items()
+#             },
+#             "project_metadata": project.metadata,
+#         }
+#         console.print(yaml.dump(output, default_flow_style=False))
+#     except ImportError:
+#         console.print(
+#             "[yellow]YAML output requires PyYAML package. Falling back to JSON.[/yellow]"
+#         )
+#         _display_component_json(project, components, component_type)
+
+
+# def _display_component_detailed(
+#     project,
+#     components,
+#     component_type,
+#     show_dependencies,
+#     show_dependents,
+#     show_references,
+#     show_attributes,
+#     show_metadata,
+#     show_locations,
+# ):
+#     for comp_name, component in components.items():
+#         console.print(
+#             Panel.fit(
+#                 f"[bold cyan]{comp_name}[/bold cyan] ([dim]{component.type.value}[/dim])",
+#                 border_style="green",
+#             )
+#         )
+
+#         # Basic information
+#         info_text = Text()
+#         info_text.append("📍 ", style="bold")
+#         info_text.append(f"{component.file_path}:{component.line_number}\n")
+
+#         if hasattr(component, "resource_type") and component.resource_type:
+#             info_text.append("📦 ", style="bold")
+#             info_text.append(f"Type: {component.resource_type}\n")
+
+#         # Enhanced metadata
+#         if show_metadata:
+#             _add_metadata_to_text(info_text, component)
+
+#         console.print(info_text)
+
+#         # Dependencies and dependents
+#         if show_dependencies and component.dependencies:
+#             console.print("🔗 [bold]Dependencies:[/bold]")
+#             for dep in component.dependencies:
+#                 dep_obj = project.find_object(dep)
+#                 status = "✓" if dep_obj else "✗"
+#                 console.print(f"   {status} {dep}")
+#             console.print()
+
+#         if show_dependents:
+#             dependents = project.get_dependents(comp_name)
+#             if dependents:
+#                 console.print("📤 [bold]Dependents:[/bold]")
+#                 for dep in dependents:
+#                     console.print(f"   • {dep}")
+#                 console.print()
+
+#         # References (if show_references is used)
+#         if show_references:
+#             # You can implement references display here if needed
+#             console.print("🔗 [bold]References:[/bold]")
+#             console.print("   [dim]References display not yet implemented[/dim]")
+#             console.print()
+
+#         # Attributes
+#         if show_attributes and component.attributes:
+#             console.print("⚙️  [bold]Attributes:[/bold]")
+#             for key, value in component.attributes.items():
+#                 value_str = str(value)
+#                 if len(value_str) > 100:
+#                     value_str = value_str[:100] + "..."
+#                 console.print(f"   [dim]{key}:[/dim] {value_str}")
+
+#         console.print()  # Spacing between components
+
+
+# def _add_metadata_to_text(text: Text, component):
+#     """Add enhanced metadata to text output."""
+#     metadata_fields = [
+#         ("provider", "🏭 Provider: ", "blue"),
+#         ("source", "📦 Source: ", "dim"),
+#         ("variable_type", "📊 Type: ", "yellow"),
+#         ("default_value", "⚡ Default: ", "green"),
+#         ("description", "📝 Description: ", "white"),
+#         ("alias", "🏷️  Alias: ", "cyan"),
+#     ]
+
+#     for field, prefix, style in metadata_fields:
+#         if hasattr(component, field) and getattr(component, field):
+#             value = getattr(component, field)
+#             if field == "sensitive" and value:
+#                 text.append("🔒 ", style="bold red")
+#                 text.append("Sensitive: True\n", style="red")
+#             else:
+#                 text.append(prefix, style="bold")
+#                 text.append(f"{value}\n", style=style)
+
+
+# def _prepare_export_data(project, components, component_type):
+#     """Prepare data for export."""
+#     from dataclasses import asdict
+
+#     return {
+#         "export_timestamp": str(datetime.now()),
+#         "project_path": project.metadata.get("project_path", ""),
+#         "component_type": component_type,
+#         "components": {
+#             name: asdict(component) for name, component in components.items()
+#         },
+#         "project_metadata": project.metadata,
+#         "analysis_metadata": {
+#             "total_components": len(components),
+#             "export_format": "enhanced",
+#         },
+#     }
 
 
 # ============================================================================
@@ -1942,116 +1937,96 @@ https://github.com/ivasik-k7/tfkit[/dim]""",
 # ============================================================================
 
 
-def _display_scan_results(project, quiet):
-    """Display quick scan results."""
-    stats = _get_scan_data(project)
+# def _display_scan_results(project, quiet):
+#     """Display quick scan results."""
+#     stats = _get_scan_data(project)
 
-    table = Table(title="", show_header=True, border_style="cyan")
-    table.add_column("Component", style="cyan", width=20)
-    table.add_column("Count", justify="right", style="green", width=10)
-    table.add_column("Status", style="white", width=15)
+#     table = Table(title="", show_header=True, border_style="cyan")
+#     table.add_column("Component", style="cyan", width=20)
+#     table.add_column("Count", justify="right", style="green", width=10)
+#     table.add_column("Status", style="white", width=15)
 
-    table.add_row("Resources", str(stats["resources"]), "✓ Analyzed")
-    table.add_row("Data Sources", str(stats["data_sources"]), "✓ Analyzed")
-    table.add_row("Modules", str(stats["modules"]), "✓ Analyzed")
-    table.add_row("Variables", str(stats["variables"]), "✓ Analyzed")
-    table.add_row("Outputs", str(stats["outputs"]), "✓ Analyzed")
-    table.add_row("Providers", str(stats["providers"]), "✓ Detected")
+#     table.add_row("Resources", str(stats["resources"]), "✓ Analyzed")
+#     table.add_row("Data Sources", str(stats["data_sources"]), "✓ Analyzed")
+#     table.add_row("Modules", str(stats["modules"]), "✓ Analyzed")
+#     table.add_row("Variables", str(stats["variables"]), "✓ Analyzed")
+#     table.add_row("Outputs", str(stats["outputs"]), "✓ Analyzed")
+#     table.add_row("Providers", str(stats["providers"]), "✓ Detected")
 
-    console.print(table)
-
-
-def _display_simple_results(project):
-    stats = _get_scan_data(project)
-    console.print(f"Resources: {stats['resources']}")
-    console.print(f"Modules: {stats['modules']}")
-    console.print(f"Variables: {stats['variables']}")
-    console.print(f"Outputs: {stats['outputs']}")
-    console.print(f"Providers: {stats['providers']}")
-    console.print(f"Total: {stats['total']}")
+#     console.print(table)
 
 
-def _get_scan_data(project):
-    """Get scan statistics."""
-    return {
-        "resources": len(project.resources),
-        "data_sources": len(project.data_sources),
-        "modules": len(project.modules),
-        "variables": len(project.variables),
-        "outputs": len(project.outputs),
-        "providers": len(project.providers),
-        "total": (
-            len(project.resources)
-            + len(project.data_sources)
-            + len(project.modules)
-            + len(project.variables)
-            + len(project.outputs)
-            + len(project.providers)
-        ),
-    }
+# def _display_simple_results(project):
+#     stats = _get_scan_data(project)
+#     console.print(f"Resources: {stats['resources']}")
+#     console.print(f"Modules: {stats['modules']}")
+#     console.print(f"Variables: {stats['variables']}")
+#     console.print(f"Outputs: {stats['outputs']}")
+#     console.print(f"Providers: {stats['providers']}")
+#     console.print(f"Total: {stats['total']}")
 
 
-def _display_detailed_analysis_summary(
-    project, deep, include_dependencies, include_security, include_costs, verbose
-):
-    """Display comprehensive analysis summary."""
+# def _display_detailed_analysis_summary(
+#     project, deep, include_dependencies, include_security, include_costs, verbose
+# ):
+#     """Display comprehensive analysis summary."""
 
-    main_table = Table(
-        title="📊 Analysis Summary",
-        show_header=True,
-        header_style="bold cyan",
-        border_style="blue",
-        box=box.ROUNDED,
-    )
-    main_table.add_column("Category", style="cyan", width=25)
-    main_table.add_column("Count", justify="right", style="green", width=10)
-    main_table.add_column("Details", style="dim", width=40)
+#     main_table = Table(
+#         title="📊 Analysis Summary",
+#         show_header=True,
+#         header_style="bold cyan",
+#         border_style="blue",
+#         box=box.ROUNDED,
+#     )
+#     main_table.add_column("Category", style="cyan", width=25)
+#     main_table.add_column("Count", justify="right", style="green", width=10)
+#     main_table.add_column("Details", style="dim", width=40)
 
-    stats = _get_scan_data(project)
+#     stats = _get_scan_data(project)
 
-    main_table.add_row(
-        "Resources",
-        str(stats["resources"]),
-        _get_resource_breakdown(project) if verbose else "",
-    )
-    main_table.add_row("Data Sources", str(stats["data_sources"]), "")
-    main_table.add_row(
-        "Modules",
-        str(stats["modules"]),
-        _get_module_summary(project) if verbose else "",
-    )
-    main_table.add_row("Variables", str(stats["variables"]), "")
-    main_table.add_row("Outputs", str(stats["outputs"]), "")
-    main_table.add_row(
-        "Providers",
-        str(stats["providers"]),
-        ", ".join(list(project.providers.keys())[:5]),
-    )
+#     main_table.add_row(
+#         "Resources",
+#         str(stats["resources"]),
+#         _get_resource_breakdown(project) if verbose else "",
+#     )
+#     main_table.add_row("Data Sources", str(stats["data_sources"]), "")
+#     main_table.add_row(
+#         "Modules",
+#         str(stats["modules"]),
+#         _get_module_summary(project) if verbose else "",
+#     )
+#     main_table.add_row("Variables", str(stats["variables"]), "")
+#     main_table.add_row("Outputs", str(stats["outputs"]), "")
+#     main_table.add_row(
+#         "Providers",
+#         str(stats["providers"]),
+#         ", ".join(list(project.providers.keys())[:5]),
+#     )
 
-    console.print(main_table)
+#     console.print(main_table)
 
-    # Feature summary
-    if deep or include_dependencies or include_security or include_costs:
-        console.print()
-        features_table = Table(
-            title="🎯 Enabled Features",
-            show_header=False,
-            border_style="green",
-            box=box.SIMPLE,
-        )
-        features_table.add_column("Feature", style="cyan")
-        features_table.add_column("Status", style="green")
+#     # Feature summary
+#     if deep or include_dependencies or include_security or include_costs:
+#         console.print()
+#         features_table = Table(
+#             title="🎯 Enabled Features",
+#             show_header=False,
+#             border_style="green",
+#             box=box.SIMPLE,
+#         )
+#         features_table.add_column("Feature", style="cyan")
+#         features_table.add_column("Status", style="green")
 
-        if deep:
-            features_table.add_row("Deep Analysis", "✓ Enabled")
-        if include_dependencies:
-            features_table.add_row("Dependency Tracking", "✓ Enabled")
-        if include_security:
-            features_table.add_row("Security Analysis", "✓ Enabled")
-        if include_costs:
-            features_table.add_row("Cost Estimation", "✓ Enabled")
+#         if deep:
+#             features_table.add_row("Deep Analysis", "✓ Enabled")
+#         if include_dependencies:
+#             features_table.add_row("Dependency Tracking", "✓ Enabled")
+#         if include_security:
+#             features_table.add_row("Security Analysis", "✓ Enabled")
+#         if include_costs:
+#             features_table.add_row("Cost Estimation", "✓ Enabled")
 
-        console.print(features_table)
+#         console.print(features_table)
 
 
 def _get_resource_breakdown(project):
@@ -2177,18 +2152,18 @@ def _export_yaml_file(data, filepath):
 
 def _export_markdown_report(project, filepath, include_security, include_costs):
     """Export Markdown report."""
-    report = f"# Terraform Project Analysis\n\n"
-    report += f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-    report += f"## Summary\n\n"
-    stats = _get_scan_data(project)
-    report += f"- Resources: {stats['resources']}\n"
-    report += f"- Modules: {stats['modules']}\n"
-    report += f"- Variables: {stats['variables']}\n"
-    report += f"- Outputs: {stats['outputs']}\n"
-    report += f"- Providers: {stats['providers']}\n"
+    # report = f"# Terraform Project Analysis\n\n"
+    # report += f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    # report += f"## Summary\n\n"
+    # stats = _get_scan_data(project)
+    # report += f"- Resources: {stats['resources']}\n"
+    # report += f"- Modules: {stats['modules']}\n"
+    # report += f"- Variables: {stats['variables']}\n"
+    # report += f"- Outputs: {stats['outputs']}\n"
+    # report += f"- Providers: {stats['providers']}\n"
 
-    with filepath.open("w") as f:
-        f.write(report)
+    # with filepath.open("w") as f:
+    #     f.write(report)
 
 
 def _export_csv_resources(project, filepath):
@@ -2234,8 +2209,8 @@ def _generate_report(
         output = Path(f"tfkit-{report_type}-report-{timestamp}.{format}")
 
     if format == "html":
-        visualizer = HTMLVisualizer()
-        html_file = visualizer.generate_visualization(project, output.parent)
+        generator = ReportGenerator()
+        html_file = generator.generate_visualization(project, output.parent)
         return html_file
     elif format == "markdown":
         _export_markdown_report(project, output, False, False)

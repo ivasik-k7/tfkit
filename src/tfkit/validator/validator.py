@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Optional, Set
 # --- Updated Imports ---
 # Assumes your models are in files relative to this one
 try:
-    # Adjust this path if your file structure is different
-    from ..analyzer.models import ResourceType, TerraformObject, TerraformProject
+    from ..analyzer.models import ResourceType, TerraformObject
+    from ..analyzer.project import TerraformProject
 except ImportError:
     # Fallback for flat structure
     from analyzer.models import ResourceType, TerraformObject, TerraformProject

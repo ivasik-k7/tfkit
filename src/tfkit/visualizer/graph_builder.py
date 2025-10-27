@@ -1,12 +1,13 @@
 """
-Optimized and production-ready graph data builder for Terraform projects.
-This module builds dependency graphs with clear node states and relationships.
+Enhanced graph builder for Terraform projects.
+Creates visualization-ready dependency graphs with rich metadata.
+Updated to work with new project data structure.
 """
 
 import ast
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class NodeType(Enum):
@@ -105,6 +106,7 @@ class TerraformGraphBuilder:
 
     This builder creates a comprehensive graph representation of all Terraform
     objects and their relationships, with clear node states and edge types.
+    Updated to work with the new project data structure.
     """
 
     # Edge strength constants (0.0 to 1.0)
@@ -119,15 +121,15 @@ class TerraformGraphBuilder:
         """Initialize the graph builder."""
         self.nodes: List[GraphNode] = []
         self.edges: List[GraphEdge] = []
-        self.node_map: Dict[str, int] = {}  # label -> node_id
+        self.node_map: Dict[str, int] = {}
         self.next_node_id: int = 0
 
-    def build_graph(self, project_dict: Dict[str, Any]) -> Dict[str, Any]:
+    def build_graph(self, project_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         Build a complete dependency graph from project data.
 
         Args:
-            project_dict: Dictionary containing all Terraform project objects
+            project_data: Dictionary containing all Terraform project objects
 
         Returns:
             Dictionary with 'nodes', 'edges', and 'statistics' keys
@@ -139,10 +141,10 @@ class TerraformGraphBuilder:
         self.next_node_id = 0
 
         # Phase 1: Create all nodes
-        self._create_nodes(project_dict)
+        self._create_nodes(project_data)
 
         # Phase 2: Create all edges
-        self._create_edges(project_dict)
+        self._create_edges(project_data)
 
         # Phase 3: Calculate node states
         self._calculate_node_states()
@@ -156,17 +158,16 @@ class TerraformGraphBuilder:
             "statistics": statistics,
         }
 
-    def _create_nodes(self, project_dict: Dict[str, Any]) -> None:
+    def _create_nodes(self, project_data: Dict[str, Any]) -> None:
         """Create all nodes from project data."""
+        objects = project_data.get("objects", {})
+
         # Resources
-        for res_name, res_data in project_dict.get("resources", {}).items():
-            full_resource_type = res_data.get(
-                "resource_type", self._extract_type_value(res_data.get("type"))
-            )
-            provider_prefix = self._get_provider_prefix(full_resource_type)
+        for res_name, res_data in objects.get("resources", {}).items():
+            resource_type = res_data.get("resource_type", "unknown")
+            provider_prefix = self._get_provider_prefix(resource_type)
             details = self._sanitize_details(res_data)
-            # Ensure full resource type is in details, as subtype is now just the prefix
-            details["full_resource_type"] = full_resource_type
+            details["full_resource_type"] = resource_type
 
             self._add_node(
                 label=res_name,
@@ -176,14 +177,11 @@ class TerraformGraphBuilder:
             )
 
         # Data sources
-        for data_name, data_data in project_dict.get("data_sources", {}).items():
-            full_data_type = data_data.get(
-                "resource_type", self._extract_type_value(data_data.get("type"))
-            )
-            provider_prefix = self._get_provider_prefix(full_data_type)
+        for data_name, data_data in objects.get("data_sources", {}).items():
+            resource_type = data_data.get("resource_type", "unknown")
+            provider_prefix = self._get_provider_prefix(resource_type)
             details = self._sanitize_details(data_data)
-            # Ensure full data type is in details, as subtype is now just the prefix
-            details["full_data_type"] = full_data_type
+            details["full_data_type"] = resource_type
 
             self._add_node(
                 label=data_name,
@@ -193,7 +191,7 @@ class TerraformGraphBuilder:
             )
 
         # Modules
-        for mod_name, mod_data in project_dict.get("modules", {}).items():
+        for mod_name, mod_data in objects.get("modules", {}).items():
             self._add_node(
                 label=mod_name,
                 node_type=NodeType.MODULE,
@@ -202,7 +200,7 @@ class TerraformGraphBuilder:
             )
 
         # Variables
-        for var_name, var_data in project_dict.get("variables", {}).items():
+        for var_name, var_data in objects.get("variables", {}).items():
             # Extract the raw type string
             raw_var_type = self._extract_type_value(
                 var_data.get("variable_type", "any")
@@ -213,12 +211,12 @@ class TerraformGraphBuilder:
             self._add_node(
                 label=var_name,
                 node_type=NodeType.VARIABLE,
-                subtype=formatted_var_type,  # Use the formatted type
+                subtype=formatted_var_type,
                 details=self._sanitize_details(var_data),
             )
 
         # Outputs
-        for out_name, out_data in project_dict.get("outputs", {}).items():
+        for out_name, out_data in objects.get("outputs", {}).items():
             self._add_node(
                 label=out_name,
                 node_type=NodeType.OUTPUT,
@@ -227,9 +225,9 @@ class TerraformGraphBuilder:
             )
 
         # Providers
-        for provider_name, provider_data in project_dict.get("providers", {}).items():
+        for provider_name, provider_data in objects.get("providers", {}).items():
             provider_subtype = self._extract_type_value(
-                provider_data.get("name", "unknown")
+                provider_data.get("provider", "unknown")
             )
             self._add_node(
                 label=provider_name,
@@ -239,7 +237,7 @@ class TerraformGraphBuilder:
             )
 
         # Locals
-        for local_name, local_data in project_dict.get("locals", {}).items():
+        for local_name, local_data in objects.get("locals", {}).items():
             self._add_node(
                 label=local_name,
                 node_type=NodeType.LOCAL,
@@ -248,7 +246,7 @@ class TerraformGraphBuilder:
             )
 
         # Terraform blocks
-        for tf_name, tf_data in project_dict.get("terraform_blocks", {}).items():
+        for tf_name, tf_data in objects.get("terraform_blocks", {}).items():
             self._add_node(
                 label=tf_name,
                 node_type=NodeType.TERRAFORM,
@@ -256,80 +254,59 @@ class TerraformGraphBuilder:
                 details=self._sanitize_details(tf_data),
             )
 
-    def _create_edges(self, project_dict: Dict[str, Any]) -> None:
+    def _create_edges(self, project_data: Dict[str, Any]) -> None:
         """Create all edges from project data."""
-        # Resource dependencies
-        for res_name, res_data in project_dict.get("resources", {}).items():
-            dependencies = res_data.get("dependencies", [])
-            if isinstance(dependencies, list):
-                for dep in dependencies:
+        objects = project_data.get("objects", {})
+
+        # Process all object types for dependencies
+        for obj_type in ["resources", "data_sources", "modules", "outputs", "locals"]:
+            for obj_name, obj_data in objects.get(obj_type, {}).items():
+                dependencies = obj_data.get("dependencies", {})
+
+                # Handle implicit dependencies
+                implicit_deps = dependencies.get("implicit", [])
+                for dep in implicit_deps:
                     self._add_edge(
-                        source=res_name,
+                        source=obj_name,
+                        target=dep,
+                        edge_type=EdgeType.DEPENDENCY,
+                        strength=self._get_edge_strength(obj_type, dep),
+                    )
+
+                # Handle explicit dependencies
+                explicit_deps = dependencies.get("explicit", [])
+                for dep in explicit_deps:
+                    self._add_edge(
+                        source=obj_name,
                         target=dep,
                         edge_type=EdgeType.DEPENDENCY,
                         strength=self.STRENGTH_EXPLICIT_DEPENDENCY,
                     )
 
-            # Provider usage
-            provider = res_data.get("provider")
-            if provider:
-                # Try to find provider node
-                provider_node = self._find_provider_node(provider)
-                if provider_node:
-                    self._add_edge(
-                        source=res_name,
-                        target=provider_node,
-                        edge_type=EdgeType.PROVIDER_USE,
-                        strength=self.STRENGTH_PROVIDER_USE,
-                    )
+                # Handle provider relationships for resources and data sources
+                if obj_type in ["resources", "data_sources"]:
+                    provider = obj_data.get("provider")
+                    if provider:
+                        provider_node = f"provider.{provider}"
+                        self._add_edge(
+                            source=obj_name,
+                            target=provider_node,
+                            edge_type=EdgeType.PROVIDER_USE,
+                            strength=self.STRENGTH_PROVIDER_USE,
+                        )
 
-        # Data source dependencies
-        for data_name, data_data in project_dict.get("data_sources", {}).items():
-            dependencies = data_data.get("dependencies", [])
-            if isinstance(dependencies, list):
-                for dep in dependencies:
-                    self._add_edge(
-                        source=data_name,
-                        target=dep,
-                        edge_type=EdgeType.DEPENDENCY,
-                        strength=self.STRENGTH_DATA_SOURCE,
-                    )
-
-        # Module dependencies
-        for mod_name, mod_data in project_dict.get("modules", {}).items():
-            dependencies = mod_data.get("dependencies", [])
-            if isinstance(dependencies, list):
-                for dep in dependencies:
-                    self._add_edge(
-                        source=mod_name,
-                        target=dep,
-                        edge_type=EdgeType.DEPENDENCY,
-                        strength=self.STRENGTH_MODULE_DEPENDENCY,
-                    )
-
-        # Output references
-        for out_name, out_data in project_dict.get("outputs", {}).items():
-            dependencies = out_data.get("dependencies", [])
-            if isinstance(dependencies, list):
-                for dep in dependencies:
-                    self._add_edge(
-                        source=out_name,
-                        target=dep,
-                        edge_type=EdgeType.REFERENCE,
-                        strength=self.STRENGTH_VARIABLE_REFERENCE,
-                    )
-
-        # Local dependencies
-        for local_name, local_data in project_dict.get("locals", {}).items():
-            dependencies = local_data.get("dependencies", [])
-            if isinstance(dependencies, list):
-                for dep in dependencies:
-                    self._add_edge(
-                        source=local_name,
-                        target=dep,
-                        edge_type=EdgeType.REFERENCE,
-                        strength=self.STRENGTH_VARIABLE_REFERENCE,
-                    )
+    def _get_edge_strength(self, source_type: str, target: str) -> float:
+        """Determine edge strength based on source and target types."""
+        if source_type == "data_sources":
+            return self.STRENGTH_DATA_SOURCE
+        elif source_type == "modules":
+            return self.STRENGTH_MODULE_DEPENDENCY
+        elif source_type in ["outputs", "locals"]:
+            return self.STRENGTH_VARIABLE_REFERENCE
+        elif target.startswith("var."):
+            return self.STRENGTH_VARIABLE_REFERENCE
+        else:
+            return self.STRENGTH_EXPLICIT_DEPENDENCY
 
     def _calculate_node_states(self) -> None:
         """
@@ -396,7 +373,6 @@ class TerraformGraphBuilder:
                     NodeState.LEAF,
                     "Local value with no dependencies (literal value)",
                 )
-            # Corrected logic for orphan local (has dependencies, not used)
             elif out_count > 0 and in_count == 0:
                 return NodeState.ORPHAN, "Local value is calculated but never used"
             else:
@@ -604,36 +580,6 @@ class TerraformGraphBuilder:
 
         return "unknown"
 
-    def _find_provider_node(self, provider: str) -> Optional[str]:
-        """
-        Find a provider node by name or alias.
-
-        Args:
-            provider: Provider name or reference
-
-        Returns:
-            Provider node label if found, None otherwise
-        """
-        # Direct match
-        if provider in self.node_map:
-            return provider
-
-        # Try with "provider." prefix
-        provider_key = f"provider.{provider}"
-        if provider_key in self.node_map:
-            return provider_key
-
-        # Search through nodes for alias match
-        for node in self.nodes:
-            if node.type == NodeType.PROVIDER:
-                node_provider = node.details.get("name", "")
-                node_alias = node.details.get("alias", "")
-
-                if node_provider == provider or node_alias == provider:
-                    return node.label
-
-        return None
-
     def _format_tf_type_string(self, type_str: str, indent_level: int = 0) -> str:
         """Recursively formats a Terraform type string for readability."""
         if not isinstance(type_str, str):
@@ -734,6 +680,11 @@ class TerraformGraphBuilder:
             "variable_type",
             "sensitive",
             "alias",
+            "location",
+            "state",
+            "state_reason",
+            "default_value",
+            "attributes",
         }
 
         sanitized = {}
@@ -747,5 +698,9 @@ class TerraformGraphBuilder:
                     sanitized[key] = value.name
                 else:
                     sanitized[key] = value
+
+        if "location" in data and isinstance(data["location"], dict):
+            sanitized["file_path"] = data["location"].get("file_path")
+            sanitized["line_number"] = data["location"].get("line_number")
 
         return sanitized
