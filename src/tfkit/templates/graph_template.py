@@ -471,41 +471,59 @@ class GraphTemplate(BaseTemplate):
             }
 
             /* State-specific styles */
-            .state-active .state-icon {
-                background: {{ colors.success }}15;
-                color: {{ colors.success }};
+            /* State indicator hover effects */
+            .state-item {
+                transition: all 0.2s ease;
+                position: relative;
+                overflow: hidden;
             }
-            .state-active::before { background: {{ colors.success }}; }
 
-            .state-integrated .state-icon {
-                background: {{ colors.info }}15;
-                color: {{ colors.info }};
+            .state-item::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0;
+                height: 100%;
+                width: 4px;
+                opacity: 0;
+                transition: opacity 0.2s ease;
             }
-            .state-integrated::before { background: {{ colors.info }}; }
 
-            .state-external_data .state-icon {
-                background: {{ colors.accent }}15;
-                color: {{ colors.accent }};
+            .state-item:hover {
+                transform: translateX(4px);
+                background: {{ colors.bg_primary }}12;
             }
-            .state-external_data::before { background: {{ colors.accent }}; }
 
-            .state-configuration .state-icon {
-                background: {{ colors.warning }}15;
-                color: {{ colors.warning }};
+            .state-item:hover::before {
+                opacity: 1;
             }
-            .state-configuration::before { background: {{ colors.warning }}; }
 
-            .state-orphaned .state-icon {
-                background: {{ colors.danger }}15;
-                color: {{ colors.danger }};
+            .state-icon {
+                width: 32px;
+                height: 32px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 8px;
+                font-size: 1em;
+                transition: all 0.2s ease;
             }
-            .state-orphaned::before { background: {{ colors.danger }}; }
 
-            .state-unused .state-icon {
-                background: {{ colors.text_secondary }}15;
-                color: {{ colors.text_secondary }};
+            .state-count {
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-family: 'Orbitron', sans-serif;
+                font-weight: 600;
+                transition: all 0.2s ease;
             }
-            .state-unused::before { background: {{ colors.text_secondary }}; }
+
+            .state-item:hover .state-icon {
+                transform: scale(1.1);
+            }
+
+            .state-item:hover .state-count {
+                transform: scale(1.05);
+            }
             
             /* Enhanced state styles for all states */
             .state-external_data { 
@@ -1705,39 +1723,37 @@ class GraphTemplate(BaseTemplate):
                     return;
                 }
 
-                // Clear existing content
                 stateIndicators.innerHTML = '';
                 
                 Object.entries(summary.state_counts).forEach(([state, count]) => {
                     if (count > 0) {
-                    // Get state description and icon
                     const stateInfo = {
-                        active: { icon: 'fa-check-circle', desc: 'Active and properly configured resources' },
-                        integrated: { icon: 'fa-link', desc: 'Resources integrated with other components' },
-                        external_data: { icon: 'fa-database', desc: 'Resources using external data sources' },
-                        configuration: { icon: 'fa-cog', desc: 'Resources pending configuration' },
-                        orphaned: { icon: 'fa-unlink', desc: 'Isolated resources without connections' },
-                        unused: { icon: 'fa-ban', desc: 'Unused or deprecated resources' }
-                    }[state] || { icon: 'fa-circle', desc: 'Other resource state' };
+                        active: { icon: 'fa-check-circle', desc: 'Active and properly configured resources', color: '#22c55e' },
+                        integrated: { icon: 'fa-link', desc: 'Resources integrated with other components', color: '#84cc16' },
+                        external_data: { icon: 'fa-database', desc: 'Resources using external data sources', color: '#a855f7' },
+                        configuration: { icon: 'fa-cog', desc: 'Resources pending configuration', color: '#8b5cf6' },
+                        orphaned: { icon: 'fa-unlink', desc: 'Isolated resources without connections', color: '#fb923c' },
+                        unused: { icon: 'fa-ban', desc: 'Unused or deprecated resources', color: '#f59e0b' },
+                        leaf: { icon: 'fa-leaf', desc: 'End nodes without outgoing connections', color: '#10b981' },
+                        isolated: { icon: 'fa-circle-dot', desc: 'Completely isolated nodes', color: '#ef4444' },
+                        root: { icon: 'fa-diagram-project', desc: 'Root nodes without incoming connections', color: '#3b82f6' }
+                    }[state] || { icon: 'fa-circle', desc: 'Other resource state', color: '#666666' };
 
-                    // Add to HUD indicators
                     const indicator = document.createElement('div');
                     indicator.className = `state-item state-${state}`;
-                    indicator.onclick = () => filterByState(state);
                     
-                    // Calculate additional metrics
                     const totalNodes = summary.total_nodes;
                     const percentage = ((count / totalNodes) * 100).toFixed(1);
                     
                     indicator.innerHTML = `
                         <div class="state-header">
                             <div class="state-name">
-                                <div class="state-icon">
+                                <div class="state-icon" style="background: ${stateInfo.color}20; color: ${stateInfo.color}">
                                     <i class="fas ${stateInfo.icon}"></i>
                                 </div>
                                 ${state.replace('_', ' ').replace(/(^\w{1})|(\.\s+\w{1})/g, letter => letter.toUpperCase())}
                             </div>
-                            <div class="state-count">${count}</div>
+                            <div class="state-count" style="background: ${stateInfo.color}15; color: ${stateInfo.color}">${count}</div>
                         </div>
                         <div class="state-info">
                             <div class="state-metric">
@@ -1750,6 +1766,41 @@ class GraphTemplate(BaseTemplate):
                             </div>
                         </div>
                     `;
+
+                    let highlightTimeout;
+                    indicator.addEventListener('mouseenter', () => {
+                        highlightTimeout = setTimeout(() => {
+                            const nodes = graphG.selectAll('.node').filter(d => d.state === state);
+                            nodes.each(d => {
+                                highlightedNodes.add(d.id);
+                                // Add connected edges
+                                graphData.edges.forEach(edge => {
+                                    const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+                                    const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+                                    if (sourceId === d.id || targetId === d.id) {
+                                        highlightedEdges.add(`${sourceId}->${targetId}`);
+                                    }
+                                });
+                            });
+                            applyHighlight();
+                        }, 200); // Small delay to prevent flickering
+                    });
+
+                    indicator.addEventListener('mouseleave', () => {
+                        clearTimeout(highlightTimeout);
+                        clearHighlight();
+                    });
+
+                    indicator.addEventListener('click', () => {
+                        clearHighlight();
+                        filterByState(state);
+                        // Show toast with filter info
+                        commandPalette.showToast(
+                            'Filter Applied', 
+                            `Showing ${state.replace('_', ' ')} resources`, 
+                            'info'
+                        );
+                    });
                     stateIndicators.appendChild(indicator);
                     }
                 });
