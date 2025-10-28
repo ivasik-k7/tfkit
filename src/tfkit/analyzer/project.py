@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .models import ObjectState, ResourceType, TerraformObject
@@ -156,7 +157,7 @@ class TerraformProject:
         self.backend_config: Optional[Dict[str, Any]] = None
 
         # Metadata
-        self.metadata = ProjectMetadata(project_path=project_path or "Unknown")
+        self.metadata = ProjectMetadata(project_path=project_path or str(Path.cwd()))
 
         # Cached statistics
         self._statistics: Optional[ProjectStatistics] = None
@@ -316,10 +317,12 @@ class TerraformProject:
         This populates the dependent_objects list for each object based on
         the dependencies of all other objects.
         """
+        # Clear all dependent lists
         for obj in self._objects.values():
             obj.dependency_info.dependent_objects.clear()
             obj.invalidate_state()
 
+        # Build reverse dependencies
         for obj in self._objects.values():
             for dep_name in obj.dependency_info.all_dependencies:
                 dep_obj = self._objects.get(dep_name)
@@ -328,6 +331,7 @@ class TerraformProject:
                         dep_obj.dependency_info.dependent_objects.append(obj.full_name)
                         dep_obj.invalidate_state()
 
+        # Invalidate statistics cache
         self._statistics = None
 
     def get_dependency_chain(

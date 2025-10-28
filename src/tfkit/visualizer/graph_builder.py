@@ -1,77 +1,73 @@
-"""
-Enhanced graph builder for Terraform projects.
-Creates visualization-ready dependency graphs with rich metadata.
-Updated to work with new project data structure.
-"""
-
 import ast
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
+
+from ..analyzer.models import ObjectState, ResourceType
+from ..analyzer.project import TerraformProject
 
 
-class NodeType(Enum):
-    """Node types in the Terraform dependency graph."""
+class GraphNodeState(Enum):
+    """Visual states for graph nodes with clear UI semantics."""
 
-    RESOURCE = "resource"
-    DATA = "data"
-    MODULE = "module"
-    VARIABLE = "variable"
-    OUTPUT = "output"
-    PROVIDER = "provider"
-    LOCAL = "local"
-    TERRAFORM = "terraform"
-
-
-class NodeState(Enum):
-    """
-    Node health states with clear definitions.
-
-    HEALTHY: Node is properly connected and functioning as expected
-    UNUSED: Node exists but is not referenced by any other nodes
-    LEAF: Node is used by others but doesn't depend on anything (terminal node)
-    ORPHAN: Node has dependencies but nothing uses it (potential waste)
-    EXTERNAL: Node serves as an interface to external systems
-    WARNING: Node has unexpected or problematic connection patterns
-    """
-
+    # Positive states
     HEALTHY = "healthy"
-    UNUSED = "unused"
+    ACTIVE = "active"
+    INTEGRATED = "integrated"
+
+    # Neutral/Informational states
+    INPUT = "input"
+    OUTPUT = "output"
+    CONFIGURATION = "configuration"
+    EXTERNAL_DATA = "external_data"
     LEAF = "leaf"
-    ORPHAN = "orphan"
-    EXTERNAL = "external"
-    WARNING = "warning"
+    HUB = "hub"
+
+    # Warning states
+    UNUSED = "unused"
+    ISOLATED = "isolated"
+    ORPHANED = "orphaned"
+    UNDERUTILIZED = "underutilized"
+    COMPLEX = "complex"
+
+    # Error states
+    INCOMPLETE = "incomplete"
+    BROKEN = "broken"
+    MISSING_DEPENDENCY = "missing_dependency"
 
 
 class EdgeType(Enum):
     """Types of edges in the dependency graph."""
 
-    DEPENDENCY = "dependency"  # Explicit depends_on or implicit reference
-    REFERENCE = "reference"  # Variable or output reference
-    SOURCE = "source"  # Module source reference
-    PROVIDER_USE = "provider_use"  # Resource uses provider
+    EXPLICIT = "explicit"  # depends_on
+    IMPLICIT = "implicit"  # reference in configuration
+    PROVIDER = "provider"  # resource -> provider relationship
 
 
 @dataclass
 class GraphNode:
-    """Represents a node in the Terraform dependency graph."""
+    """Node in the visualization graph."""
 
     id: int
     label: str
-    type: NodeType
-    subtype: str
-    state: NodeState
+    type: str  # ResourceType value
+    subtype: str  # Specific type (e.g., "aws_instance", "string")
+    state: GraphNodeState
     state_reason: str
-    dependencies_out: int = 0
-    dependencies_in: int = 0
+
+    # Connection counts
+    dependencies_out: int = 0  # This node depends on X others
+    dependencies_in: int = 0  # X others depend on this node
+
+    # Visual metadata
     details: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert node to dictionary for serialization."""
+        """Convert to dictionary for JSON serialization."""
         return {
             "id": self.id,
             "label": self.label,
-            "type": self.type.value,
+            "type": self.type,
             "subtype": self.subtype,
             "state": self.state.value,
             "state_reason": self.state_reason,
@@ -83,15 +79,15 @@ class GraphNode:
 
 @dataclass
 class GraphEdge:
-    """Represents an edge in the Terraform dependency graph."""
+    """Edge in the visualization graph."""
 
-    source: int
-    target: int
+    source: int  # source node ID
+    target: int  # target node ID
     type: EdgeType
-    strength: float
+    strength: float  # 0.0 to 1.0
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert edge to dictionary for serialization."""
+        """Convert to dictionary for JSON serialization."""
         return {
             "source": self.source,
             "target": self.target,
@@ -102,55 +98,47 @@ class GraphEdge:
 
 class TerraformGraphBuilder:
     """
-    Builds dependency graphs from Terraform project data.
+    Builds visualization-ready dependency graphs from Terraform projects.
 
-    This builder creates a comprehensive graph representation of all Terraform
-    objects and their relationships, with clear node states and edge types.
-    Updated to work with the new project data structure.
+    Creates a graph representation suitable for D3.js, Cytoscape.js,
+    or other visualization libraries.
     """
 
-    # Edge strength constants (0.0 to 1.0)
-    STRENGTH_EXPLICIT_DEPENDENCY = 1.0  # depends_on or direct resource reference
-    STRENGTH_DATA_SOURCE = 0.9  # Data source dependencies
-    STRENGTH_MODULE_DEPENDENCY = 0.8  # Module dependencies
-    STRENGTH_VARIABLE_REFERENCE = 0.7  # Variable/output references
-    STRENGTH_PROVIDER_USE = 0.6  # Provider usage
-    STRENGTH_SOURCE_REFERENCE = 0.5  # Module source reference
+    # Edge strength constants
+    STRENGTH_EXPLICIT = 1.0
+    STRENGTH_IMPLICIT = 0.7
+    STRENGTH_PROVIDER = 0.5
 
     def __init__(self):
-        """Initialize the graph builder."""
         self.nodes: List[GraphNode] = []
         self.edges: List[GraphEdge] = []
-        self.node_map: Dict[str, int] = {}
-        self.next_node_id: int = 0
+        self.node_map: Dict[str, int] = {}  # object_name -> node_id
+        self.next_id = 0
 
-    def build_graph(self, project_data: Dict[str, Any]) -> Dict[str, Any]:
+    def build_graph(self, project: TerraformProject) -> Dict[str, Any]:
         """
-        Build a complete dependency graph from project data.
+        Build complete graph from a Terraform project.
 
         Args:
-            project_data: Dictionary containing all Terraform project objects
+            project: TerraformProject instance
 
         Returns:
-            Dictionary with 'nodes', 'edges', and 'statistics' keys
+            Dictionary with 'nodes', 'edges', and 'statistics'
         """
         # Reset state
         self.nodes = []
         self.edges = []
         self.node_map = {}
-        self.next_node_id = 0
+        self.next_id = 0
 
         # Phase 1: Create all nodes
-        self._create_nodes(project_data)
+        self._create_nodes(project)
 
         # Phase 2: Create all edges
-        self._create_edges(project_data)
+        self._create_edges(project)
 
-        # Phase 3: Calculate node states
-        self._calculate_node_states()
-
-        # Phase 4: Generate statistics
-        statistics = self._generate_statistics()
+        # Phase 3: Generate statistics
+        statistics = self._generate_statistics(project)
 
         return {
             "nodes": [node.to_dict() for node in self.nodes],
@@ -158,549 +146,688 @@ class TerraformGraphBuilder:
             "statistics": statistics,
         }
 
-    def _create_nodes(self, project_data: Dict[str, Any]) -> None:
-        """Create all nodes from project data."""
-        objects = project_data.get("objects", {})
+    def _create_nodes(self, project: TerraformProject) -> None:
+        """Create all graph nodes from project objects."""
+        for obj in project.all_objects.values():
+            visual_state = self._map_object_state_to_visual(obj.state)
 
-        # Resources
-        for res_name, res_data in objects.get("resources", {}).items():
-            resource_type = res_data.get("resource_type", "unknown")
-            provider_prefix = self._get_provider_prefix(resource_type)
-            details = self._sanitize_details(res_data)
-            details["full_resource_type"] = resource_type
+            state_meta = self._get_state_metadata(visual_state)
 
-            self._add_node(
-                label=res_name,
-                node_type=NodeType.RESOURCE,
-                subtype=provider_prefix,
+            subtype = self._determine_subtype(obj)
+
+            details = {
+                "file": obj.location.file_path,
+                "line": obj.location.line_number,
+                "color": state_meta["color"],
+                "severity": state_meta["severity"],
+                "icon": state_meta["icon"],
+                "priority": state_meta["priority"],
+            }
+
+            if obj.resource_type:
+                details["resource_type"] = obj.resource_type
+            if obj.provider_info:
+                details["provider"] = obj.provider_info.full_provider_reference
+            if obj.description:
+                details["description"] = obj.description
+            if obj.source:
+                details["source"] = obj.source
+            if obj.sensitive:
+                details["sensitive"] = True
+
+            node = GraphNode(
+                id=self.next_id,
+                label=obj.full_name,
+                type=obj.type.value,
+                subtype=subtype,
+                state=visual_state,
+                state_reason=obj.state_reason,
                 details=details,
             )
 
-        # Data sources
-        for data_name, data_data in objects.get("data_sources", {}).items():
-            resource_type = data_data.get("resource_type", "unknown")
-            provider_prefix = self._get_provider_prefix(resource_type)
-            details = self._sanitize_details(data_data)
-            details["full_data_type"] = resource_type
+            self.nodes.append(node)
+            self.node_map[obj.full_name] = self.next_id
+            self.next_id += 1
 
-            self._add_node(
-                label=data_name,
-                node_type=NodeType.DATA,
-                subtype=provider_prefix,
-                details=details,
-            )
+    def _create_edges(self, project: TerraformProject) -> None:
+        """Create all graph edges from project dependencies."""
+        for obj in project.all_objects.values():
+            source_id = self.node_map.get(obj.full_name)
+            if source_id is None:
+                continue
 
-        # Modules
-        for mod_name, mod_data in objects.get("modules", {}).items():
-            self._add_node(
-                label=mod_name,
-                node_type=NodeType.MODULE,
-                subtype="module",
-                details=self._sanitize_details(mod_data),
-            )
-
-        # Variables
-        for var_name, var_data in objects.get("variables", {}).items():
-            # Extract the raw type string
-            raw_var_type = self._extract_type_value(
-                var_data.get("variable_type", "any")
-            )
-            # Format the type string for pretty display
-            formatted_var_type = self._format_tf_type_string(raw_var_type)
-
-            self._add_node(
-                label=var_name,
-                node_type=NodeType.VARIABLE,
-                subtype=formatted_var_type,
-                details=self._sanitize_details(var_data),
-            )
-
-        # Outputs
-        for out_name, out_data in objects.get("outputs", {}).items():
-            self._add_node(
-                label=out_name,
-                node_type=NodeType.OUTPUT,
-                subtype="output",
-                details=self._sanitize_details(out_data),
-            )
-
-        # Providers
-        for provider_name, provider_data in objects.get("providers", {}).items():
-            provider_subtype = self._extract_type_value(
-                provider_data.get("provider", "unknown")
-            )
-            self._add_node(
-                label=provider_name,
-                node_type=NodeType.PROVIDER,
-                subtype=provider_subtype,
-                details=self._sanitize_details(provider_data),
-            )
-
-        # Locals
-        for local_name, local_data in objects.get("locals", {}).items():
-            self._add_node(
-                label=local_name,
-                node_type=NodeType.LOCAL,
-                subtype="local",
-                details=self._sanitize_details(local_data),
-            )
-
-        # Terraform blocks
-        for tf_name, tf_data in objects.get("terraform_blocks", {}).items():
-            self._add_node(
-                label=tf_name,
-                node_type=NodeType.TERRAFORM,
-                subtype="terraform",
-                details=self._sanitize_details(tf_data),
-            )
-
-    def _create_edges(self, project_data: Dict[str, Any]) -> None:
-        """Create all edges from project data."""
-        objects = project_data.get("objects", {})
-
-        # Process all object types for dependencies
-        for obj_type in ["resources", "data_sources", "modules", "outputs", "locals"]:
-            for obj_name, obj_data in objects.get(obj_type, {}).items():
-                dependencies = obj_data.get("dependencies", {})
-
-                # Handle implicit dependencies
-                implicit_deps = dependencies.get("implicit", [])
-                for dep in implicit_deps:
+            # Explicit dependencies
+            for dep_name in obj.dependency_info.explicit_dependencies:
+                target_id = self.node_map.get(dep_name)
+                if target_id is not None:
+                    edge_type = EdgeType.EXPLICIT
+                    # Check if this is a provider dependency
+                    if dep_name.startswith("provider."):
+                        edge_type = EdgeType.PROVIDER
                     self._add_edge(
-                        source=obj_name,
-                        target=dep,
-                        edge_type=EdgeType.DEPENDENCY,
-                        strength=self._get_edge_strength(obj_type, dep),
+                        source_id, target_id, edge_type, self.STRENGTH_EXPLICIT
                     )
 
-                # Handle explicit dependencies
-                explicit_deps = dependencies.get("explicit", [])
-                for dep in explicit_deps:
-                    self._add_edge(
-                        source=obj_name,
-                        target=dep,
-                        edge_type=EdgeType.DEPENDENCY,
-                        strength=self.STRENGTH_EXPLICIT_DEPENDENCY,
-                    )
+            # Implicit dependencies (includes provider relationships)
+            for dep_name in obj.dependency_info.implicit_dependencies:
+                target_id = self.node_map.get(dep_name)
+                if target_id is not None:
+                    edge_type = EdgeType.IMPLICIT
+                    strength = self.STRENGTH_IMPLICIT
 
-                # Handle provider relationships for resources and data sources
-                if obj_type in ["resources", "data_sources"]:
-                    provider = obj_data.get("provider")
-                    if provider:
-                        provider_node = f"provider.{provider}"
-                        self._add_edge(
-                            source=obj_name,
-                            target=provider_node,
-                            edge_type=EdgeType.PROVIDER_USE,
-                            strength=self.STRENGTH_PROVIDER_USE,
-                        )
+                    # Provider relationships are implicit but should be marked as PROVIDER type
+                    if dep_name.startswith("provider."):
+                        edge_type = EdgeType.PROVIDER
+                        strength = self.STRENGTH_PROVIDER
 
-    def _get_edge_strength(self, source_type: str, target: str) -> float:
-        """Determine edge strength based on source and target types."""
-        if source_type == "data_sources":
-            return self.STRENGTH_DATA_SOURCE
-        elif source_type == "modules":
-            return self.STRENGTH_MODULE_DEPENDENCY
-        elif source_type in ["outputs", "locals"]:
-            return self.STRENGTH_VARIABLE_REFERENCE
-        elif target.startswith("var."):
-            return self.STRENGTH_VARIABLE_REFERENCE
-        else:
-            return self.STRENGTH_EXPLICIT_DEPENDENCY
-
-    def _calculate_node_states(self) -> None:
-        """
-        Calculate the state of each node based on its connections.
-
-        Node states are determined by the pattern of incoming and outgoing edges,
-        combined with the node type. This provides semantic meaning to each node's
-        role in the infrastructure.
-        """
-        for node in self.nodes:
-            node.state, node.state_reason = self._determine_node_state(node)
-
-    def _determine_node_state(self, node: GraphNode) -> Tuple[NodeState, str]:
-        """
-        Determine the state and reason for a single node.
-
-        Returns:
-            Tuple of (NodeState, reason_string)
-        """
-        out_count = node.dependencies_out
-        in_count = node.dependencies_in
-
-        # Output nodes - exported values
-        if node.type == NodeType.OUTPUT:
-            if in_count == 0:
-                return NodeState.WARNING, "Output has no value source"
-            elif out_count == 0:
-                return NodeState.EXTERNAL, "Output exported for external consumption"
-            else:
-                return NodeState.WARNING, "Output with unexpected outgoing dependencies"
-
-        # Provider nodes - configuration
-        elif node.type == NodeType.PROVIDER:
-            if in_count == 0 and out_count == 0:
-                return (
-                    NodeState.UNUSED,
-                    "Provider configured but not used by any resources",
-                )
-            elif in_count > 0:
-                return NodeState.HEALTHY, f"Provider used by {in_count} resource(s)"
-            else:
-                return NodeState.WARNING, "Provider with unexpected dependency pattern"
-
-        # Variable nodes - inputs
-        elif node.type == NodeType.VARIABLE:
-            if in_count == 0:
-                return NodeState.UNUSED, "Variable declared but never referenced"
-            elif out_count == 0:
-                return NodeState.HEALTHY, f"Variable referenced by {in_count} object(s)"
-            else:
-                return (
-                    NodeState.WARNING,
-                    "Variable with unexpected outgoing dependencies",
-                )
-
-        # Local nodes - computed values
-        elif node.type == NodeType.LOCAL:
-            if in_count == 0:
-                return NodeState.UNUSED, "Local value declared but never referenced"
-            elif out_count > 0 and in_count > 0:
-                return NodeState.HEALTHY, "Local value computing and providing data"
-            elif out_count == 0 and in_count > 0:
-                return (
-                    NodeState.LEAF,
-                    "Local value with no dependencies (literal value)",
-                )
-            elif out_count > 0 and in_count == 0:
-                return NodeState.ORPHAN, "Local value is calculated but never used"
-            else:
-                return NodeState.WARNING, "Local with unexpected dependency pattern"
-
-        # Resource nodes - infrastructure components
-        elif node.type == NodeType.RESOURCE:
-            if in_count == 0 and out_count == 0:
-                return (
-                    NodeState.UNUSED,
-                    "Resource not connected to any other infrastructure",
-                )
-            elif in_count > 0 and out_count > 0:
-                return (
-                    NodeState.HEALTHY,
-                    f"Resource with {out_count} dep(s), used by {in_count} object(s)",
-                )
-            elif in_count > 0 and out_count == 0:
-                return NodeState.LEAF, "Leaf resource (no dependencies, used by others)"
-            elif in_count == 0 and out_count > 0:
-                return (
-                    NodeState.ORPHAN,
-                    f"Resource with {out_count} dep(s) but not used by others",
-                )
-            else:
-                return NodeState.WARNING, "Resource with unexpected dependency pattern"
-
-        # Module nodes - composition units
-        elif node.type == NodeType.MODULE:
-            if in_count == 0 and out_count == 0:
-                return NodeState.UNUSED, "Module declared but not integrated"
-            elif in_count > 0 and out_count > 0:
-                return (
-                    NodeState.HEALTHY,
-                    f"Module with {out_count} dep(s), used by {in_count} object(s)",
-                )
-            elif in_count > 0 and out_count == 0:
-                return NodeState.LEAF, "Leaf module (no dependencies)"
-            elif in_count == 0 and out_count > 0:
-                return NodeState.ORPHAN, f"Module with {out_count} dep(s) but not used"
-            else:
-                return NodeState.WARNING, "Module with unexpected dependency pattern"
-
-        # Data source nodes - external data
-        elif node.type == NodeType.DATA:
-            if in_count == 0 and out_count == 0:
-                return NodeState.UNUSED, "Data source declared but never referenced"
-            elif in_count > 0 and out_count >= 0:
-                return (
-                    NodeState.HEALTHY,
-                    f"Data source providing data to {in_count} object(s)",
-                )
-            else:
-                return (
-                    NodeState.WARNING,
-                    "Data source with unexpected dependency pattern",
-                )
-
-        # Terraform block nodes - configuration
-        elif node.type == NodeType.TERRAFORM:
-            return NodeState.EXTERNAL, "Terraform configuration block"
-
-        # Default fallback
-        return (
-            NodeState.WARNING,
-            f"Unknown node pattern: in={in_count}, out={out_count}",
-        )
-
-    def _generate_statistics(self) -> Dict[str, Any]:
-        """Generate comprehensive statistics about the graph."""
-        state_counts = {state.value: 0 for state in NodeState}
-        type_counts = {node_type.value: 0 for node_type in NodeType}
-        edge_type_counts = {edge_type.value: 0 for edge_type in EdgeType}
-
-        for node in self.nodes:
-            state_counts[node.state.value] += 1
-            type_counts[node.type.value] += 1
-
-        for edge in self.edges:
-            edge_type_counts[edge.type.value] += 1
-
-        # Calculate health metrics
-        total_nodes = len(self.nodes)
-        healthy_nodes = state_counts[NodeState.HEALTHY.value]
-        unused_nodes = state_counts[NodeState.UNUSED.value]
-        warning_nodes = state_counts[NodeState.WARNING.value]
-
-        health_score = 0.0
-        if total_nodes > 0:
-            # Health score: 100% for all healthy, -10% per unused, -5% per warning
-            health_score = (healthy_nodes / total_nodes) * 100
-            health_score -= (unused_nodes / total_nodes) * 10
-            health_score -= (warning_nodes / total_nodes) * 5
-            health_score = max(0.0, min(100.0, health_score))
-
-        return {
-            "node_count": total_nodes,
-            "edge_count": len(self.edges),
-            "state_distribution": state_counts,
-            "type_distribution": type_counts,
-            "edge_type_distribution": edge_type_counts,
-            "health_score": round(health_score, 2),
-            "metrics": {
-                "healthy_percentage": round((healthy_nodes / total_nodes * 100), 2)
-                if total_nodes > 0
-                else 0,
-                "unused_percentage": round((unused_nodes / total_nodes * 100), 2)
-                if total_nodes > 0
-                else 0,
-                "warning_percentage": round((warning_nodes / total_nodes * 100), 2)
-                if total_nodes > 0
-                else 0,
-            },
-        }
-
-    def _add_node(
-        self,
-        label: str,
-        node_type: NodeType,
-        subtype: str,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> GraphNode:
-        """
-        Add a node to the graph.
-
-        Args:
-            label: Unique identifier for the node
-            node_type: Type of the node
-            subtype: Specific subtype (e.g., resource type)
-            details: Additional node metadata
-
-        Returns:
-            The created GraphNode
-        """
-        node = GraphNode(
-            id=self.next_node_id,
-            label=label,
-            type=node_type,
-            subtype=subtype,
-            state=NodeState.HEALTHY,  # Will be calculated later
-            state_reason="Pending calculation",
-            details=details or {},
-        )
-
-        self.nodes.append(node)
-        self.node_map[label] = self.next_node_id
-        self.next_node_id += 1
-
-        return node
+                    self._add_edge(source_id, target_id, edge_type, strength)
 
     def _add_edge(
-        self, source: str, target: str, edge_type: EdgeType, strength: float
-    ) -> bool:
-        """
-        Add an edge between two nodes.
-
-        Args:
-            source: Source node label
-            target: Target node label
-            edge_type: Type of the edge
-            strength: Edge strength (0.0 to 1.0)
-
-        Returns:
-            True if edge was added, False if nodes don't exist
-        """
-        if source not in self.node_map or target not in self.node_map:
-            return False
-
-        source_id = self.node_map[source]
-        target_id = self.node_map[target]
-
+        self, source_id: int, target_id: int, edge_type: EdgeType, strength: float
+    ) -> None:
+        """Add an edge and update node connection counts."""
         edge = GraphEdge(
-            source=source_id, target=target_id, type=edge_type, strength=strength
+            source=source_id,
+            target=target_id,
+            type=edge_type,
+            strength=strength,
         )
 
         self.edges.append(edge)
 
-        # Update dependency counts
+        # Update connection counts
         self.nodes[source_id].dependencies_out += 1
         self.nodes[target_id].dependencies_in += 1
 
-        return True
-
-    def _get_provider_prefix(self, resource_type_str: str) -> str:
+    def _map_object_state_to_visual(
+        self, state: ObjectState, obj=None
+    ) -> GraphNodeState:
         """
-        Extracts the provider prefix (e.g., 'aws') from a resource type string.
+        Map enhanced semantic states to visual graph states.
 
-        Examples:
-            "aws_instance" -> "aws"
-            "tfe_workspace" -> "tfe"
-            "local_file" -> "local"
+        Now uses the comprehensive ObjectState enum directly for more accurate mapping.
+        """
+        try:
+            # Direct mapping since we now have comprehensive states
+            state_mapping = {
+                # Positive states
+                ObjectState.HEALTHY: GraphNodeState.HEALTHY,
+                ObjectState.ACTIVE: GraphNodeState.ACTIVE,
+                ObjectState.INTEGRATED: GraphNodeState.INTEGRATED,
+                ObjectState.INPUT: GraphNodeState.INPUT,
+                ObjectState.OUTPUT_INTERFACE: GraphNodeState.OUTPUT,
+                ObjectState.CONFIGURATION: GraphNodeState.CONFIGURATION,
+                ObjectState.EXTERNAL_DATA: GraphNodeState.EXTERNAL_DATA,
+                ObjectState.LEAF: GraphNodeState.LEAF,
+                ObjectState.HUB: GraphNodeState.HUB,
+                # Warning states
+                ObjectState.UNUSED: GraphNodeState.UNUSED,
+                ObjectState.ISOLATED: GraphNodeState.ISOLATED,
+                ObjectState.ORPHANED: GraphNodeState.ORPHANED,
+                ObjectState.UNDERUTILIZED: GraphNodeState.UNDERUTILIZED,
+                ObjectState.COMPLEX: GraphNodeState.COMPLEX,
+                # Error states
+                ObjectState.INCOMPLETE: GraphNodeState.INCOMPLETE,
+                ObjectState.BROKEN: GraphNodeState.BROKEN,
+                ObjectState.MISSING_DEPENDENCY: GraphNodeState.MISSING_DEPENDENCY,
+            }
 
-        Args:
-            resource_type_str: The full resource type string.
+            return state_mapping.get(state, GraphNodeState.ACTIVE)
+
+        except Exception:
+            return GraphNodeState.ACTIVE
+
+    def _get_state_metadata(self, state: GraphNodeState) -> Dict[str, Any]:
+        """
+        Get comprehensive metadata for each state including color, icon, severity.
 
         Returns:
-            The extracted prefix, or 'unknown' if input is invalid.
+            Dictionary with visualization and semantic information
         """
-        if not isinstance(resource_type_str, str) or not resource_type_str:
-            return "unknown"
+        metadata = {
+            # Positive states
+            GraphNodeState.HEALTHY: {
+                "color": "#10b981",
+                "severity": "success",
+                "icon": "check-circle",
+                "description": "Well-balanced and properly integrated",
+                "priority": 10,
+            },
+            GraphNodeState.ACTIVE: {
+                "color": "#22c55e",
+                "severity": "success",
+                "icon": "check",
+                "description": "Actively used in infrastructure",
+                "priority": 15,
+            },
+            GraphNodeState.INTEGRATED: {
+                "color": "#84cc16",
+                "severity": "success",
+                "icon": "link",
+                "description": "Connected with dependencies and dependents",
+                "priority": 20,
+            },
+            # Neutral/Informational states
+            GraphNodeState.INPUT: {
+                "color": "#3b82f6",
+                "severity": "info",
+                "icon": "arrow-down-circle",
+                "description": "Provides input to infrastructure",
+                "priority": 5,
+            },
+            GraphNodeState.OUTPUT: {
+                "color": "#06b6d4",
+                "severity": "info",
+                "icon": "arrow-up-circle",
+                "description": "Exports values externally",
+                "priority": 5,
+            },
+            GraphNodeState.CONFIGURATION: {
+                "color": "#8b5cf6",
+                "severity": "info",
+                "icon": "settings",
+                "description": "System configuration",
+                "priority": 5,
+            },
+            GraphNodeState.EXTERNAL_DATA: {
+                "color": "#a855f7",
+                "severity": "info",
+                "icon": "database",
+                "description": "External data source",
+                "priority": 5,
+            },
+            GraphNodeState.LEAF: {
+                "color": "#06b6d4",
+                "severity": "info",
+                "icon": "file",
+                "description": "Terminal node with no dependencies",
+                "priority": 8,
+            },
+            GraphNodeState.HUB: {
+                "color": "#0ea5e9",
+                "severity": "info",
+                "icon": "share-2",
+                "description": "Highly connected hub node",
+                "priority": 12,
+            },
+            # Warning states
+            GraphNodeState.UNUSED: {
+                "color": "#f59e0b",
+                "severity": "warning",
+                "icon": "alert-circle",
+                "description": "Declared but never used",
+                "priority": 60,
+            },
+            GraphNodeState.ISOLATED: {
+                "color": "#f97316",
+                "severity": "warning",
+                "icon": "alert-triangle",
+                "description": "No connections to infrastructure",
+                "priority": 65,
+            },
+            GraphNodeState.ORPHANED: {
+                "color": "#fb923c",
+                "severity": "warning",
+                "icon": "git-branch",
+                "description": "Has dependencies but not used",
+                "priority": 70,
+            },
+            GraphNodeState.UNDERUTILIZED: {
+                "color": "#fdba74",
+                "severity": "warning",
+                "icon": "trending-down",
+                "description": "Complex but minimally used",
+                "priority": 55,
+            },
+            GraphNodeState.COMPLEX: {
+                "color": "#fb923c",
+                "severity": "warning",
+                "icon": "git-merge",
+                "description": "High complexity, hard to maintain",
+                "priority": 75,
+            },
+            # Error states
+            GraphNodeState.INCOMPLETE: {
+                "color": "#ef4444",
+                "severity": "error",
+                "icon": "x-circle",
+                "description": "Missing required configuration",
+                "priority": 90,
+            },
+            GraphNodeState.BROKEN: {
+                "color": "#dc2626",
+                "severity": "error",
+                "icon": "alert-octagon",
+                "description": "Critical issues detected",
+                "priority": 100,
+            },
+            GraphNodeState.MISSING_DEPENDENCY: {
+                "color": "#b91c1c",
+                "severity": "error",
+                "icon": "link-off",
+                "description": "References undefined objects",
+                "priority": 95,
+            },
+        }
 
-        parts = resource_type_str.split("_")
-        if parts:
-            return parts[0]
+        return metadata.get(
+            state,
+            {
+                "color": "#6b7280",
+                "severity": "unknown",
+                "icon": "help-circle",
+                "description": "Unknown state",
+                "priority": 50,
+            },
+        )
 
-        return "unknown"
+    def _determine_subtype(self, obj) -> str:
+        """Determine the subtype for display purposes."""
+        # For resources and data sources, use the resource_type
+        if obj.resource_type:
+            return obj.resource_type
 
-    def _format_tf_type_string(self, type_str: str, indent_level: int = 0) -> str:
-        """Recursively formats a Terraform type string for readability."""
+        # For variables, format the type nicely
+        if obj.type == ResourceType.VARIABLE and obj.variable_type:
+            return self._format_terraform_type(obj.variable_type)
+
+        # For providers, use the provider name
+        if obj.provider_info:
+            return obj.provider_info.provider_name
+
+        # For modules, extract from source if available
+        if obj.type == ResourceType.MODULE and obj.source:
+            # Extract last part of source path
+            source_parts = obj.source.split("/")
+            return source_parts[-1] if source_parts else "module"
+
+        # Default to type name
+        return obj.type.value
+
+    def _format_terraform_type(self, type_str: str, indent_level: int = 0) -> str:
+        """
+        Format Terraform type strings for readable display.
+
+        Handles complex types like object(), list(), map() with proper formatting.
+        """
         if not isinstance(type_str, str):
             type_str = str(type_str)
 
-        indent = "  " * indent_level
-        next_indent = "  " * (indent_level + 1)
-
-        # 1. Clean up wrappers
-        original_str = type_str
+        # Remove wrapper syntax
         if type_str.startswith("${") and type_str.endswith("}"):
             type_str = type_str[2:-1]
         if type_str.startswith('"') and type_str.endswith('"'):
             type_str = type_str[1:-1]
-        # Handle potential double-wrapping
-        if type_str.startswith("${") and type_str.endswith("}"):
-            type_str = type_str[2:-1]
 
-        # 2. Check type
+        indent = "  " * indent_level
+        next_indent = "  " * (indent_level + 1)
+
+        # Handle object types
         if type_str.startswith("object({"):
-            body_str = type_str[len("object(") : -1]  # get {...}
-            if body_str == "{}":
+            body = type_str[len("object(") : -1]
+            if body == "{}":
                 return "object({})"
 
             try:
-                # Use ast.literal_eval for safe parsing of the dict string
-                body_dict = ast.literal_eval(body_str)
+                body_dict = ast.literal_eval(body)
                 parts = []
-                for k, v in body_dict.items():
-                    # Recursively format the value
-                    formatted_v = self._format_tf_type_string(v, indent_level + 1)
-                    parts.append(f"{next_indent}{k}: {formatted_v}")
-                return f"object(\n" + ",\n".join(parts) + f"\n{indent})"
+                for key, value in body_dict.items():
+                    formatted_value = self._format_terraform_type(
+                        value, indent_level + 1
+                    )
+                    parts.append(f"{next_indent}{key}: {formatted_value}")
+                return "object(\n" + ",\n".join(parts) + f"\n{indent})"
             except (ValueError, SyntaxError, TypeError):
-                # Fallback for unparseable strings (e.g., "any")
-                return original_str.replace('"', "")
+                return type_str.replace('"', "")
 
+        # Handle list types
         elif type_str.startswith("list("):
             inner = type_str[len("list(") : -1]
-            formatted_inner = self._format_tf_type_string(inner, indent_level + 1)
-            # Add newlines if the inner type is complex (is multi-line)
+            formatted_inner = self._format_terraform_type(inner, indent_level + 1)
             if "\n" in formatted_inner:
                 return f"list(\n{formatted_inner}\n{indent})"
-            else:
-                return f"list({formatted_inner})"
+            return f"list({formatted_inner})"
 
+        # Handle map types
         elif type_str.startswith("map("):
             inner = type_str[len("map(") : -1]
-            formatted_inner = self._format_tf_type_string(inner, indent_level + 1)
-            # Add newlines if the inner type is complex (is multi-line)
+            formatted_inner = self._format_terraform_type(inner, indent_level + 1)
             if "\n" in formatted_inner:
                 return f"map(\n{formatted_inner}\n{indent})"
-            else:
-                return f"map({formatted_inner})"
+            return f"map({formatted_inner})"
+
+        # Handle set types
+        elif type_str.startswith("set("):
+            inner = type_str[len("set(") : -1]
+            formatted_inner = self._format_terraform_type(inner, indent_level + 1)
+            if "\n" in formatted_inner:
+                return f"set(\n{formatted_inner}\n{indent})"
+            return f"set({formatted_inner})"
 
         # Primitive type
-        return type_str.replace('"', "")  # "string" -> string
+        return type_str.replace('"', "")
 
-    def _extract_type_value(self, type_obj: Any) -> str:
-        """
-        Extract string value from a type object.
+    def _generate_statistics(self, project: TerraformProject) -> Dict[str, Any]:
+        """Generate comprehensive graph statistics."""
+        # Get project statistics
+        proj_stats = project.compute_statistics()
 
-        Args:
-            type_obj: Type object (could be Enum, string, etc.)
+        # Count graph-specific metrics
+        node_state_counts = {}
+        for node in self.nodes:
+            state = node.state.value
+            node_state_counts[state] = node_state_counts.get(state, 0) + 1
 
-        Returns:
-            String representation of the type
-        """
-        if type_obj is None:
-            return "unknown"
+        edge_type_counts = {}
+        for edge in self.edges:
+            edge_type = edge.type.value
+            edge_type_counts[edge_type] = edge_type_counts.get(edge_type, 0) + 1
 
-        if hasattr(type_obj, "value"):
-            return str(type_obj.value)
+        # Calculate connectivity metrics
+        avg_deps_out = (
+            sum(n.dependencies_out for n in self.nodes) / len(self.nodes)
+            if self.nodes
+            else 0
+        )
+        avg_deps_in = (
+            sum(n.dependencies_in for n in self.nodes) / len(self.nodes)
+            if self.nodes
+            else 0
+        )
 
-        if hasattr(type_obj, "name"):
-            return str(type_obj.name)
+        # Find highly connected nodes (hubs)
+        sorted_by_in = sorted(self.nodes, key=lambda n: n.dependencies_in, reverse=True)
+        sorted_by_out = sorted(
+            self.nodes, key=lambda n: n.dependencies_out, reverse=True
+        )
 
-        return str(type_obj)
+        hubs = []
+        for node in sorted_by_in[:5]:  # Top 5 most depended-upon
+            if node.dependencies_in > 0:
+                hubs.append(
+                    {
+                        "name": node.label,
+                        "type": node.type,
+                        "used_by": node.dependencies_in,
+                    }
+                )
 
-    def _sanitize_details(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Sanitize node details to include only serializable data.
+        complex_nodes = []
+        for node in sorted_by_out[:5]:  # Top 5 most dependent
+            if node.dependencies_out > 0:
+                complex_nodes.append(
+                    {
+                        "name": node.label,
+                        "type": node.type,
+                        "depends_on": node.dependencies_out,
+                    }
+                )
 
-        Args:
-            data: Raw data dictionary
+        # Calculate health metrics by grouping states by severity
+        # Positive states
+        healthy_states = [
+            GraphNodeState.HEALTHY.value,
+            GraphNodeState.ACTIVE.value,
+            GraphNodeState.INTEGRATED.value,
+        ]
+        healthy_count = sum(node_state_counts.get(s, 0) for s in healthy_states)
 
-        Returns:
-            Sanitized dictionary with safe values
-        """
-        safe_keys = {
-            "name",
-            "resource_type",
-            "provider",
-            "source",
-            "file_path",
-            "line_number",
-            "description",
-            "variable_type",
-            "sensitive",
-            "alias",
-            "location",
-            "state",
-            "state_reason",
-            "default_value",
-            "attributes",
+        # Neutral states
+        neutral_states = [
+            GraphNodeState.INPUT.value,
+            GraphNodeState.OUTPUT.value,
+            GraphNodeState.CONFIGURATION.value,
+            GraphNodeState.EXTERNAL_DATA.value,
+            GraphNodeState.LEAF.value,
+            GraphNodeState.HUB.value,
+        ]
+        neutral_count = sum(node_state_counts.get(s, 0) for s in neutral_states)
+
+        # Warning states
+        warning_states = [
+            GraphNodeState.UNUSED.value,
+            GraphNodeState.ISOLATED.value,
+            GraphNodeState.ORPHANED.value,
+            GraphNodeState.UNDERUTILIZED.value,
+            GraphNodeState.COMPLEX.value,
+        ]
+        warning_count = sum(node_state_counts.get(s, 0) for s in warning_states)
+
+        # Error states
+        error_states = [
+            GraphNodeState.INCOMPLETE.value,
+            GraphNodeState.BROKEN.value,
+            GraphNodeState.MISSING_DEPENDENCY.value,
+        ]
+        error_count = sum(node_state_counts.get(s, 0) for s in error_states)
+
+        total_nodes = len(self.nodes)
+        graph_health = 0.0
+        if total_nodes > 0:
+            # Health score calculation
+            # Base: healthy nodes contribute positively
+            graph_health = (healthy_count / total_nodes) * 100
+            # Neutral nodes are okay but don't add to health
+            # Warnings reduce health moderately
+            graph_health -= (warning_count / total_nodes) * 15
+            # Errors reduce health significantly
+            graph_health -= (error_count / total_nodes) * 30
+            graph_health = max(0.0, min(100.0, graph_health))
+
+        return {
+            "graph": {
+                "node_count": len(self.nodes),
+                "edge_count": len(self.edges),
+                "node_states": node_state_counts,
+                "edge_types": edge_type_counts,
+                "graph_health_score": round(graph_health, 2),
+                "severity_counts": {
+                    "healthy": healthy_count,
+                    "neutral": neutral_count,
+                    "warning": warning_count,
+                    "error": error_count,
+                },
+            },
+            "connectivity": {
+                "avg_dependencies_out": round(avg_deps_out, 2),
+                "avg_dependencies_in": round(avg_deps_in, 2),
+                "most_used_nodes": hubs,
+                "most_complex_nodes": complex_nodes,
+            },
+            "project": proj_stats.to_dict(),
         }
 
-        sanitized = {}
-        for key in safe_keys:
-            if key in data:
-                value = data[key]
-                # Convert Enum to string
-                if hasattr(value, "value"):
-                    sanitized[key] = value.value
-                elif hasattr(value, "name"):
-                    sanitized[key] = value.name
-                else:
-                    sanitized[key] = value
 
-        if "location" in data and isinstance(data["location"], dict):
-            sanitized["file_path"] = data["location"].get("file_path")
-            sanitized["line_number"] = data["location"].get("line_number")
+class GraphLayoutCalculator:
+    """
+    Calculate layout positions for graph visualization.
 
-        return sanitized
+    Provides force-directed and hierarchical layout algorithms.
+    """
+
+    @staticmethod
+    def calculate_force_layout(
+        nodes: List[GraphNode],
+        edges: List[GraphEdge],
+        width: int = 1000,
+        height: int = 800,
+    ) -> Dict[int, Dict[str, float]]:
+        """
+        Calculate force-directed layout positions.
+
+        Simple implementation - for production use a library like networkx.
+
+        Returns:
+            Dictionary mapping node_id to {"x": float, "y": float}
+        """
+        import math
+        import random
+
+        # Initialize random positions
+        positions = {}
+        for node in nodes:
+            positions[node.id] = {
+                "x": random.uniform(50, width - 50),
+                "y": random.uniform(50, height - 50),
+            }
+
+        # Simple force-directed algorithm
+        iterations = 100
+        k = math.sqrt((width * height) / len(nodes))  # Optimal distance
+
+        for _ in range(iterations):
+            # Repulsive forces between all nodes
+            forces = {node.id: {"x": 0, "y": 0} for node in nodes}
+
+            for i, node1 in enumerate(nodes):
+                for node2 in nodes[i + 1 :]:
+                    pos1 = positions[node1.id]
+                    pos2 = positions[node2.id]
+
+                    dx = pos1["x"] - pos2["x"]
+                    dy = pos1["y"] - pos2["y"]
+                    distance = math.sqrt(dx**2 + dy**2) or 1
+
+                    # Repulsive force
+                    force = k**2 / distance
+                    fx = (dx / distance) * force
+                    fy = (dy / distance) * force
+
+                    forces[node1.id]["x"] += fx
+                    forces[node1.id]["y"] += fy
+                    forces[node2.id]["x"] -= fx
+                    forces[node2.id]["y"] -= fy
+
+            # Attractive forces along edges
+            for edge in edges:
+                pos_source = positions[edge.source]
+                pos_target = positions[edge.target]
+
+                dx = pos_target["x"] - pos_source["x"]
+                dy = pos_target["y"] - pos_source["y"]
+                distance = math.sqrt(dx**2 + dy**2) or 1
+
+                # Attractive force
+                force = distance**2 / k
+                fx = (dx / distance) * force * edge.strength
+                fy = (dy / distance) * force * edge.strength
+
+                forces[edge.source]["x"] += fx
+                forces[edge.source]["y"] += fy
+                forces[edge.target]["x"] -= fx
+                forces[edge.target]["y"] -= fy
+
+            # Apply forces
+            for node in nodes:
+                positions[node.id]["x"] += forces[node.id]["x"] * 0.1
+                positions[node.id]["y"] += forces[node.id]["y"] * 0.1
+
+                # Keep within bounds
+                positions[node.id]["x"] = max(
+                    50, min(width - 50, positions[node.id]["x"])
+                )
+                positions[node.id]["y"] = max(
+                    50, min(height - 50, positions[node.id]["y"])
+                )
+
+        return positions
+
+    @staticmethod
+    def calculate_hierarchical_layout(
+        nodes: List[GraphNode],
+        edges: List[GraphEdge],
+        width: int = 1000,
+        height: int = 800,
+    ) -> Dict[int, Dict[str, float]]:
+        """
+        Calculate hierarchical (layered) layout positions.
+
+        Places nodes in layers based on dependency depth.
+
+        Returns:
+            Dictionary mapping node_id to {"x": float, "y": float}
+        """
+        # Build adjacency list
+        adj = {node.id: [] for node in nodes}
+        in_degree = {node.id: 0 for node in nodes}
+
+        for edge in edges:
+            adj[edge.source].append(edge.target)
+            in_degree[edge.target] += 1
+
+        # Topological sort with layer assignment
+        layers = []
+        current_layer = [node.id for node in nodes if in_degree[node.id] == 0]
+
+        while current_layer:
+            layers.append(current_layer)
+            next_layer = []
+
+            for node_id in current_layer:
+                for neighbor in adj[node_id]:
+                    in_degree[neighbor] -= 1
+                    if in_degree[neighbor] == 0:
+                        next_layer.append(neighbor)
+
+            current_layer = next_layer
+
+        # Handle cycles (nodes with non-zero in-degree)
+        remaining = [node.id for node in nodes if in_degree[node.id] > 0]
+        if remaining:
+            layers.append(remaining)
+
+        # Calculate positions
+        positions = {}
+        layer_height = height / (len(layers) + 1)
+
+        for layer_idx, layer in enumerate(layers):
+            y = layer_height * (layer_idx + 1)
+            layer_width = width / (len(layer) + 1)
+
+            for node_idx, node_id in enumerate(layer):
+                x = layer_width * (node_idx + 1)
+                positions[node_id] = {"x": x, "y": y}
+
+        return positions
+
+
+def create_graph_from_project(
+    project: TerraformProject,
+    layout: str = "force",
+    width: int = 1000,
+    height: int = 800,
+) -> Dict[str, Any]:
+    """
+    Convenience function to create a complete graph with layout.
+
+    Args:
+        project: TerraformProject instance
+        layout: "force" or "hierarchical"
+        width: Canvas width
+        height: Canvas height
+
+    Returns:
+        Complete graph data with nodes, edges, positions, and statistics
+    """
+    builder = TerraformGraphBuilder()
+    graph_data = builder.build_graph(project)
+
+    # Calculate layout
+    calculator = GraphLayoutCalculator()
+    if layout == "hierarchical":
+        positions = calculator.calculate_hierarchical_layout(
+            builder.nodes, builder.edges, width, height
+        )
+    else:
+        positions = calculator.calculate_force_layout(
+            builder.nodes, builder.edges, width, height
+        )
+
+    # Add positions to nodes
+    for node_dict in graph_data["nodes"]:
+        node_id = node_dict["id"]
+        if node_id in positions:
+            node_dict["x"] = positions[node_id]["x"]
+            node_dict["y"] = positions[node_id]["y"]
+
+    return graph_data

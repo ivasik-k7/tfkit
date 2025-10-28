@@ -69,6 +69,8 @@ class GraphTemplate(BaseTemplate):
                     inset 0 1px 0 {{ colors.accent }}20;
                 z-index: 1000;
                 min-width: 260px;
+                max-height: calc(100vh - 40px);
+                overflow-y: auto;
                 font-family: 'Exo 2', sans-serif;
             }
 
@@ -175,35 +177,91 @@ class GraphTemplate(BaseTemplate):
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             }
             
+            /* Enhanced state styles for all 17 states */
             .state-healthy { 
-                background: linear-gradient(135deg, {{ colors.success }}20, {{ colors.success }}10); 
-                color: {{ colors.success }}; 
-                border-color: {{ colors.success }}40; 
+                background: linear-gradient(135deg, #10b98120, #10b98110); 
+                color: #10b981; 
+                border-color: #10b98140; 
             }
-            .state-unused { 
-                background: linear-gradient(135deg, {{ colors.danger }}20, {{ colors.danger }}10); 
-                color: {{ colors.danger }}; 
-                border-color: {{ colors.danger }}40; 
+            .state-active { 
+                background: linear-gradient(135deg, #22c55e20, #22c55e10); 
+                color: #22c55e; 
+                border-color: #22c55e40; 
             }
-            .state-external { 
-                background: linear-gradient(135deg, {{ colors.info }}20, {{ colors.info }}10); 
-                color: {{ colors.info }}; 
-                border-color: {{ colors.info }}40; 
+            .state-integrated { 
+                background: linear-gradient(135deg, #84cc1620, #84cc1610); 
+                color: #84cc16; 
+                border-color: #84cc1640; 
+            }
+            .state-input { 
+                background: linear-gradient(135deg, #3b82f620, #3b82f610); 
+                color: #3b82f6; 
+                border-color: #3b82f640; 
+            }
+            .state-output { 
+                background: linear-gradient(135deg, #06b6d420, #06b6d410); 
+                color: #06b6d4; 
+                border-color: #06b6d440; 
+            }
+            .state-configuration { 
+                background: linear-gradient(135deg, #8b5cf620, #8b5cf610); 
+                color: #8b5cf6; 
+                border-color: #8b5cf640; 
+            }
+            .state-external_data { 
+                background: linear-gradient(135deg, #a855f720, #a855f710); 
+                color: #a855f7; 
+                border-color: #a855f740; 
             }
             .state-leaf { 
-                background: linear-gradient(135deg, {{ colors.success }}20, {{ colors.success }}10); 
-                color: {{ colors.success }}; 
-                border-color: {{ colors.success }}40; 
+                background: linear-gradient(135deg, #06b6d420, #06b6d410); 
+                color: #06b6d4; 
+                border-color: #06b6d440; 
             }
-            .state-orphan { 
-                background: linear-gradient(135deg, {{ colors.warning }}20, {{ colors.warning }}10); 
-                color: {{ colors.warning }}; 
-                border-color: {{ colors.warning }}40; 
+            .state-hub { 
+                background: linear-gradient(135deg, #0ea5e920, #0ea5e910); 
+                color: #0ea5e9; 
+                border-color: #0ea5e940; 
             }
-            .state-warning { 
-                background: linear-gradient(135deg, {{ colors.warning }}20, {{ colors.warning }}10); 
-                color: {{ colors.warning }}; 
-                border-color: {{ colors.warning }}40; 
+            .state-unused { 
+                background: linear-gradient(135deg, #f59e0b20, #f59e0b10); 
+                color: #f59e0b; 
+                border-color: #f59e0b40; 
+            }
+            .state-isolated { 
+                background: linear-gradient(135deg, #f9731620, #f9731610); 
+                color: #f97316; 
+                border-color: #f9731640; 
+            }
+            .state-orphaned { 
+                background: linear-gradient(135deg, #fb923c20, #fb923c10); 
+                color: #fb923c; 
+                border-color: #fb923c40; 
+            }
+            .state-underutilized { 
+                background: linear-gradient(135deg, #fdba7420, #fdba7410); 
+                color: #fdba74; 
+                border-color: #fdba7440; 
+            }
+            .state-complex { 
+                background: linear-gradient(135deg, #fb923c20, #fb923c10); 
+                color: #fb923c; 
+                border-color: #fb923c40; 
+            }
+            .state-incomplete { 
+                background: linear-gradient(135deg, #ef444420, #ef444410); 
+                color: #ef4444; 
+                border-color: #ef444440; 
+            }
+            .state-broken { 
+                background: linear-gradient(135deg, #dc262620, #dc262610); 
+                color: #dc2626; 
+                border-color: #dc262640; 
+            }
+            .state-missing_dependency { 
+                background: linear-gradient(135deg, #b91c1c20, #b91c1c10); 
+                color: #b91c1c; 
+                border-color: #b91c1c40; 
             }
             
             .controls {
@@ -302,6 +360,8 @@ class GraphTemplate(BaseTemplate):
                 box-shadow: 0 8px 32px rgba(0,0,0,0.3);
                 z-index: 1000;
                 min-width: 180px;
+                max-height: calc(100vh - 40px);
+                overflow-y: auto;
             }
             
             .legend-title { 
@@ -455,37 +515,24 @@ class GraphTemplate(BaseTemplate):
                 background: {{ colors.bg_primary }}20;
             }
 
-            /* Theme-specific state colors */
-            .node-state.healthy { 
-                color: {{ colors.success }};
-                border-color: {{ colors.success }}40;
-                background: {{ colors.success }}15;
-            }
-            .node-state.unused { 
-                color: {{ colors.danger }};
-                border-color: {{ colors.danger }}40;
-                background: {{ colors.danger }}15;
-            }
-            .node-state.external { 
-                color: {{ colors.info }};
-                border-color: {{ colors.info }}40;
-                background: {{ colors.info }}15;
-            }
-            .node-state.leaf { 
-                color: {{ colors.success }};
-                border-color: {{ colors.success }}40;
-                background: {{ colors.success }}15;
-            }
-            .node-state.orphan { 
-                color: {{ colors.warning }};
-                border-color: {{ colors.warning }}40;
-                background: {{ colors.warning }}15;
-            }
-            .node-state.warning { 
-                color: {{ colors.warning }};
-                border-color: {{ colors.warning }}40;
-                background: {{ colors.warning }}15;
-            }
+            /* Theme-specific state colors in tooltip */
+            .node-state.healthy { color: #10b981; border-color: #10b98140; background: #10b98115; }
+            .node-state.active { color: #22c55e; border-color: #22c55e40; background: #22c55e15; }
+            .node-state.integrated { color: #84cc16; border-color: #84cc1640; background: #84cc1615; }
+            .node-state.input { color: #3b82f6; border-color: #3b82f640; background: #3b82f615; }
+            .node-state.output { color: #06b6d4; border-color: #06b6d440; background: #06b6d415; }
+            .node-state.configuration { color: #8b5cf6; border-color: #8b5cf640; background: #8b5cf615; }
+            .node-state.external_data { color: #a855f7; border-color: #a855f740; background: #a855f715; }
+            .node-state.leaf { color: #06b6d4; border-color: #06b6d440; background: #06b6d415; }
+            .node-state.hub { color: #0ea5e9; border-color: #0ea5e940; background: #0ea5e915; }
+            .node-state.unused { color: #f59e0b; border-color: #f59e0b40; background: #f59e0b15; }
+            .node-state.isolated { color: #f97316; border-color: #f9731640; background: #f9731615; }
+            .node-state.orphaned { color: #fb923c; border-color: #fb923c40; background: #fb923c15; }
+            .node-state.underutilized { color: #fdba74; border-color: #fdba7440; background: #fdba7415; }
+            .node-state.complex { color: #fb923c; border-color: #fb923c40; background: #fb923c15; }
+            .node-state.incomplete { color: #ef4444; border-color: #ef444440; background: #ef444415; }
+            .node-state.broken { color: #dc2626; border-color: #dc262640; background: #dc262615; }
+            .node-state.missing_dependency { color: #b91c1c; border-color: #b91c1c40; background: #b91c1c15; }
                 
             .tooltip-stat {
                 display: flex;
@@ -630,17 +677,25 @@ class GraphTemplate(BaseTemplate):
             let animationTimer = null;
             let graphG; // Define graphG in global scope for animation functions
             
-            // Enhanced configuration
+            // Enhanced configuration for ALL 17 states
             const config = {
                 zoomSpeed: 0.2,
                 physics: {
                     charge: {
-                        healthy: -400, unused: -150, orphan: -100,
-                        warning: -200, external: -250, leaf: -180
+                        healthy: -400, active: -380, integrated: -360,
+                        input: -200, output: -200, configuration: -180,
+                        external_data: -250, leaf: -180, hub: -450,
+                        unused: -150, isolated: -120, orphaned: -100,
+                        underutilized: -220, complex: -300,
+                        incomplete: -180, broken: -250, missing_dependency: -200
                     },
                     link: {
-                        healthy: 120, unused: 60, orphan: 80,
-                        warning: 100, external: 140, leaf: 90
+                        healthy: 120, active: 115, integrated: 110,
+                        input: 80, output: 80, configuration: 70,
+                        external_data: 140, leaf: 90, hub: 150,
+                        unused: 60, isolated: 50, orphaned: 80,
+                        underutilized: 100, complex: 130,
+                        incomplete: 70, broken: 100, missing_dependency: 85
                     },
                     collision: {
                         base: 8, module: 12, resource: 10, multiplier: 0.8
@@ -650,25 +705,27 @@ class GraphTemplate(BaseTemplate):
                     }
                 },
                 animation: {
-                    particleInterval: 50, // More frequent particles
+                    particleInterval: 50,
                     transitionDuration: 300, 
                     hoverGlow: true
                 }
             };
             
-            // Calculate summary statistics
+            // Calculate summary statistics for ALL 17 states
             const summary = {
                 total_nodes: graphData.nodes.length,
                 total_edges: graphData.edges.length,
-                state_counts: {
-                    healthy: graphData.nodes.filter(n => n.state === 'healthy').length,
-                    unused: graphData.nodes.filter(n => n.state === 'unused').length,
-                    external: graphData.nodes.filter(n => n.state === 'external').length,
-                    leaf: graphData.nodes.filter(n => n.state === 'leaf').length,
-                    orphan: graphData.nodes.filter(n => n.state === 'orphan').length,
-                    warning: graphData.nodes.filter(n => n.state === 'warning').length
-                }
+                state_counts: {}
             };
+            
+            // Count all states dynamically - UPDATED for 17 states
+            const allStates = ['healthy', 'active', 'integrated', 'input', 'output', 'configuration',
+                             'external_data', 'leaf', 'hub', 'unused', 'isolated', 'orphaned',
+                             'underutilized', 'complex', 'incomplete', 'broken', 'missing_dependency'];
+            
+            allStates.forEach(state => {
+                summary.state_counts[state] = graphData.nodes.filter(n => n.state === state).length;
+            });
             
             function buildNodeGraph() {
                 const nodeMap = new Map();
@@ -714,9 +771,14 @@ class GraphTemplate(BaseTemplate):
                     }
                 }
                 
+                // Updated sorting for new states
                 const sortedNodes = [...graphData.nodes].sort((a, b) => {
-                    const statePriority = { healthy: 0, external: 1, leaf: 2, warning: 3, orphan: 4, unused: 5 };
-                    return (statePriority[a.state] || 6) - (statePriority[b.state] || 6);
+                    const statePriority = { 
+                        healthy: 0, active: 1, integrated: 2, input: 3, output: 4, configuration: 5,
+                        external_data: 6, leaf: 7, hub: 8, unused: 9, isolated: 10, orphaned: 11,
+                        underutilized: 12, complex: 13, incomplete: 14, broken: 15, missing_dependency: 16
+                    };
+                    return (statePriority[a.state] || 17) - (statePriority[b.state] || 17);
                 });
                 
                 sortedNodes.forEach(node => {
@@ -760,31 +822,75 @@ class GraphTemplate(BaseTemplate):
                 'terraform': { color: '{{ colors.accent }}', icon: '\\uf0e8' } // fa-sitemap for terraform
             };
             
-            // Enhanced state-based styling
+            // Enhanced state-based styling for ALL 17 states
             const stateConfig = {
                 'healthy': { 
-                    stroke: '{{ colors.success }}', glow: '{{ colors.success }}40',
+                    stroke: '#10b981', glow: '#10b98140',
                     charge: config.physics.charge.healthy, link: config.physics.link.healthy
                 },
-                'unused': { 
-                    stroke: '{{ colors.danger }}', glow: '{{ colors.danger }}40',
-                    charge: config.physics.charge.unused, link: config.physics.link.unused
+                'active': { 
+                    stroke: '#22c55e', glow: '#22c55e40',
+                    charge: config.physics.charge.active, link: config.physics.link.active
                 },
-                'external': { 
-                    stroke: '{{ colors.info }}', glow: '{{ colors.info }}40',
-                    charge: config.physics.charge.external, link: config.physics.link.external
+                'integrated': { 
+                    stroke: '#84cc16', glow: '#84cc1640',
+                    charge: config.physics.charge.integrated, link: config.physics.link.integrated
+                },
+                'input': { 
+                    stroke: '#3b82f6', glow: '#3b82f640',
+                    charge: config.physics.charge.input, link: config.physics.link.input
+                },
+                'output': { 
+                    stroke: '#06b6d4', glow: '#06b6d440',
+                    charge: config.physics.charge.output, link: config.physics.link.output
+                },
+                'configuration': { 
+                    stroke: '#8b5cf6', glow: '#8b5cf640',
+                    charge: config.physics.charge.configuration, link: config.physics.link.configuration
+                },
+                'external_data': { 
+                    stroke: '#a855f7', glow: '#a855f740',
+                    charge: config.physics.charge.external_data, link: config.physics.link.external_data
                 },
                 'leaf': { 
-                    stroke: '{{ colors.success }}', glow: '{{ colors.success }}40',
+                    stroke: '#06b6d4', glow: '#06b6d440',
                     charge: config.physics.charge.leaf, link: config.physics.link.leaf
                 },
-                'orphan': { 
-                    stroke: '{{ colors.warning }}', glow: '{{ colors.warning }}40',
-                    charge: config.physics.charge.orphan, link: config.physics.link.orphan
+                'hub': { 
+                    stroke: '#0ea5e9', glow: '#0ea5e940',
+                    charge: config.physics.charge.hub, link: config.physics.link.hub
                 },
-                'warning': { 
-                    stroke: '{{ colors.warning }}', glow: '{{ colors.warning }}40',
-                    charge: config.physics.charge.warning, link: config.physics.link.warning
+                'unused': { 
+                    stroke: '#f59e0b', glow: '#f59e0b40',
+                    charge: config.physics.charge.unused, link: config.physics.link.unused
+                },
+                'isolated': { 
+                    stroke: '#f97316', glow: '#f9731640',
+                    charge: config.physics.charge.isolated, link: config.physics.link.isolated
+                },
+                'orphaned': { 
+                    stroke: '#fb923c', glow: '#fb923c40',
+                    charge: config.physics.charge.orphaned, link: config.physics.link.orphaned
+                },
+                'underutilized': { 
+                    stroke: '#fdba74', glow: '#fdba7440',
+                    charge: config.physics.charge.underutilized, link: config.physics.link.underutilized
+                },
+                'complex': { 
+                    stroke: '#fb923c', glow: '#fb923c40',
+                    charge: config.physics.charge.complex, link: config.physics.link.complex
+                },
+                'incomplete': { 
+                    stroke: '#ef4444', glow: '#ef444440',
+                    charge: config.physics.charge.incomplete, link: config.physics.link.incomplete
+                },
+                'broken': { 
+                    stroke: '#dc2626', glow: '#dc262640',
+                    charge: config.physics.charge.broken, link: config.physics.link.broken
+                },
+                'missing_dependency': { 
+                    stroke: '#b91c1c', glow: '#b91c1c40',
+                    charge: config.physics.charge.missing_dependency, link: config.physics.link.missing_dependency
                 }
             };
 
@@ -892,12 +998,18 @@ class GraphTemplate(BaseTemplate):
                     )
                     .force('state_grouping', d3.forceY()
                         .strength(d => {
-                            const stateGroups = { healthy: 0, external: 0.1, leaf: -0.1, warning: 0.2, orphan: -0.2, unused: 0.3 };
+                            // Updated state grouping for new states
+                            const stateGroups = { 
+                                healthy: 0, active: 0.1, integrated: 0.2, input: -0.1, output: -0.2, 
+                                configuration: 0.3, external_data: -0.3, leaf: 0.4, hub: 0.5,
+                                unused: -0.4, isolated: -0.5, orphaned: -0.6, underutilized: 0.6,
+                                complex: 0.7, incomplete: -0.7, broken: -0.8, missing_dependency: -0.9
+                            };
                             return (stateGroups[d.state] || 0) * config.physics.force.stateGrouping;
                         })
                     )
                     .force('unused_attraction', d3.forceX()
-                        .strength(d => d.state === 'unused' ? config.physics.force.unusedAttraction : 0)
+                        .strength(d => ['unused', 'isolated', 'orphaned'].includes(d.state) ? config.physics.force.unusedAttraction : 0)
                         .x(width * 0.7)
                     )
                     .alphaDecay(0.0228)
@@ -1154,7 +1266,7 @@ class GraphTemplate(BaseTemplate):
 
                 const tooltip = document.getElementById('node-tooltip');
                 let content = `<div class="node-info-title">${d.label}</div>`;
-                content += `<div class="node-state state-${d.state}">${d.state.charAt(0).toUpperCase() + d.state.slice(1)}</div>`;
+                content += `<div class="node-state state-${d.state}">${d.state.charAt(0).toUpperCase() + d.state.slice(1).replace('_', ' ')}</div>`;
                 
                 // Enhanced tooltip content using details
                 const details = d.details || {};

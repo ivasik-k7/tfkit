@@ -1,5 +1,3 @@
-"""Advanced HTML report generator for Terraform analysis projects."""
-
 import json
 import tempfile
 from datetime import datetime
@@ -9,7 +7,7 @@ from typing import Optional
 from tfkit.analyzer.project import TerraformProject
 from tfkit.templates.template_factory import TemplateFactory
 from tfkit.templates.theme_manager import ThemeManager
-from tfkit.visualizer.graph_builder import TerraformGraphBuilder
+from tfkit.visualizer.graph_builder import GraphLayoutCalculator, TerraformGraphBuilder
 
 
 class ReportGenerator:
@@ -52,8 +50,22 @@ class ReportGenerator:
         report_layout = options.get("layout", self.default_layout)
 
         # --- 2. Data Transformation ---
-        project_data = json.loads(json.dumps(project.to_dict(), default=str))
-        visualization_data = self._graph_builder.build_graph(project_data)
+        graph_data = self._graph_builder.build_graph(project)
+
+        calculator = GraphLayoutCalculator()
+        positions = calculator.calculate_force_layout(
+            self._graph_builder.nodes,
+            self._graph_builder.edges,
+            width=1600,
+            height=600,
+        )
+
+        # Add positions to nodes
+        for node_dict in graph_data["nodes"]:
+            node_id = node_dict["id"]
+            if node_id in positions:
+                node_dict["x"] = positions[node_id]["x"]
+                node_dict["y"] = positions[node_id]["y"]
 
         # --- 3. Context & Rendering Setup ---
         template = TemplateFactory.create_template(report_layout)
@@ -71,14 +83,13 @@ class ReportGenerator:
                 "project_path",
                 str(project.source_path) if hasattr(project, "source_path") else ".",
             ),
-            "graph_data": json.dumps(visualization_data),
+            "graph_data": json.dumps(graph_data),
             "theme_name": report_theme,
             "theme_colors": ThemeManager.get_theme_colors(report_theme),
         }
 
         html_content = template.render(**report_context)
 
-        # --- 4. File Output ---
         output_file_path = self._determine_output_file(output_directory)
         with open(output_file_path, "w", encoding="utf-8") as f:
             f.write(html_content)
