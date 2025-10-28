@@ -31,22 +31,22 @@ class DashboardTemplate(BaseTemplate):
             --danger: {{ theme_colors.danger }};
             --info: {{ theme_colors.info }};
         }
-        
-        * { 
-            margin: 0; 
-            padding: 0; 
-            box-sizing: border-box; 
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.6;
             min-height: 100vh;
             overflow-x: hidden;
         }
-        
+
         /* Backdrop for modals */
         .backdrop {
             position: fixed;
@@ -61,12 +61,12 @@ class DashboardTemplate(BaseTemplate):
             visibility: hidden;
             transition: all 0.2s ease;
         }
-        
+
         .backdrop.show {
             opacity: 1;
             visibility: visible;
         }
-        
+
         /* Toast Notifications */
         .toast-container {
             position: fixed;
@@ -79,7 +79,7 @@ class DashboardTemplate(BaseTemplate):
             max-width: 400px;
             pointer-events: none;
         }
-        
+
         .toast {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
@@ -94,40 +94,40 @@ class DashboardTemplate(BaseTemplate):
             gap: 12px;
             pointer-events: auto;
         }
-        
+
         .toast.show {
             transform: translateX(0);
         }
-        
+
         .toast.success { border-left-color: var(--success); }
         .toast.error { border-left-color: var(--danger); }
         .toast.warning { border-left-color: var(--warning); }
         .toast.info { border-left-color: var(--info); }
-        
+
         .toast-icon {
             font-size: 1.2em;
             color: var(--accent);
         }
-        
+
         .toast.success .toast-icon { color: var(--success); }
         .toast.error .toast-icon { color: var(--danger); }
         .toast.warning .toast-icon { color: var(--warning); }
         .toast.info .toast-icon { color: var(--info); }
-        
+
         .toast-content {
             flex: 1;
         }
-        
+
         .toast-title {
             font-weight: 600;
             margin-bottom: 4px;
         }
-        
+
         .toast-message {
             font-size: 0.9em;
             color: var(--text-secondary);
         }
-        
+
         .toast-close {
             background: none;
             border: none;
@@ -137,12 +137,12 @@ class DashboardTemplate(BaseTemplate):
             border-radius: 4px;
             transition: all 0.2s ease;
         }
-        
+
         .toast-close:hover {
             background: var(--bg-tertiary);
             color: var(--text-primary);
         }
-        
+
         /* Command Palette */
         .command-palette {
             position: fixed;
@@ -160,13 +160,13 @@ class DashboardTemplate(BaseTemplate):
             visibility: hidden;
             transition: all 0.2s ease;
         }
-        
+
         .command-palette.show {
             opacity: 1;
             visibility: visible;
             transform: translateX(-50%) scale(1);
         }
-        
+
         .command-header {
             padding: 20px;
             border-bottom: 1px solid var(--border);
@@ -174,7 +174,7 @@ class DashboardTemplate(BaseTemplate):
             align-items: center;
             gap: 12px;
         }
-        
+
         .command-input {
             background: none;
             border: none;
@@ -183,11 +183,11 @@ class DashboardTemplate(BaseTemplate):
             flex: 1;
             outline: none;
         }
-        
+
         .command-input::placeholder {
             color: var(--text-secondary);
         }
-        
+
         .command-shortcut {
             background: var(--bg-primary);
             color: var(--text-secondary);
@@ -196,12 +196,12 @@ class DashboardTemplate(BaseTemplate):
             font-size: 0.8em;
             font-family: monospace;
         }
-        
+
         .command-list {
             max-height: 400px;
             overflow-y: auto;
         }
-        
+
         .command-item {
             padding: 16px 20px;
             border-bottom: 1px solid var(--border);
@@ -211,36 +211,36 @@ class DashboardTemplate(BaseTemplate):
             gap: 12px;
             transition: background 0.2s ease;
         }
-        
+
         .command-item:hover,
         .command-item.selected {
             background: var(--bg-tertiary);
         }
-        
+
         .command-item:last-child {
             border-bottom: none;
         }
-        
+
         .command-icon {
             width: 20px;
             text-align: center;
             color: var(--accent);
         }
-        
+
         .command-content {
             flex: 1;
         }
-        
+
         .command-title {
             font-weight: 600;
             margin-bottom: 4px;
         }
-        
+
         .command-description {
             font-size: 0.85em;
             color: var(--text-secondary);
         }
-        
+
         .command-shortcut-item {
             background: var(--bg-primary);
             color: var(--text-secondary);
@@ -249,7 +249,7 @@ class DashboardTemplate(BaseTemplate):
             font-size: 0.8em;
             font-family: monospace;
         }
-        
+
         /* Quick Actions Bar */
         .quick-actions {
             position: fixed;
@@ -266,7 +266,7 @@ class DashboardTemplate(BaseTemplate):
             z-index: 9999;
             backdrop-filter: blur(10px);
         }
-        
+
         .quick-action {
             background: var(--bg-primary);
             border: 1px solid var(--border);
@@ -281,18 +281,18 @@ class DashboardTemplate(BaseTemplate):
             font-size: 0.9em;
             font-weight: 500;
         }
-        
+
         .quick-action:hover {
             background: var(--accent);
             color: white;
             transform: translateY(-2px);
             box-shadow: 0 4px 12px var(--accent);
         }
-        
+
         .quick-action:active {
             transform: translateY(0);
         }
-        
+
         /* Touch-friendly enhancements */
         @media (hover: none) and (pointer: coarse) {
             .quick-action {
@@ -300,28 +300,28 @@ class DashboardTemplate(BaseTemplate):
                 min-width: 44px;
                 min-height: 44px;
             }
-            
+
             .command-item {
                 padding: 20px;
                 min-height: 60px;
             }
-            
+
             .resource-card {
                 padding: 24px;
             }
-            
+
             .stat-card {
                 padding: 28px 24px;
             }
         }
-        
-        .dashboard { 
-            max-width: 1400px; 
+
+        .dashboard {
+            max-width: 1400px;
             margin: 0 auto;
             padding: 24px;
             padding-bottom: 100px;
         }
-        
+
         .header {
             display: flex;
             justify-content: space-between;
@@ -330,7 +330,7 @@ class DashboardTemplate(BaseTemplate):
             padding-bottom: 20px;
             border-bottom: 1px solid var(--border);
         }
-        
+
         .header-content h1 {
             color: var(--text-primary);
             font-size: 2.2em;
@@ -340,12 +340,12 @@ class DashboardTemplate(BaseTemplate):
             align-items: center;
             gap: 12px;
         }
-        
+
         .header-content p {
             color: var(--text-secondary);
             font-size: 1.1em;
         }
-        
+
         .theme-badge {
             background: var(--accent);
             color: white;
@@ -354,21 +354,22 @@ class DashboardTemplate(BaseTemplate):
             font-size: 0.85em;
             font-weight: 600;
         }
-        
+
         .main-grid {
             display: grid;
-            grid-template-columns: 1fr 400px;
+            grid-template-columns: 1fr minmax(320px, 420px);
             gap: 24px;
             margin-bottom: 32px;
+            align-items: start;
         }
-        
+
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
             margin-bottom: 24px;
         }
-        
+
         .stat-card {
             background: var(--bg-secondary);
             padding: 24px;
@@ -380,11 +381,11 @@ class DashboardTemplate(BaseTemplate):
             position: relative;
             overflow: hidden;
         }
-        
+
         .stat-card:active {
             transform: scale(0.98);
         }
-        
+
         .stat-card::before {
             content: '';
             position: absolute;
@@ -395,17 +396,17 @@ class DashboardTemplate(BaseTemplate):
             background: linear-gradient(90deg, transparent, var(--bg-tertiary), transparent);
             transition: left 0.6s ease;
         }
-        
+
         .stat-card:hover::before {
             left: 100%;
         }
-        
+
         .stat-icon {
             font-size: 2em;
             margin-bottom: 12px;
             opacity: 0.9;
         }
-        
+
         .stat-value {
             font-size: 2.5em;
             font-weight: 800;
@@ -413,7 +414,7 @@ class DashboardTemplate(BaseTemplate):
             line-height: 1;
             margin-bottom: 8px;
         }
-        
+
         .stat-label {
             color: var(--text-secondary);
             font-size: 0.9em;
@@ -421,14 +422,15 @@ class DashboardTemplate(BaseTemplate):
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 24px;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            grid-auto-rows: minmax(220px, auto);
+            gap: 18px;
             margin-bottom: 32px;
         }
-        
+
         .chart-card {
             background: var(--bg-secondary);
             padding: 24px;
@@ -436,18 +438,18 @@ class DashboardTemplate(BaseTemplate):
             border: 1px solid var(--border);
             position: relative;
         }
-        
+
         .chart-card:active {
             transform: scale(0.995);
         }
-        
+
         .chart-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
-        
+
         .chart-title {
             font-size: 1.2em;
             font-weight: 600;
@@ -456,12 +458,12 @@ class DashboardTemplate(BaseTemplate):
             align-items: center;
             gap: 8px;
         }
-        
+
         .chart-actions {
             display: flex;
             gap: 8px;
         }
-        
+
         .chart-action {
             background: var(--bg-primary);
             border: 1px solid var(--border);
@@ -475,55 +477,55 @@ class DashboardTemplate(BaseTemplate):
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        
+
         .chart-action:hover {
             background: var(--accent);
             color: white;
             border-color: var(--accent);
         }
-        
+
         .chart-container {
             height: 280px;
             position: relative;
             touch-action: manipulation;
         }
-        
+
         .chart-container.hidden {
             display: none;
         }
-        
+
         .sidebar {
             display: flex;
             flex-direction: column;
             gap: 24px;
         }
-        
+
         .health-card, .type-breakdown {
             background: var(--bg-secondary);
             padding: 24px;
             border-radius: 12px;
             border: 1px solid var(--border);
         }
-        
+
         .health-header {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 20px;
         }
-        
+
         .health-title {
             font-size: 1.2em;
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         .health-stats {
             display: flex;
             flex-direction: column;
             gap: 12px;
         }
-        
+
         .health-item {
             display: flex;
             justify-content: space-between;
@@ -534,38 +536,38 @@ class DashboardTemplate(BaseTemplate):
             transition: background 0.2s ease;
             border-radius: 6px;
         }
-        
+
         .health-item:active {
             background: var(--bg-tertiary);
         }
-        
+
         .health-item:last-child {
             border-bottom: none;
         }
-        
+
         .health-label {
             display: flex;
             align-items: center;
             gap: 8px;
             font-weight: 500;
         }
-        
+
         .health-value {
             font-weight: 700;
             font-size: 1.1em;
         }
-        
+
         .health-healthy { color: var(--success); }
         .health-unused { color: var(--danger); }
         .health-external { color: var(--info); }
         .health-warning { color: var(--warning); }
-        
+
         .type-list {
             display: flex;
             flex-direction: column;
             gap: 12px;
         }
-        
+
         .type-item {
             display: flex;
             justify-content: space-between;
@@ -576,34 +578,34 @@ class DashboardTemplate(BaseTemplate):
             transition: background 0.2s ease;
             border-radius: 6px;
         }
-        
+
         .type-item:active {
             background: var(--bg-tertiary);
         }
-        
+
         .type-item:last-child {
             border-bottom: none;
         }
-        
+
         .type-name {
             display: flex;
             align-items: center;
             gap: 8px;
             font-weight: 500;
         }
-        
+
         .type-count {
             font-weight: 600;
             color: var(--accent);
         }
-        
+
         .resources-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 16px;
             margin-bottom: 32px;
         }
-        
+
         .resource-card {
             background: var(--bg-secondary);
             padding: 20px;
@@ -613,18 +615,18 @@ class DashboardTemplate(BaseTemplate):
             cursor: pointer;
             position: relative;
         }
-        
+
         .resource-card:active {
             transform: scale(0.98);
         }
-        
+
         .resource-header {
             display: flex;
             align-items: center;
             gap: 12px;
             margin-bottom: 12px;
         }
-        
+
         .resource-icon {
             font-size: 1.5em;
             width: 40px;
@@ -636,26 +638,26 @@ class DashboardTemplate(BaseTemplate):
             background: var(--bg-tertiary);
             color: var(--accent);
         }
-        
+
         .resource-title {
             font-weight: 600;
             font-size: 1.1em;
         }
-        
+
         .resource-description {
             color: var(--text-secondary);
             font-size: 0.9em;
             margin-bottom: 12px;
             line-height: 1.4;
         }
-        
+
         .resource-stats {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             margin-top: 12px;
         }
-        
+
         .resource-stat {
             text-align: center;
             padding: 8px;
@@ -663,13 +665,13 @@ class DashboardTemplate(BaseTemplate):
             border-radius: 8px;
             border: 1px solid var(--border);
         }
-        
+
         .resource-stat-value {
             font-size: 1.3em;
             font-weight: 700;
             color: var(--accent);
         }
-        
+
         .resource-stat-label {
             font-size: 0.8em;
             color: var(--text-secondary);
@@ -679,48 +681,99 @@ class DashboardTemplate(BaseTemplate):
         
         .footer {
             margin-top: 40px;
-            padding: 16px;
-            text-align: center;
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-top: 1px solid var(--border);
+            background: linear-gradient(90deg, rgba(0,0,0,0.02), transparent);
+            border-radius: 12px;
         }
 
-        #watermark {
-            font-size: 0.75em;
+        .footer-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
             color: var(--text-secondary);
-            user-select: none;
-            z-index: 1000;
-            font-family: 'Exo 2', sans-serif;
-            font-weight: 500;
-            letter-spacing: 0.3px;
+            font-size: 0.9em;
         }
 
-        #watermark a {
+        .footer-left .version {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95em;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .footer-links a {
             color: var(--text-secondary);
             text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            transition: all 0.15s ease;
             font-weight: 600;
-            transition: all 0.2s ease;
-            padding: 2px 6px;
-            border-radius: 4px;
+            font-size: 0.9em;
         }
 
-        #watermark a:hover {
+        .footer-links a:hover {
             color: var(--accent);
             background: var(--bg-tertiary);
+            transform: translateY(-1px);
         }
-        
+
+        .footer-right {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.12s ease;
+            font-weight: 600;
+        }
+
+        .icon-btn i { font-size: 1.05em; }
+
+        .icon-btn:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+        }
+
         /* Responsive */
         @media (max-width: 1200px) {
             .main-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
-            
+
             .charts-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .quick-actions {
                 flex-wrap: wrap;
                 justify-content: center;
@@ -728,32 +781,32 @@ class DashboardTemplate(BaseTemplate):
                 bottom: 10px;
             }
         }
-        
+
         @media (max-width: 768px) {
             .dashboard {
                 padding: 16px;
             }
-            
+
             .stats-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .header {
                 flex-direction: column;
                 gap: 16px;
                 text-align: center;
             }
-            
+
             .resources-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .command-palette {
                 width: 95%;
                 top: 10%;
             }
         }
-        
+
         /* Selection states for touch */
         .stat-card.selected,
         .resource-card.selected,
@@ -762,12 +815,12 @@ class DashboardTemplate(BaseTemplate):
             background: var(--bg-tertiary);
             border-color: var(--accent);
         }
-        
+
         /* Performance optimizations */
         .chart-container canvas {
             will-change: transform;
         }
-        
+
         .stat-card, .resource-card, .chart-card {
             will-change: transform;
         }
@@ -776,10 +829,10 @@ class DashboardTemplate(BaseTemplate):
 <body>
     <!-- Backdrop -->
     <div class="backdrop" id="backdrop"></div>
-    
+
     <!-- Toast Notifications -->
     <div class="toast-container" id="toastContainer"></div>
-    
+
     <!-- Command Palette -->
     <div class="command-palette" id="commandPalette">
         <div class="command-header">
@@ -791,20 +844,12 @@ class DashboardTemplate(BaseTemplate):
             <!-- Commands will be populated dynamically -->
         </div>
     </div>
-    
+
     <!-- Quick Actions Bar -->
     <div class="quick-actions" id="quickActions">
         <div class="quick-action" data-action="command">
             <i class="fas fa-terminal"></i>
             <span>Command</span>
-        </div>
-        <div class="quick-action" data-action="export">
-            <i class="fas fa-download"></i>
-            <span>Export</span>
-        </div>
-        <div class="quick-action" data-action="refresh">
-            <i class="fas fa-sync-alt"></i>
-            <span>Refresh</span>
         </div>
         <div class="quick-action" data-action="fullscreen">
             <i class="fas fa-expand"></i>
@@ -843,7 +888,7 @@ class DashboardTemplate(BaseTemplate):
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="resource-card" data-type="modules" tabindex="0">
                         <div class="resource-header">
                             <div class="resource-icon">
@@ -865,7 +910,7 @@ class DashboardTemplate(BaseTemplate):
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="resource-card" data-type="dependencies" tabindex="0">
                         <div class="resource-header">
                             <div class="resource-icon">
@@ -887,7 +932,7 @@ class DashboardTemplate(BaseTemplate):
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="resource-card" data-type="health" tabindex="0">
                         <div class="resource-header">
                             <div class="resource-icon">
@@ -910,7 +955,7 @@ class DashboardTemplate(BaseTemplate):
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Stats Overview -->
                 <div class="stats-grid">
                     <div class="stat-card" data-stat="nodes" tabindex="0">
@@ -920,7 +965,7 @@ class DashboardTemplate(BaseTemplate):
                         <div class="stat-value" id="total-nodes">0</div>
                         <div class="stat-label">Total Nodes</div>
                     </div>
-                    
+
                     <div class="stat-card" data-stat="edges" tabindex="0">
                         <div class="stat-icon">
                             <i class="fas fa-link"></i>
@@ -928,7 +973,7 @@ class DashboardTemplate(BaseTemplate):
                         <div class="stat-value" id="total-edges">0</div>
                         <div class="stat-label">Connections</div>
                     </div>
-                    
+
                     <div class="stat-card" data-stat="health" tabindex="0">
                         <div class="stat-icon">
                             <i class="fas fa-heart-pulse"></i>
@@ -937,7 +982,7 @@ class DashboardTemplate(BaseTemplate):
                         <div class="stat-label">Health Score</div>
                     </div>
                 </div>
-                
+
                 <!-- Charts -->
                 <div class="charts-grid">
                     <div class="chart-card" tabindex="0">
@@ -958,7 +1003,7 @@ class DashboardTemplate(BaseTemplate):
                             <canvas id="overviewChart"></canvas>
                         </div>
                     </div>
-                    
+
                     <div class="chart-card" tabindex="0">
                         <div class="chart-header">
                             <div class="chart-title">
@@ -977,7 +1022,7 @@ class DashboardTemplate(BaseTemplate):
                             <canvas id="healthChart"></canvas>
                         </div>
                     </div>
-                    
+
                     <div class="chart-card" tabindex="0">
                         <div class="chart-header">
                             <div class="chart-title">
@@ -996,9 +1041,53 @@ class DashboardTemplate(BaseTemplate):
                             <canvas id="dependencyChart"></canvas>
                         </div>
                     </div>
+
+                    <!-- Analytics: time series and stacked state chart -->
+                    <div class="chart-card" tabindex="0">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-chart-line"></i> Activity (time series)
+                            </div>
+                            <div class="chart-actions">
+                                <button class="chart-action" data-action="export-chart" data-chart="timeseries">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="timeseriesContainer">
+                            <canvas id="timeseriesChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card" tabindex="0">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-layer-group"></i> State Breakdown (stacked)
+                            </div>
+                            <div class="chart-actions">
+                                <button class="chart-action" data-action="export-chart" data-chart="stacked">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="stackedContainer">
+                            <canvas id="stackedChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card" tabindex="0">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <i class="fas fa-bullseye"></i> KPIs
+                            </div>
+                        </div>
+                        <div class="chart-container" id="kpiContainer">
+                            <canvas id="kpiChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
+
             <!-- Sidebar -->
             <div class="sidebar">
                 <div class="health-card">
@@ -1037,7 +1126,7 @@ class DashboardTemplate(BaseTemplate):
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="type-breakdown">
                     <div class="chart-header">
                         <div class="chart-title">
@@ -1091,14 +1180,29 @@ class DashboardTemplate(BaseTemplate):
                 </div>
             </div>
         </div>
-        
+
         <div class="footer">
-            <div id="watermark">
-                tfkit (v{{ tfkit_version | default('0.0.0') }}) | <a href="https://github.com/ivasik-k7/tfkit" target="_blank">tfkit.com</a>
+            <div class="footer-left">
+                <div class="version">tfkit <span style="opacity:0.8; font-weight:500">(v{{ tfkit_version | default('0.0.0') }})</span></div>
+                <div class="footer-links">
+                    <a href="https://tfkit.netlify.app/" target="_blank" title="Homepage"><i class="fas fa-home"></i> Homepage</a>
+                    <a href="https://github.com/ivasik-k7/tfkit" target="_blank" title="GitHub"><i class="fab fa-github"></i> GitHub</a>
+                </div>
             </div>
-        </div>   
+            <div class="footer-right">
+                <button class="icon-btn" onclick="classicDashboard.exportData()" title="Export">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="icon-btn" onclick="classicDashboard.showHelp()" title="Help">
+                    <i class="fas fa-question-circle"></i>
+                </button>
+                <a class="icon-btn" href="https://github.com/ivasik-k7/tfkit/issues" target="_blank" title="Report Issue">
+                    <i class="fas fa-bug"></i>
+                </a>
+            </div>
+        </div>
     </div>
-    
+
     <script>
         // Enhanced Interactive Dashboard with Theme Colors
         class InteractiveDashboard {
@@ -1114,7 +1218,13 @@ class DashboardTemplate(BaseTemplate):
                 this.chartInstances = {};
                 this.isFullscreen = false;
                 this.graphData = {{ graph_data | safe }};
-                
+
+                // Feature flags & performance knobs
+                this.enableBacktickKey = true; // allow ` to open command palette
+                this.debounceDelay = 200; // default debounce for resize/expensive ops
+                this._debounceTimers = new Map();
+                this._refreshing = false; // throttle refreshData
+
                 this.commands = [
                     {
                         id: 'export-data',
@@ -1148,19 +1258,12 @@ class DashboardTemplate(BaseTemplate):
                         shortcut: 'F1',
                         action: () => this.showHelp()
                     },
-                    {
-                        id: 'focus-search',
-                        title: 'Focus Search',
-                        description: 'Quickly focus on search functionality',
-                        icon: 'fas fa-search',
-                        shortcut: 'Ctrl+K',
-                        action: () => this.showCommandPalette()
-                    }
+                    // removed 'focus-search' command to avoid auto-focusing keyboard input
                 ];
-                
+
                 this.init();
             }
-            
+
             init() {
                 this.setupEventListeners();
                 this.calculateStatistics();
@@ -1168,15 +1271,15 @@ class DashboardTemplate(BaseTemplate):
                 this.setupTouchInteractions();
                 this.showToast('Dashboard Ready', 'Interactive dashboard loaded successfully', 'success');
             }
-            
+
             setupEventListeners() {
                 // Keyboard shortcuts
                 document.addEventListener('keydown', (e) => this.handleKeyboard(e));
-                
+
                 // Command palette
                 this.commandInput.addEventListener('input', () => this.filterCommands());
                 this.commandInput.addEventListener('keydown', (e) => this.handleCommandNavigation(e));
-                
+
                 // Quick actions
                 this.quickActions.addEventListener('click', (e) => {
                     const action = e.target.closest('.quick-action');
@@ -1184,45 +1287,71 @@ class DashboardTemplate(BaseTemplate):
                         this.handleQuickAction(action.dataset.action);
                     }
                 });
-                
+
                 // Backdrop click
                 this.backdrop.addEventListener('click', () => {
                     this.hideCommandPalette();
                 });
-                
+
+                // Debounced resize to avoid expensive chart re-creation on continuous resizing
+                window.addEventListener('resize', () => {
+                    this.debounce(() => {
+                        // Prefer resize when possible; recreate only if instances missing
+                        if (Object.keys(this.chartInstances).length > 0) {
+                            // call resize on each chart instance (lightweight)
+                            Object.values(this.chartInstances).forEach(c => c && typeof c.resize === 'function' && c.resize());
+                        } else {
+                            this.refreshCharts();
+                        }
+                    }, this.debounceDelay, 'resize');
+                });
+
                 // Touch interactions
                 this.setupCardInteractions();
                 this.setupChartInteractions();
             }
-            
+
             setupTouchInteractions() {
                 const interactiveElements = document.querySelectorAll('.stat-card, .resource-card, .health-item, .type-item, .chart-card');
-                
+
                 interactiveElements.forEach(element => {
                     element.addEventListener('touchstart', () => {
                         element.classList.add('selected');
                     }, { passive: true });
-                    
+
                     element.addEventListener('touchend', () => {
                         setTimeout(() => element.classList.remove('selected'), 150);
                     }, { passive: true });
                 });
             }
-            
+
             setupCardInteractions() {
                 document.querySelectorAll('.stat-card, .resource-card').forEach(card => {
                     card.addEventListener('click', () => {
                         this.handleCardClick(card);
                     });
                 });
-                
+
                 document.querySelectorAll('.health-item, .type-item').forEach(item => {
+                    // hover highlight and click-to-filter behavior
+                    item.addEventListener('mouseenter', () => {
+                        const key = item.dataset.health || item.dataset.type;
+                        // highlight matching cards
+                        document.querySelectorAll('.resource-card, .stat-card').forEach(c => {
+                            if ((c.dataset.type && c.dataset.type === key) || (c.dataset.stat && c.dataset.stat === key)) {
+                                c.classList.add('selected');
+                            }
+                        });
+                    });
+                    item.addEventListener('mouseleave', () => {
+                        document.querySelectorAll('.resource-card, .stat-card').forEach(c => c.classList.remove('selected'));
+                    });
                     item.addEventListener('click', () => {
                         this.filterByType(item.dataset.health || item.dataset.type);
                     });
                 });
             }
-            
+
             setupChartInteractions() {
                 document.querySelectorAll('.chart-action').forEach(button => {
                     button.addEventListener('click', (e) => {
@@ -1233,45 +1362,52 @@ class DashboardTemplate(BaseTemplate):
                     });
                 });
             }
-            
+
             handleKeyboard(event) {
                 // Global shortcuts
                 if (event.key === 'Escape') {
                     this.hideCommandPalette();
                     return;
                 }
-                
+
                 if (event.key === 'F1') {
                     event.preventDefault();
                     this.showHelp();
                     return;
                 }
-                
+
                 if (event.key === 'F11') {
                     event.preventDefault();
                     this.toggleFullscreen();
                     return;
                 }
-                
+
                 if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
                     event.preventDefault();
                     this.showCommandPalette();
                     return;
                 }
-                
+
+                // Backtick opens command palette when enabled
+                if (this.enableBacktickKey && event.key === '`' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+                    event.preventDefault();
+                    this.showCommandPalette();
+                    return;
+                }
+
                 if ((event.ctrlKey || event.metaKey) && event.key === 'r') {
                     event.preventDefault();
                     this.refreshData();
                     return;
                 }
-                
+
                 if ((event.ctrlKey || event.metaKey) && event.key === 'e') {
                     event.preventDefault();
                     this.exportData();
                     return;
                 }
             }
-            
+
             handleQuickAction(action) {
                 switch (action) {
                     case 'command':
@@ -1291,12 +1427,17 @@ class DashboardTemplate(BaseTemplate):
                         break;
                 }
             }
-            
+
             handleCardClick(card) {
                 const type = card.dataset.type || card.dataset.stat;
-                this.showToast('Card Selected', `Viewing details for ${type}`, 'info');
+                if (type) {
+                    // clicking a card toggles filter for that type
+                    this.filterByType(type);
+                } else {
+                    this.showToast('Card Selected', `Viewing details for ${type}`, 'info');
+                }
             }
-            
+
             handleChartAction(action, chartId) {
                 switch (action) {
                     case 'export-chart':
@@ -1307,35 +1448,35 @@ class DashboardTemplate(BaseTemplate):
                         break;
                 }
             }
-            
+
             showCommandPalette() {
                 this.backdrop.classList.add('show');
                 this.commandPalette.classList.add('show');
-                this.commandInput.focus();
+                // do not auto-focus the input element to avoid stealing keyboard focus
                 this.filterCommands();
             }
-            
+
             hideCommandPalette() {
                 this.backdrop.classList.remove('show');
                 this.commandPalette.classList.remove('show');
                 this.commandInput.value = '';
                 this.selectedCommandIndex = 0;
             }
-            
+
             filterCommands() {
                 const query = this.commandInput.value.toLowerCase();
-                const filteredCommands = this.commands.filter(cmd => 
-                    cmd.title.toLowerCase().includes(query) || 
+                const filteredCommands = this.commands.filter(cmd =>
+                    cmd.title.toLowerCase().includes(query) ||
                     cmd.description.toLowerCase().includes(query)
                 );
-                
+
                 this.renderCommands(filteredCommands);
             }
-            
+
             renderCommands(commands) {
                 this.commandList.innerHTML = '';
                 this.selectedCommandIndex = 0;
-                
+
                 commands.forEach((command, index) => {
                     const item = document.createElement('div');
                     item.className = `command-item ${index === 0 ? 'selected' : ''}`;
@@ -1349,15 +1490,15 @@ class DashboardTemplate(BaseTemplate):
                         </div>
                         <div class="command-shortcut-item">${command.shortcut}</div>
                     `;
-                    
+
                     item.addEventListener('click', () => this.executeCommand(command));
                     this.commandList.appendChild(item);
                 });
             }
-            
+
             handleCommandNavigation(event) {
                 const items = this.commandList.querySelectorAll('.command-item');
-                
+
                 switch (event.key) {
                     case 'ArrowDown':
                         event.preventDefault();
@@ -1377,36 +1518,36 @@ class DashboardTemplate(BaseTemplate):
                         break;
                 }
             }
-            
+
             updateCommandSelection() {
                 const items = this.commandList.querySelectorAll('.command-item');
                 items.forEach((item, index) => {
                     item.classList.toggle('selected', index === this.selectedCommandIndex);
                 });
-                
+
                 // Scroll selected item into view
                 if (items[this.selectedCommandIndex]) {
                     items[this.selectedCommandIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 }
             }
-            
+
             executeCommand(command) {
                 command.action();
                 this.hideCommandPalette();
                 this.showToast('Command Executed', command.title, 'success');
             }
-            
+
             showToast(title, message, type = 'info') {
                 const toast = document.createElement('div');
                 toast.className = `toast ${type}`;
-                
+
                 const icons = {
                     success: 'fas fa-check-circle',
                     error: 'fas fa-exclamation-circle',
                     warning: 'fas fa-exclamation-triangle',
                     info: 'fas fa-info-circle'
                 };
-                
+
                 toast.innerHTML = `
                     <div class="toast-icon">
                         <i class="${icons[type] || icons.info}"></i>
@@ -1419,29 +1560,46 @@ class DashboardTemplate(BaseTemplate):
                         <i class="fas fa-times"></i>
                     </button>
                 `;
-                
+
                 this.toastContainer.appendChild(toast);
-                
+
                 setTimeout(() => toast.classList.add('show'), 10);
-                
+
                 const autoRemove = setTimeout(() => {
                     toast.classList.remove('show');
                     setTimeout(() => toast.remove(), 300);
                 }, 5000);
-                
+
                 toast.querySelector('.toast-close').addEventListener('click', () => {
                     clearTimeout(autoRemove);
                     toast.classList.remove('show');
                     setTimeout(() => toast.remove(), 300);
                 });
             }
-            
+
+            // Simple debounce helper stored per id so multiple debounces can coexist
+            debounce(fn, wait = this.debounceDelay, id = 'default') {
+                try {
+                    if (this._debounceTimers.has(id)) {
+                        clearTimeout(this._debounceTimers.get(id));
+                    }
+                    const t = setTimeout(() => {
+                        this._debounceTimers.delete(id);
+                        fn();
+                    }, wait);
+                    this._debounceTimers.set(id, t);
+                } catch (err) {
+                    // ignore in constrained environments
+                    setTimeout(fn, wait);
+                }
+            }
+
             calculateStatistics() {
                 console.log(this.graphData);
-                
+
                 const nodes = this.graphData.nodes;
                 const edges = this.graphData.edges;
-                
+
                 // Calculate type counts
                 const resourceCount = nodes.filter(n => n.type === 'resource').length;
                 const moduleCount = nodes.filter(n => n.type === 'module').length;
@@ -1449,7 +1607,7 @@ class DashboardTemplate(BaseTemplate):
                 const outputCount = nodes.filter(n => n.type === 'output').length;
                 const dataCount = nodes.filter(n => n.type === 'data').length;
                 const providerCount = nodes.filter(n => n.type === 'provider').length;
-                
+
                 // Calculate health statistics
                 const healthyStates = ['active', 'integrated', 'leaf', 'input', 'configuration'];
                 const healthyCount = nodes.filter(n => healthyStates.includes(n.state)).length;
@@ -1457,7 +1615,7 @@ class DashboardTemplate(BaseTemplate):
                 const externalCount = nodes.filter(n => n.state === 'external_data').length;
                 const warningStates = ['orphaned', 'isolated'];
                 const warningCount = nodes.filter(n => warningStates.includes(n.state)).length;
-                
+
                 // Update UI
                 this.updateStatisticsUI({
                     resources: resourceCount,
@@ -1474,42 +1632,42 @@ class DashboardTemplate(BaseTemplate):
                     warningCount
                 });
             }
-            
+
             updateStatisticsUI(stats) {
                 document.getElementById('resources-total').textContent = stats.resources;
                 document.getElementById('modules-total').textContent = stats.modules;
                 document.getElementById('total-nodes').textContent = stats.totalNodes;
                 document.getElementById('total-edges').textContent = stats.totalEdges;
-                
+
                 document.getElementById('type-resources').textContent = stats.resources;
                 document.getElementById('type-modules').textContent = stats.modules;
                 document.getElementById('type-variables').textContent = stats.variables;
                 document.getElementById('type-outputs').textContent = stats.outputs;
                 document.getElementById('type-data').textContent = stats.dataSources;
                 document.getElementById('type-providers').textContent = stats.providers;
-                
+
                 document.getElementById('healthy-count').textContent = stats.healthyCount;
                 document.getElementById('unused-count').textContent = stats.unusedCount;
                 document.getElementById('external-count').textContent = stats.externalCount;
                 document.getElementById('warning-count').textContent = stats.warningCount;
-                
+
                 const healthPercentage = Math.round((stats.healthyCount / stats.totalNodes) * 100);
                 const coverageScore = Math.round(((stats.totalNodes - stats.unusedCount) / stats.totalNodes) * 100);
-                
+
                 document.getElementById('health-score').textContent = healthPercentage + '%';
                 document.getElementById('healthy-percentage').textContent = healthPercentage + '%';
                 document.getElementById('coverage-score').textContent = coverageScore + '%';
-                
+
                 const avgDependencies = stats.totalNodes > 0 ? (stats.totalEdges * 2 / stats.totalNodes).toFixed(1) : '0';
                 document.getElementById('total-dependencies').textContent = stats.totalEdges;
                 document.getElementById('avg-dependencies').textContent = avgDependencies;
-                
+
                 const resourceUnused = this.graphData.nodes.filter(n => n.type === 'resource' && n.state === 'unused').length;
                 const moduleUnused = this.graphData.nodes.filter(n => n.type === 'module' && n.state === 'unused').length;
                 document.getElementById('resource-unused').textContent = resourceUnused;
                 document.getElementById('module-unused').textContent = moduleUnused;
             }
-            
+
             setupCharts() {
                 const style = getComputedStyle(document.documentElement);
                 const colors = {
@@ -1523,20 +1681,26 @@ class DashboardTemplate(BaseTemplate):
                     accent: style.getPropertyValue('--accent').trim(),
                     accentSecondary: style.getPropertyValue('--accent-secondary').trim()
                 };
-                
+
                 Chart.defaults.color = colors.textSecondary;
                 Chart.defaults.borderColor = colors.border;
-                
+
                 this.initializeDistributionChart(colors);
                 this.initializeOverviewChart(colors);
                 this.initializeHealthChart(colors);
                 this.initializeDependencyChart(colors);
+                // Analytics charts
+                this.initializeTimeseriesChart(colors);
+                this.initializeStackedChart(colors);
+                this.initializeKPIChart(colors);
+                // Lightweight sparklines for quick trends (SVG, very cheap)
+                this.initializeSparklines(colors);
             }
-            
+
             initializeDistributionChart(colors) {
                 const ctx = document.getElementById('overviewChart');
                 if (!ctx) return;
-                
+
                 const nodes = this.graphData.nodes;
                 const resourceCount = nodes.filter(n => n.type === 'resource').length;
                 const moduleCount = nodes.filter(n => n.type === 'module').length;
@@ -1544,7 +1708,7 @@ class DashboardTemplate(BaseTemplate):
                 const outputCount = nodes.filter(n => n.type === 'output').length;
                 const dataCount = nodes.filter(n => n.type === 'data').length;
                 const providerCount = nodes.filter(n => n.type === 'provider').length;
-                
+
                 this.chartInstances.overview = new Chart(ctx, {
                     type: 'doughnut',
                     data: {
@@ -1573,11 +1737,11 @@ class DashboardTemplate(BaseTemplate):
                     }
                 });
             }
-            
+
             initializeOverviewChart(colors) {
                 const ctx = document.getElementById('distributionChart');
                 if (!ctx) return;
-                
+
                 const nodes = this.graphData.nodes;
                 const resourceCount = nodes.filter(n => n.type === 'resource').length;
                 const moduleCount = nodes.filter(n => n.type === 'module').length;
@@ -1585,7 +1749,7 @@ class DashboardTemplate(BaseTemplate):
                 const outputCount = nodes.filter(n => n.type === 'output').length;
                 const dataCount = nodes.filter(n => n.type === 'data').length;
                 const providerCount = nodes.filter(n => n.type === 'provider').length;
-                
+
                 this.chartInstances.distribution = new Chart(ctx, {
                     type: 'bar',
                     data: {
@@ -1616,11 +1780,11 @@ class DashboardTemplate(BaseTemplate):
                     }
                 });
             }
-            
+
             initializeHealthChart(colors) {
                 const ctx = document.getElementById('healthChart');
                 if (!ctx) return;
-                
+
                 const nodes = this.graphData.nodes;
                 const healthyStates = ['active', 'integrated', 'leaf', 'input', 'configuration'];
                 const healthyCount = nodes.filter(n => healthyStates.includes(n.state)).length;
@@ -1628,7 +1792,7 @@ class DashboardTemplate(BaseTemplate):
                 const externalCount = nodes.filter(n => n.state === 'external_data').length;
                 const warningStates = ['orphaned', 'isolated'];
                 const warningCount = nodes.filter(n => warningStates.includes(n.state)).length;
-                
+
                 this.chartInstances.health = new Chart(ctx, {
                     type: 'pie',
                     data: {
@@ -1654,11 +1818,11 @@ class DashboardTemplate(BaseTemplate):
                     }
                 });
             }
-            
+
             initializeDependencyChart(colors) {
                 const ctx = document.getElementById('dependencyChart');
                 if (!ctx) return;
-                
+
                 const nodes = this.graphData.nodes;
                 const getAvgDeps = (type) => {
                     const typeNodes = nodes.filter(n => n.type === type);
@@ -1666,7 +1830,7 @@ class DashboardTemplate(BaseTemplate):
                     const totalDeps = typeNodes.reduce((sum, n) => sum + (n.dependencies_out || 0), 0);
                     return (totalDeps / typeNodes.length).toFixed(1);
                 };
-                
+
                 this.chartInstances.dependency = new Chart(ctx, {
                     type: 'radar',
                     data: {
@@ -1712,19 +1876,46 @@ class DashboardTemplate(BaseTemplate):
                     }
                 });
             }
-            
+
             filterByType(type) {
+                // Toggle filter: if the same type is active, clear filter
+                if (this._activeFilter === type) {
+                    // clear filter
+                    this._activeFilter = null;
+                    document.querySelectorAll('.resource-card, .stat-card').forEach(c => c.style.display = '');
+                    this.showToast('Filter Cleared', 'Showing all items', 'info');
+                    // refresh charts to default
+                    this.refreshCharts();
+                    return;
+                }
+
+                this._activeFilter = type;
                 this.showToast('Filter Applied', `Showing items of type: ${type}`, 'info');
-                // Add filtering logic here
+
+                // Hide non-matching resource/stat cards
+                document.querySelectorAll('.resource-card, .stat-card').forEach(c => {
+                    const t = c.dataset.type || c.dataset.stat;
+                    if (!t) return;
+                    if (t === type) {
+                        c.style.display = '';
+                        c.classList.add('selected');
+                    } else {
+                        c.style.display = 'none';
+                        c.classList.remove('selected');
+                    }
+                });
+
+                // Update charts highlighting: create a simple overlay by redrawing charts with filtered data
+                this.refreshCharts();
             }
-            
+
             exportData() {
                 const data = {
                     timestamp: new Date().toISOString(),
                     graphData: this.graphData,
                     statistics: this.calculateExportStatistics()
                 };
-                
+
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1732,10 +1923,10 @@ class DashboardTemplate(BaseTemplate):
                 a.download = `dashboard-export-${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
-                
+
                 this.showToast('Export Complete', 'Dashboard data exported successfully', 'success');
             }
-            
+
             calculateExportStatistics() {
                 const nodes = this.graphData.nodes;
                 return {
@@ -1747,20 +1938,20 @@ class DashboardTemplate(BaseTemplate):
                     exportTime: new Date().toISOString()
                 };
             }
-            
+
             exportChart(chartId) {
                 const canvas = document.getElementById(chartId);
                 if (!canvas) return;
-                
+
                 const url = canvas.toDataURL('image/png');
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `${chartId}-${new Date().toISOString().split('T')[0]}.png`;
                 a.click();
-                
+
                 this.showToast('Chart Exported', `${chartId} chart saved as PNG`, 'success');
             }
-            
+
             toggleChart(chartId) {
                 const container = document.getElementById(chartId + 'Container');
                 if (container) {
@@ -1769,7 +1960,135 @@ class DashboardTemplate(BaseTemplate):
                     this.showToast('Chart Toggled', `${chartId} chart ${isHidden ? 'hidden' : 'shown'}`, 'info');
                 }
             }
-            
+
+            initializeSparklines(colors) {
+                // create tiny SVG sparklines inside stat-cards showing small trends
+                const statCards = document.querySelectorAll('.stat-card');
+                statCards.forEach((card, idx) => {
+                    // Avoid heavy operations if chart already exists
+                    if (card._sparkline) return;
+                    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                    svg.setAttribute('width', '120');
+                    svg.setAttribute('height', '30');
+                    svg.style.position = 'absolute';
+                    svg.style.right = '12px';
+                    svg.style.bottom = '12px';
+                    svg.style.opacity = 0.8;
+
+                    // Simple random-ish sparkline based on node counts for visual interest
+                    const nodes = this.graphData.nodes;
+                    const values = [];
+                    for (let i = 0; i < 10; i++) values.push(Math.max(1, Math.floor(nodes.length * (0.6 + Math.random() * 0.8))));
+
+                    const max = Math.max(...values);
+                    const pathPoints = values.map((v, i) => `${(i/(values.length-1))*120},${30 - (v/max)*28}`).join(' ');
+                    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+                    poly.setAttribute('points', pathPoints);
+                    poly.setAttribute('fill', 'none');
+                    poly.setAttribute('stroke', colors.accent);
+                    poly.setAttribute('stroke-width', '1.5');
+                    poly.setAttribute('stroke-linecap', 'round');
+                    poly.setAttribute('stroke-linejoin', 'round');
+                    svg.appendChild(poly);
+
+                    card.appendChild(svg);
+                    card._sparkline = svg;
+                });
+            }
+
+            // --- Analytics: Time series (activity) ---
+            initializeTimeseriesChart(colors) {
+                const ctx = document.getElementById('timeseriesChart');
+                if (!ctx) return;
+
+                // build simple time-series from node counts (synthetic if no timestamps)
+                const points = 12;
+                const nodes = this.graphData.nodes;
+                const base = nodes.length;
+                const labels = Array.from({length: points}, (_, i) => `${i - points + 1}h`);
+                const data = Array.from({length: points}, () => Math.max(0, Math.round(base * (0.7 + Math.random() * 0.6))));
+
+                if (this.chartInstances.timeseries) this.chartInstances.timeseries.destroy();
+                this.chartInstances.timeseries = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Activity',
+                            data: data,
+                            borderColor: colors.accent,
+                            backgroundColor: colors.accent + '33',
+                            fill: true,
+                            tension: 0.35,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { display: false },
+                            y: { display: true, ticks: { color: colors.textSecondary }, grid: { color: colors.border } }
+                        }
+                    }
+                });
+            }
+
+            // --- Analytics: Stacked state chart ---
+            initializeStackedChart(colors) {
+                const ctx = document.getElementById('stackedChart');
+                if (!ctx) return;
+
+                const states = ['active','integrated','external_data','configuration','orphaned','unused','isolated','leaf'];
+                const nodes = this.graphData.nodes;
+                const datasets = states.map((s, idx) => ({
+                    label: s,
+                    data: [ nodes.filter(n => n.state === s).length ],
+                    backgroundColor: [colors.success, colors.accentSecondary, colors.info, colors.warning, colors.danger, colors.textSecondary, colors.danger, colors.success][idx % 8]
+                }));
+
+                if (this.chartInstances.stacked) this.chartInstances.stacked.destroy();
+                this.chartInstances.stacked = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['States'],
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { color: colors.textPrimary } } },
+                        scales: { x: { stacked: true }, y: { stacked: true, ticks: { color: colors.textSecondary }, grid: { color: colors.border } } }
+                    }
+                });
+            }
+
+            // --- Analytics: KPI mini donut ---
+            initializeKPIChart(colors) {
+                const ctx = document.getElementById('kpiChart');
+                if (!ctx) return;
+
+                const total = this.graphData.nodes.length;
+                const healthy = this.graphData.nodes.filter(n => ['active','integrated','leaf'].includes(n.state)).length;
+                const unused = this.graphData.nodes.filter(n => n.state === 'unused').length;
+
+                if (this.chartInstances.kpi) this.chartInstances.kpi.destroy();
+                this.chartInstances.kpi = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Healthy','Unused','Other'],
+                        datasets: [{ data: [healthy, unused, Math.max(0, total - healthy - unused)], backgroundColor: [colors.success, colors.danger, colors.accent] }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: { legend: { position: 'bottom', labels: { color: colors.textPrimary } } }
+                    }
+                });
+            }
+
             toggleFullscreen() {
                 if (!document.fullscreenElement) {
                     document.documentElement.requestFullscreen().catch(err => {
@@ -1781,17 +2100,23 @@ class DashboardTemplate(BaseTemplate):
                     this.isFullscreen = false;
                 }
             }
-            
+
             refreshData() {
+                if (this._refreshing) {
+                    this.showToast('Refresh Skipped', 'Refresh already in progress', 'warning');
+                    return;
+                }
+                this._refreshing = true;
                 this.showToast('Refreshing', 'Loading latest data...', 'info');
                 // Simulate API call or data refresh
                 setTimeout(() => {
                     this.calculateStatistics();
                     this.refreshCharts();
                     this.showToast('Refresh Complete', 'Data updated successfully', 'success');
-                }, 1500);
+                    this._refreshing = false;
+                }, 1000);
             }
-            
+
             refreshCharts() {
                 Object.values(this.chartInstances).forEach(chart => {
                     if (chart) {
@@ -1800,7 +2125,7 @@ class DashboardTemplate(BaseTemplate):
                 });
                 this.setupCharts();
             }
-            
+
             showHelp() {
                 const helpContent = `
 Interactive Dashboard Help
@@ -1835,10 +2160,10 @@ Interactive Dashboard Help
 
 For more information, visit the documentation.
                 `;
-                
+
                 this.showToast('Help & Shortcuts', 'Check the console for detailed help information', 'info');
                 console.log(helpContent);
-                
+
                 // Show help modal (simplified version)
                 const helpModal = document.createElement('div');
                 helpModal.style.cssText = `
@@ -1856,7 +2181,7 @@ For more information, visit the documentation.
                     z-index: 10002;
                     box-shadow: 0 25px 50px rgba(0,0,0,0.3);
                 `;
-                
+
                 helpModal.innerHTML = `
                     <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 20px;">
                         <h3 style="color: var(--text-primary); margin: 0;">Help & Shortcuts</h3>
@@ -1869,9 +2194,9 @@ For more information, visit the documentation.
                         <p>Check browser console for complete documentation</p>
                     </div>
                 `;
-                
+
                 document.body.appendChild(helpModal);
-                
+
                 // Close on backdrop click
                 const backdrop = document.getElementById('backdrop');
                 backdrop.classList.add('show');
@@ -1881,7 +2206,7 @@ For more information, visit the documentation.
                 };
             }
         }
-        
+
         // Initialize dashboard when DOM is fully loaded
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {

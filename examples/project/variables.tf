@@ -16,7 +16,6 @@ variable "environment" {
   }
 }
 
-# AWS configuration
 variable "aws_region" {
   description = "The AWS region to deploy resources"
   type        = string
@@ -107,74 +106,74 @@ variable "acm_certificate_arn" {
 }
 
 # Feature flags
-variable "enable_monitoring" {
-  description = "Enable CloudWatch monitoring and alerts"
-  type        = bool
-  default     = true
-}
+# variable "enable_monitoring" {
+#   description = "Enable CloudWatch monitoring and alerts"
+#   type        = bool
+#   default     = true
+# }
 
-variable "enable_backup" {
-  description = "Enable backup for instances"
-  type        = bool
-  default     = false
-}
+# variable "enable_backup" {
+#   description = "Enable backup for instances"
+#   type        = bool
+#   default     = false
+# }
 
 # Map variables
-variable "common_tags" {
-  description = "Common tags to apply to all resources"
-  type        = map(string)
-  default = {
-    Project     = "terraform-demo"
-    ManagedBy   = "terraform"
-    Environment = "dev"
-  }
-}
+# variable "common_tags" {
+#   description = "Common tags to apply to all resources"
+#   type        = map(string)
+#   default = {
+#     Project     = "terraform-demo"
+#     ManagedBy   = "terraform"
+#     Environment = "dev"
+#   }
+# }
 
-variable "instance_tags" {
-  description = "Additional tags for instances"
-  type        = map(string)
-  default = {
-    Backup     = "true"
-    Monitoring = "true"
-  }
-}
+# variable "instance_tags" {
+#   description = "Additional tags for instances"
+#   type        = map(string)
+#   default = {
+#     Backup     = "true"
+#     Monitoring = "true"
+#   }
+# }
 
 # List variables
-variable "allowed_ports" {
-  description = "List of allowed ingress ports"
-  type        = list(number)
-  default     = [80, 443, 22]
-}
+# variable "allowed_ports" {
+#   description = "List of allowed ingress ports"
+#   type        = list(number)
+#   default     = [80, 443, 22]
+# }
 
-variable "availability_zones" {
-  description = "List of availability zones to use"
-  type        = list(string)
-  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
-}
+# variable "availability_zones" {
+#   description = "List of availability zones to use"
+#   type        = list(string)
+#   default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
+# }
 
 # Object variable
-variable "app_config" {
-  description = "Application configuration"
-  type = object({
-    name          = string
-    version       = string
-    feature_flags = map(bool)
-    scaling = object({
-      min_size = number
-      max_size = number
-    })
-  })
-  default = {
-    name    = "myapp"
-    version = "1.0.0"
-    feature_flags = {
-      new_ui    = true
-      dark_mode = false
-      analytics = true
-    }
-    scaling = {
-      min_size = 1
-      max_size = 5
-    }
-  }
-}
+# variable "app_config" {
+#   description = "Application configuration"
+#   type = object({
+#     name          = string
+#     version       = string
+#     feature_flags = map(bool)
+#     scaling = object({
+#       min_size = number
+#       max_size = number
+#     })
+#   })
+#   default = {
+#     name    = "myapp"
+#     version = "1.0.0"
+#     feature_flags = {
+#       new_ui    = true
+#       dark_mode = false
+#       analytics = true
+#     }
+#     scaling = {
+#       min_size = 1
+#       max_size = 5
+#     }
+#   }
+# }
