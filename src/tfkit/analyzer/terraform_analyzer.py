@@ -677,7 +677,6 @@ class TerraformAnalyzer:
         self._parse_tfvars_files(project_path)
         self._parse_backend_config(project_path)
 
-        print("Analysis complete!")
         return self.project
 
     def _build_all_dependencies(self) -> None:
@@ -690,9 +689,7 @@ class TerraformAnalyzer:
         # Create dependency extractor with all objects
         extractor = DependencyExtractor(self.project.all_objects)
 
-        # Extract dependencies for each object
         for obj_name, obj in self.project.all_objects.items():
-            # Skip objects that don't have dependencies
             if obj.type in [
                 ResourceType.VARIABLE,
                 ResourceType.PROVIDER,
@@ -700,11 +697,9 @@ class TerraformAnalyzer:
             ]:
                 continue
 
-            # Extract dependencies from the object's configuration
             dep_info = extractor.extract(obj.attributes, obj_name)
             obj.dependency_info = dep_info
 
-        # Build reverse dependencies (dependent_objects)
         for obj_name, obj in self.project.all_objects.items():
             for dep in obj.dependency_info.all_dependencies:
                 if dep in self.project.all_objects:
@@ -712,7 +707,6 @@ class TerraformAnalyzer:
                     if obj_name not in dep_obj.dependency_info.dependent_objects:
                         dep_obj.dependency_info.dependent_objects.append(obj_name)
 
-        # Build provider relationships (inferred from resource types)
         self._build_provider_relationships()
 
     def _detect_all_circular_dependencies(self) -> None:

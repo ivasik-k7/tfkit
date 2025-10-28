@@ -4,6 +4,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from rich import _console
+
 from tfkit.analyzer.project import TerraformProject
 from tfkit.templates.template_factory import TemplateFactory
 from tfkit.templates.theme_manager import ThemeManager
@@ -51,6 +53,10 @@ class ReportGenerator:
 
         # --- 2. Data Transformation ---
         graph_data = self._graph_builder.build_graph(project)
+
+        graph_file = "graph_data.json"
+        with open(graph_file, "w") as file:
+            json.dump(graph_data, file, indent=2, default=str)
 
         calculator = GraphLayoutCalculator()
         positions = calculator.calculate_force_layout(

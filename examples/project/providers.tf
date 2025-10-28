@@ -13,13 +13,7 @@ terraform {
   }
 }
 
-# Provider configuration
 provider "aws" {
   region = var.aws_region
-  alias  = "primary"
 }
 
-provider "aws" {
-  region = "us-west-2"
-  alias  = "secondary"
-}

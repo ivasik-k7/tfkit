@@ -22,7 +22,7 @@
       "env": {
         "PYTHONPATH": "/home/ivan/development/tfkit/src"
       },
-      "args": ["scan", "-O"]
+      "args": ["scan", "-O", "--layout=dashboard"]
     }
   ]
 }
