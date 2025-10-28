@@ -4,8 +4,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from rich import _console
-
 from tfkit.analyzer.project import TerraformProject
 from tfkit.templates.template_factory import TemplateFactory
 from tfkit.templates.theme_manager import ThemeManager

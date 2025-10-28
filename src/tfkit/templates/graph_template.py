@@ -884,19 +884,26 @@ class GraphTemplate(BaseTemplate):
                 font-weight: 600;
             }
             
+            @keyframes flowAnimation {
+                to {
+                    stroke-dashoffset: -20;
+                }
+            }
+            
             .link { 
-                stroke: {{ colors.text_secondary }}; 
-                stroke-opacity: 0.3; 
+                stroke: {{ colors.text_secondary }}40; 
+                stroke-opacity: 0.4; 
                 stroke-width: 1.5; 
                 transition: all 0.3s ease;
                 stroke-linecap: round;
-                filter: url(#link-glow);
             }
             
             .link.highlight {
-                stroke: url(#link-gradient);
+                stroke: {{ colors.accent }};
                 stroke-opacity: 0.8;
                 stroke-width: 2;
+                stroke-dasharray: 5, 8;
+                animation: flowAnimation 1.5s linear infinite;
             }
             
             .link-arrow { 
@@ -905,13 +912,6 @@ class GraphTemplate(BaseTemplate):
                 stroke-width: 1.5;
                 stroke-linecap: round;
                 stroke-linejoin: round;
-            }
-            
-            .particle {
-                fill: {{ colors.accent }}; 
-                filter: url(#particle-glow);
-                opacity: 0.9; 
-                transition: opacity 0.1s;
             }
             
             /* --- ENHANCED TOOLTIP - MULTI-THEME SUPPORT --- */
@@ -1877,18 +1877,43 @@ class GraphTemplate(BaseTemplate):
                 particleGlowMerge.append('feMergeNode')
                     .attr('in', 'SourceGraphic');
 
-                // Gradient for links
+                // Enhanced gradient for links with multiple color stops
                 const linkGradient = defs.append('linearGradient')
                     .attr('id', 'link-gradient')
                     .attr('gradientUnits', 'userSpaceOnUse');
                 
                 linkGradient.append('stop')
                     .attr('offset', '0%')
-                    .attr('stop-color', '{{ colors.accent }}');
+                    .attr('stop-color', '{{ colors.accent }}')
+                    .attr('stop-opacity', '1');
+                
+                linkGradient.append('stop')
+                    .attr('offset', '50%')
+                    .attr('stop-color', '{{ colors.info }}')
+                    .attr('stop-opacity', '0.8');
                 
                 linkGradient.append('stop')
                     .attr('offset', '100%')
-                    .attr('stop-color', '{{ colors.success }}');
+                    .attr('stop-color', '{{ colors.success }}')
+                    .attr('stop-opacity', '1');
+                    
+                // Pulse animation for particles
+                const pulseAnimation = defs.append('radialGradient')
+                    .attr('id', 'particle-pulse')
+                    .attr('gradientUnits', 'objectBoundingBox')
+                    .attr('cx', '50%')
+                    .attr('cy', '50%')
+                    .attr('r', '50%');
+                    
+                pulseAnimation.append('stop')
+                    .attr('offset', '0%')
+                    .attr('stop-color', '{{ colors.accent }}')
+                    .attr('stop-opacity', '1');
+                    
+                pulseAnimation.append('stop')
+                    .attr('offset', '100%')
+                    .attr('stop-color', '{{ colors.accent }}')
+                    .attr('stop-opacity', '0');
 
                 svg.append('rect')
                     .attr('width', '100%')
@@ -2202,108 +2227,16 @@ class GraphTemplate(BaseTemplate):
 
             // Enhanced animation system with performance optimizations
             function startLinkAnimation() {
-                if (animationTimer || !animationsEnabled) return;
-                
-                const particles = [];
-                const particleRadius = 2;
-                let frameCount = 0;
-
-                function addParticle(edge) {
-                    if (particles.length >= config.performance.maxParticles) return;
-                    
-                    // Calculate the total path length
-                    const dx = edge.target.x - edge.source.x;
-                    const dy = edge.target.y - edge.source.y;
-                    const pathLength = Math.sqrt(dx * dx + dy * dy);
-                    
-                    const particle = {
-                        id: Math.random(),
-                        x: edge.source.x,
-                        y: edge.source.y,
-                        edge: edge,
-                        t: 0,
-                        pathLength: pathLength,
-                        speed: (0.02 + Math.random() * 0.01) * (300 / pathLength), // Normalize speed based on path length
-                        wobble: Math.random() * 2 - 1 // Random wobble factor for organic movement
-                    };
-                    particles.push(particle);
-                }
-
-                animationTimer = d3.interval(() => {
-                    if (!animationsEnabled) return;
-
-                    // Add particles for highlighted edges
-                    const edges = graphData.edges.filter(edge => {
-                        const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
-                        const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
-                        return highlightedEdges.has(sourceId + '->' + targetId);
-                    });
-
-                    edges.forEach(edge => {
-                        if (Math.random() < 0.3) {
-                            addParticle(edge);
-                        }
-                    });
-
-                    // Update and remove particles
-                    for (let i = particles.length - 1; i >= 0; i--) {
-                        const p = particles[i];
-                        p.t += p.speed;
-
-                        if (p.t > 1) {
-                            particles.splice(i, 1);
-                        } else {
-                            // Calculate base position with cubic easing
-                            const t = p.t;
-                            const tc = t * t * (3 - 2 * t); // Cubic easing
-                            p.x = p.edge.source.x * (1 - tc) + p.edge.target.x * tc;
-                            p.y = p.edge.source.y * (1 - tc) + p.edge.target.y * tc;
-                            
-                            // Add subtle wobble movement perpendicular to the path
-                            const dx = p.edge.target.x - p.edge.source.x;
-                            const dy = p.edge.target.y - p.edge.source.y;
-                            const perpX = -dy / p.pathLength;
-                            const perpY = dx / p.pathLength;
-                            const wobbleAmount = Math.sin(t * Math.PI * 2) * p.wobble * 2;
-                            
-                            p.x += perpX * wobbleAmount;
-                            p.y += perpY * wobbleAmount;
-                        }
-                    }
-
-                    // Update particle visualization
-                    graphG.selectAll('.particle')
-                        .data(particles, d => d.id)
-                        .join(
-                            enter => enter.append('circle')
-                                .attr('class', 'particle')
-                                .attr('r', particleRadius)
-                                .attr('cx', d => d.x)
-                                .attr('cy', d => d.y)
-                                .attr('opacity', 0)
-                                .transition()
-                                .duration(100)
-                                .attr('opacity', 0.9),
-                            update => update
-                                .attr('cx', d => d.x)
-                                .attr('cy', d => d.y),
-                            exit => exit.transition()
-                                .duration(100)
-                                .attr('opacity', 0)
-                                .remove()
-                        );
-
-                }, config.animation.particleInterval);
+                // No need for timer or particles, using CSS animation
+                d3.selectAll('.link').classed('highlight', function(d) {
+                    const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+                    const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+                    return highlightedEdges.has(sourceId + '->' + targetId);
+                });
             }
 
             function stopLinkAnimation() {
-                if (animationTimer) {
-                    animationTimer.stop();
-                    animationTimer = null;
-                }
-                if (graphG) {
-                    graphG.selectAll('.particle').remove();
-                }
+                d3.selectAll('.link').classed('highlight', false);
             }
             
             // Enhanced tooltip functions
