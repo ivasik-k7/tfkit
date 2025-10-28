@@ -177,91 +177,46 @@ class GraphTemplate(BaseTemplate):
                 box-shadow: 0 4px 12px rgba(0,0,0,0.2);
             }
             
-            /* Enhanced state styles for all 17 states */
-            .state-healthy { 
-                background: linear-gradient(135deg, #10b98120, #10b98110); 
-                color: #10b981; 
-                border-color: #10b98140; 
-            }
-            .state-active { 
-                background: linear-gradient(135deg, #22c55e20, #22c55e10); 
-                color: #22c55e; 
-                border-color: #22c55e40; 
+            /* Enhanced state styles for all states */
+            .state-external_data { 
+                background: linear-gradient(135deg, #a855f720, #a855f710); 
+                color: #a855f7; 
+                border-color: #a855f740; 
             }
             .state-integrated { 
                 background: linear-gradient(135deg, #84cc1620, #84cc1610); 
                 color: #84cc16; 
                 border-color: #84cc1640; 
             }
+            .state-active { 
+                background: linear-gradient(135deg, #22c55e20, #22c55e10); 
+                color: #22c55e; 
+                border-color: #22c55e40; 
+            }
             .state-input { 
                 background: linear-gradient(135deg, #3b82f620, #3b82f610); 
                 color: #3b82f6; 
                 border-color: #3b82f640; 
-            }
-            .state-output { 
-                background: linear-gradient(135deg, #06b6d420, #06b6d410); 
-                color: #06b6d4; 
-                border-color: #06b6d440; 
-            }
-            .state-configuration { 
-                background: linear-gradient(135deg, #8b5cf620, #8b5cf610); 
-                color: #8b5cf6; 
-                border-color: #8b5cf640; 
-            }
-            .state-external_data { 
-                background: linear-gradient(135deg, #a855f720, #a855f710); 
-                color: #a855f7; 
-                border-color: #a855f740; 
-            }
-            .state-leaf { 
-                background: linear-gradient(135deg, #06b6d420, #06b6d410); 
-                color: #06b6d4; 
-                border-color: #06b6d440; 
-            }
-            .state-hub { 
-                background: linear-gradient(135deg, #0ea5e920, #0ea5e910); 
-                color: #0ea5e9; 
-                border-color: #0ea5e940; 
-            }
-            .state-unused { 
-                background: linear-gradient(135deg, #f59e0b20, #f59e0b10); 
-                color: #f59e0b; 
-                border-color: #f59e0b40; 
-            }
-            .state-isolated { 
-                background: linear-gradient(135deg, #f9731620, #f9731610); 
-                color: #f97316; 
-                border-color: #f9731640; 
             }
             .state-orphaned { 
                 background: linear-gradient(135deg, #fb923c20, #fb923c10); 
                 color: #fb923c; 
                 border-color: #fb923c40; 
             }
-            .state-underutilized { 
-                background: linear-gradient(135deg, #fdba7420, #fdba7410); 
-                color: #fdba74; 
-                border-color: #fdba7440; 
+            .state-configuration { 
+                background: linear-gradient(135deg, #8b5cf620, #8b5cf610); 
+                color: #8b5cf6; 
+                border-color: #8b5cf640; 
             }
-            .state-complex { 
-                background: linear-gradient(135deg, #fb923c20, #fb923c10); 
-                color: #fb923c; 
-                border-color: #fb923c40; 
+            .state-unused { 
+                background: linear-gradient(135deg, #f59e0b20, #f59e0b10); 
+                color: #f59e0b; 
+                border-color: #f59e0b40; 
             }
             .state-incomplete { 
                 background: linear-gradient(135deg, #ef444420, #ef444410); 
                 color: #ef4444; 
                 border-color: #ef444440; 
-            }
-            .state-broken { 
-                background: linear-gradient(135deg, #dc262620, #dc262610); 
-                color: #dc2626; 
-                border-color: #dc262640; 
-            }
-            .state-missing_dependency { 
-                background: linear-gradient(135deg, #b91c1c20, #b91c1c10); 
-                color: #b91c1c; 
-                border-color: #b91c1c40; 
             }
             
             .controls {
@@ -348,6 +303,7 @@ class GraphTemplate(BaseTemplate):
                 transform: translateY(0);
             }
             
+            /* --- ENHANCED LEGEND WITH INTERACTIVE FEATURES --- */
             .legend {
                 position: absolute; 
                 top: 20px; 
@@ -359,9 +315,10 @@ class GraphTemplate(BaseTemplate):
                 backdrop-filter: blur(10px);
                 box-shadow: 0 8px 32px rgba(0,0,0,0.3);
                 z-index: 1000;
-                min-width: 180px;
+                min-width: 200px;
                 max-height: calc(100vh - 40px);
                 overflow-y: auto;
+                transition: all 0.3s ease;
             }
             
             .legend-title { 
@@ -372,14 +329,57 @@ class GraphTemplate(BaseTemplate):
                 display: flex;
                 align-items: center;
                 gap: 8px;
+                cursor: pointer;
+                user-select: none;
+            }
+            
+            .legend-title:hover {
+                color: {{ colors.accent }};
+            }
+            
+            .legend-section {
+                margin-bottom: 12px;
+            }
+            
+            .legend-section-title {
+                font-size: 0.8em;
+                color: {{ colors.text_secondary }};
+                margin-bottom: 8px;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                cursor: pointer;
+                user-select: none;
+            }
+            
+            .legend-section-title:hover {
+                color: {{ colors.text_primary }};
+            }
+            
+            .legend-section-content {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
             }
             
             .legend-item { 
                 display: flex; 
                 align-items: center; 
                 gap: 8px; 
-                margin: 6px 0; 
+                margin: 4px 0; 
                 font-size: 0.8em; 
+                cursor: pointer;
+                padding: 4px 6px;
+                border-radius: 6px;
+                transition: all 0.2s ease;
+            }
+            
+            .legend-item:hover {
+                background: {{ colors.bg_primary }}20;
+                transform: translateX(4px);
             }
             
             .legend-dot { 
@@ -387,6 +387,22 @@ class GraphTemplate(BaseTemplate):
                 height: 10px; 
                 border-radius: 50%; 
                 flex-shrink: 0;
+                transition: all 0.2s ease;
+            }
+            
+            .legend-item:hover .legend-dot {
+                transform: scale(1.2);
+            }
+            
+            .legend-count {
+                margin-left: auto;
+                font-size: 0.75em;
+                color: {{ colors.text_secondary }};
+                background: {{ colors.bg_primary }}30;
+                padding: 2px 6px;
+                border-radius: 10px;
+                min-width: 20px;
+                text-align: center;
             }
             
             .node { 
@@ -516,23 +532,14 @@ class GraphTemplate(BaseTemplate):
             }
 
             /* Theme-specific state colors in tooltip */
-            .node-state.healthy { color: #10b981; border-color: #10b98140; background: #10b98115; }
-            .node-state.active { color: #22c55e; border-color: #22c55e40; background: #22c55e15; }
-            .node-state.integrated { color: #84cc16; border-color: #84cc1640; background: #84cc1615; }
-            .node-state.input { color: #3b82f6; border-color: #3b82f640; background: #3b82f615; }
-            .node-state.output { color: #06b6d4; border-color: #06b6d440; background: #06b6d415; }
-            .node-state.configuration { color: #8b5cf6; border-color: #8b5cf640; background: #8b5cf615; }
             .node-state.external_data { color: #a855f7; border-color: #a855f740; background: #a855f715; }
-            .node-state.leaf { color: #06b6d4; border-color: #06b6d440; background: #06b6d415; }
-            .node-state.hub { color: #0ea5e9; border-color: #0ea5e940; background: #0ea5e915; }
-            .node-state.unused { color: #f59e0b; border-color: #f59e0b40; background: #f59e0b15; }
-            .node-state.isolated { color: #f97316; border-color: #f9731640; background: #f9731615; }
+            .node-state.integrated { color: #84cc16; border-color: #84cc1640; background: #84cc1615; }
+            .node-state.active { color: #22c55e; border-color: #22c55e40; background: #22c55e15; }
+            .node-state.input { color: #3b82f6; border-color: #3b82f640; background: #3b82f615; }
             .node-state.orphaned { color: #fb923c; border-color: #fb923c40; background: #fb923c15; }
-            .node-state.underutilized { color: #fdba74; border-color: #fdba7440; background: #fdba7415; }
-            .node-state.complex { color: #fb923c; border-color: #fb923c40; background: #fb923c15; }
+            .node-state.configuration { color: #8b5cf6; border-color: #8b5cf640; background: #8b5cf615; }
+            .node-state.unused { color: #f59e0b; border-color: #f59e0b40; background: #f59e0b15; }
             .node-state.incomplete { color: #ef4444; border-color: #ef444440; background: #ef444415; }
-            .node-state.broken { color: #dc2626; border-color: #dc262640; background: #dc262615; }
-            .node-state.missing_dependency { color: #b91c1c; border-color: #b91c1c40; background: #b91c1c15; }
                 
             .tooltip-stat {
                 display: flex;
@@ -554,7 +561,6 @@ class GraphTemplate(BaseTemplate):
                 font-weight: 600;
             }
 
-            /* Theme-specific tooltip enhancements */
             .tooltip-section {
                 margin-top: 10px;
                 padding-top: 10px;
@@ -576,8 +582,25 @@ class GraphTemplate(BaseTemplate):
                 font-family: 'Exo 2', monospace;
             }
 
-            /* Responsive tooltip for different themes */
+            /* Performance optimizations */
+            .performance-optimized {
+                transform: translate3d(0, 0, 0);
+                backface-visibility: hidden;
+                perspective: 1000px;
+            }
+
+            /* Responsive design */
             @media (max-width: 768px) {
+                .nexus-hud, .legend {
+                    min-width: 200px;
+                    padding: 16px;
+                }
+                
+                .controls {
+                    flex-wrap: wrap;
+                    justify-content: center;
+                }
+                
                 .node-tooltip {
                     max-width: 280px;
                     font-size: 0.8em;
@@ -620,14 +643,59 @@ class GraphTemplate(BaseTemplate):
             </div>
         </div>
         
+        <!-- Enhanced Legend with Interactive Features -->
         <div class="legend">
-            <div class="legend-title"><i class="fas fa-layer-group"></i> Resource Types</div>
-            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.success }};"></div><span>Resources</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.accent_secondary }};"></div><span>Modules</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.warning }};"></div><span>Variables</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.accent }};"></div><span>Outputs</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.danger }};"></div><span>Data Sources</span></div>
-            <div class="legend-item"><div class="legend-dot" style="background: {{ colors.info }};"></div><span>Providers</span></div>
+            <div class="legend-title" onclick="toggleLegendSection('types')">
+                <i class="fas fa-layer-group"></i> Resource Types <i class="fas fa-chevron-down" id="types-chevron"></i>
+            </div>
+            <div class="legend-section" id="types-section">
+                <div class="legend-section-content">
+                    <div class="legend-item" onclick="filterByType('resource')">
+                        <div class="legend-dot" style="background: {{ colors.success }};"></div>
+                        <span>Resources</span>
+                        <span class="legend-count" id="resource-count">0</span>
+                    </div>
+                    <div class="legend-item" onclick="filterByType('module')">
+                        <div class="legend-dot" style="background: {{ colors.accent_secondary }};"></div>
+                        <span>Modules</span>
+                        <span class="legend-count" id="module-count">0</span>
+                    </div>
+                    <div class="legend-item" onclick="filterByType('variable')">
+                        <div class="legend-dot" style="background: {{ colors.warning }};"></div>
+                        <span>Variables</span>
+                        <span class="legend-count" id="variable-count">0</span>
+                    </div>
+                    <div class="legend-item" onclick="filterByType('output')">
+                        <div class="legend-dot" style="background: {{ colors.accent }};"></div>
+                        <span>Outputs</span>
+                        <span class="legend-count" id="output-count">0</span>
+                    </div>
+                    <div class="legend-item" onclick="filterByType('data')">
+                        <div class="legend-dot" style="background: {{ colors.danger }};"></div>
+                        <span>Data Sources</span>
+                        <span class="legend-count" id="data-count">0</span>
+                    </div>
+                    <div class="legend-item" onclick="filterByType('provider')">
+                        <div class="legend-dot" style="background: {{ colors.info }};"></div>
+                        <span>Providers</span>
+                        <span class="legend-count" id="provider-count">0</span>
+                    </div>
+                    <div class="legend-item" onclick="filterByType('local')">
+                        <div class="legend-dot" style="background: {{ colors.info }};"></div>
+                        <span>Locals</span>
+                        <span class="legend-count" id="local-count">0</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="legend-section">
+                <div class="legend-section-title" onclick="toggleLegendSection('states')">
+                    <i class="fas fa-tachometer-alt"></i> Node States <i class="fas fa-chevron-down" id="states-chevron"></i>
+                </div>
+                <div class="legend-section-content" id="states-section">
+                    <!-- State legend items will be populated dynamically -->
+                </div>
+            </div>
         </div>
         
         <div class="controls">
@@ -635,6 +703,7 @@ class GraphTemplate(BaseTemplate):
             <button class="control-btn" onclick="togglePhysics()" id="physics-btn"><i class="fas fa-bolt"></i> Physics</button>
             <button class="control-btn" onclick="centerGraph()"><i class="fas fa-bullseye"></i> Center</button>
             <button class="control-btn" onclick="toggleAnimations()" id="animations-btn"><i class="fas fa-sparkles"></i> Animations</button>
+            <button class="control-btn" onclick="clearFilters()"><i class="fas fa-filter"></i> Clear Filters</button>
         </div>
         
         <div class="scale-controls">
@@ -649,7 +718,7 @@ class GraphTemplate(BaseTemplate):
             // Process the graph data to match expected format
             const rawGraphData = {{ graph_data|safe }};
             
-            // Transform nodes to expected format
+            // Transform nodes to expected format with enhanced data processing
             const graphData = {
                 nodes: rawGraphData.nodes.map(node => ({
                     id: node.id,
@@ -657,6 +726,7 @@ class GraphTemplate(BaseTemplate):
                     type: node.type,
                     subtype: node.subtype,
                     state: node.state,
+                    state_reason: node.state_reason,
                     dependencies_out: node.dependencies_out,
                     dependencies_in: node.dependencies_in,
                     details: node.details || {}
@@ -665,7 +735,7 @@ class GraphTemplate(BaseTemplate):
                     source: edge.source,
                     target: edge.target,
                     type: edge.type,
-                    strength: edge.strength
+                    strength: edge.strength || 0.5
                 }))
             };
             
@@ -675,27 +745,25 @@ class GraphTemplate(BaseTemplate):
             let highlightedNodes = new Set();
             let highlightedEdges = new Set();
             let animationTimer = null;
-            let graphG; // Define graphG in global scope for animation functions
-            
-            // Enhanced configuration for ALL 17 states
+            let graphG;
+            let currentFilters = {
+                types: new Set(),
+                states: new Set()
+            };
+
+            // Enhanced configuration for states from your data
             const config = {
                 zoomSpeed: 0.2,
                 physics: {
                     charge: {
-                        healthy: -400, active: -380, integrated: -360,
-                        input: -200, output: -200, configuration: -180,
-                        external_data: -250, leaf: -180, hub: -450,
-                        unused: -150, isolated: -120, orphaned: -100,
-                        underutilized: -220, complex: -300,
-                        incomplete: -180, broken: -250, missing_dependency: -200
+                        external_data: -250, integrated: -360, active: -380,
+                        input: -200, orphaned: -100, configuration: -180,
+                        unused: -150, incomplete: -180
                     },
                     link: {
-                        healthy: 120, active: 115, integrated: 110,
-                        input: 80, output: 80, configuration: 70,
-                        external_data: 140, leaf: 90, hub: 150,
-                        unused: 60, isolated: 50, orphaned: 80,
-                        underutilized: 100, complex: 130,
-                        incomplete: 70, broken: 100, missing_dependency: 85
+                        external_data: 140, integrated: 110, active: 115,
+                        input: 80, orphaned: 80, configuration: 70,
+                        unused: 60, incomplete: 70
                     },
                     collision: {
                         base: 8, module: 12, resource: 10, multiplier: 0.8
@@ -708,23 +776,26 @@ class GraphTemplate(BaseTemplate):
                     particleInterval: 50,
                     transitionDuration: 300, 
                     hoverGlow: true
+                },
+                performance: {
+                    debounceDelay: 50,
+                    maxParticles: 100,
+                    throttleRender: true
                 }
             };
             
-            // Calculate summary statistics for ALL 17 states
+            // Calculate summary statistics
             const summary = {
                 total_nodes: graphData.nodes.length,
                 total_edges: graphData.edges.length,
+                type_counts: {},
                 state_counts: {}
             };
             
-            // Count all states dynamically - UPDATED for 17 states
-            const allStates = ['healthy', 'active', 'integrated', 'input', 'output', 'configuration',
-                             'external_data', 'leaf', 'hub', 'unused', 'isolated', 'orphaned',
-                             'underutilized', 'complex', 'incomplete', 'broken', 'missing_dependency'];
-            
-            allStates.forEach(state => {
-                summary.state_counts[state] = graphData.nodes.filter(n => n.state === state).length;
+            // Count types and states
+            graphData.nodes.forEach(node => {
+                summary.type_counts[node.type] = (summary.type_counts[node.type] || 0) + 1;
+                summary.state_counts[node.state] = (summary.state_counts[node.state] || 0) + 1;
             });
             
             function buildNodeGraph() {
@@ -771,17 +842,7 @@ class GraphTemplate(BaseTemplate):
                     }
                 }
                 
-                // Updated sorting for new states
-                const sortedNodes = [...graphData.nodes].sort((a, b) => {
-                    const statePriority = { 
-                        healthy: 0, active: 1, integrated: 2, input: 3, output: 4, configuration: 5,
-                        external_data: 6, leaf: 7, hub: 8, unused: 9, isolated: 10, orphaned: 11,
-                        underutilized: 12, complex: 13, incomplete: 14, broken: 15, missing_dependency: 16
-                    };
-                    return (statePriority[a.state] || 17) - (statePriority[b.state] || 17);
-                });
-                
-                sortedNodes.forEach(node => {
+                graphData.nodes.forEach(node => {
                     if (!visited.has(node.id)) {
                         dfs(node.id);
                         components++;
@@ -793,107 +854,76 @@ class GraphTemplate(BaseTemplate):
             
             summary.connected_components = calculateConnectedComponents();
             
-            document.getElementById('node-count').textContent = summary.total_nodes;
-            document.getElementById('edge-count').textContent = summary.total_edges;
-            document.getElementById('component-count').textContent = summary.connected_components;
+            // Update HUD statistics
+            document.getElementById('node-count').textContent = summary.total_nodes.toLocaleString();
+            document.getElementById('edge-count').textContent = summary.total_edges.toLocaleString();
+            document.getElementById('component-count').textContent = summary.connected_components.toLocaleString();
             
-            // Update state indicators
+            // Update type counts in legend
+            Object.entries(summary.type_counts).forEach(([type, count]) => {
+                const element = document.getElementById(`${type}-count`);
+                if (element) element.textContent = count.toLocaleString();
+            });
+            
+            // Update state indicators and legend
             const stateIndicators = document.getElementById('state-indicators');
+            const statesSection = document.getElementById('states-section');
+            
             Object.entries(summary.state_counts).forEach(([state, count]) => {
                 if (count > 0) {
+                    // Add to HUD indicators
                     const indicator = document.createElement('div');
                     indicator.className = `nexus-indicator state-${state}`;
                     indicator.textContent = `${state}: ${count}`;
                     indicator.title = `${count} ${state} nodes`;
-                    indicator.onclick = () => highlightState(state);
+                    indicator.onclick = () => filterByState(state);
                     stateIndicators.appendChild(indicator);
+                    
+                    // Add to legend
+                    const legendItem = document.createElement('div');
+                    legendItem.className = 'legend-item';
+                    legendItem.onclick = () => filterByState(state);
+                    
+                    const stateConfig = getStateConfig(state);
+                    legendItem.innerHTML = `
+                        <div class="legend-dot" style="background: ${stateConfig.stroke};"></div>
+                        <span>${state.replace('_', ' ')}</span>
+                        <span class="legend-count">${count}</span>
+                    `;
+                    statesSection.appendChild(legendItem);
                 }
             });
 
             // Enhanced node configuration with theme colors and ICONS
             const nodeConfig = {
-                'resource': { color: '{{ colors.success }}', icon: '\\uf1b3' }, // fa-cube
-                'module': { color: '{{ colors.accent_secondary }}', icon: '\\uf1b3' }, // fa-cube (using same for consistency)
-                'variable': { color: '{{ colors.warning }}', icon: '\\uf121' }, // fa-code
-                'output': { color: '{{ colors.accent }}', icon: '\\uf061' }, // fa-arrow-right
-                'data': { color: '{{ colors.danger }}', icon: '\\uf1c0' }, // fa-database
-                'provider': { color: '{{ colors.info }}', icon: '\\uf013' }, // fa-cog
-                'local': { color: '{{ colors.info }}', icon: '\\uf121' }, // fa-code for locals
-                'terraform': { color: '{{ colors.accent }}', icon: '\\uf0e8' } // fa-sitemap for terraform
+                'resource': { color: '{{ colors.success }}', icon: '\\uf1b3' },
+                'module': { color: '{{ colors.accent_secondary }}', icon: '\\uf1b3' },
+                'variable': { color: '{{ colors.warning }}', icon: '\\uf121' },
+                'output': { color: '{{ colors.accent }}', icon: '\\uf061' },
+                'data': { color: '{{ colors.danger }}', icon: '\\uf1c0' },
+                'provider': { color: '{{ colors.info }}', icon: '\\uf013' },
+                'local': { color: '{{ colors.info }}', icon: '\\uf121' },
+                'terraform': { color: '{{ colors.accent }}', icon: '\\uf0e8' }
             };
             
-            // Enhanced state-based styling for ALL 17 states
-            const stateConfig = {
-                'healthy': { 
-                    stroke: '#10b981', glow: '#10b98140',
-                    charge: config.physics.charge.healthy, link: config.physics.link.healthy
-                },
-                'active': { 
-                    stroke: '#22c55e', glow: '#22c55e40',
-                    charge: config.physics.charge.active, link: config.physics.link.active
-                },
-                'integrated': { 
-                    stroke: '#84cc16', glow: '#84cc1640',
-                    charge: config.physics.charge.integrated, link: config.physics.link.integrated
-                },
-                'input': { 
-                    stroke: '#3b82f6', glow: '#3b82f640',
-                    charge: config.physics.charge.input, link: config.physics.link.input
-                },
-                'output': { 
-                    stroke: '#06b6d4', glow: '#06b6d440',
-                    charge: config.physics.charge.output, link: config.physics.link.output
-                },
-                'configuration': { 
-                    stroke: '#8b5cf6', glow: '#8b5cf640',
-                    charge: config.physics.charge.configuration, link: config.physics.link.configuration
-                },
-                'external_data': { 
-                    stroke: '#a855f7', glow: '#a855f740',
-                    charge: config.physics.charge.external_data, link: config.physics.link.external_data
-                },
-                'leaf': { 
-                    stroke: '#06b6d4', glow: '#06b6d440',
-                    charge: config.physics.charge.leaf, link: config.physics.link.leaf
-                },
-                'hub': { 
-                    stroke: '#0ea5e9', glow: '#0ea5e940',
-                    charge: config.physics.charge.hub, link: config.physics.link.hub
-                },
-                'unused': { 
-                    stroke: '#f59e0b', glow: '#f59e0b40',
-                    charge: config.physics.charge.unused, link: config.physics.link.unused
-                },
-                'isolated': { 
-                    stroke: '#f97316', glow: '#f9731640',
-                    charge: config.physics.charge.isolated, link: config.physics.link.isolated
-                },
-                'orphaned': { 
-                    stroke: '#fb923c', glow: '#fb923c40',
-                    charge: config.physics.charge.orphaned, link: config.physics.link.orphaned
-                },
-                'underutilized': { 
-                    stroke: '#fdba74', glow: '#fdba7440',
-                    charge: config.physics.charge.underutilized, link: config.physics.link.underutilized
-                },
-                'complex': { 
-                    stroke: '#fb923c', glow: '#fb923c40',
-                    charge: config.physics.charge.complex, link: config.physics.link.complex
-                },
-                'incomplete': { 
-                    stroke: '#ef4444', glow: '#ef444440',
-                    charge: config.physics.charge.incomplete, link: config.physics.link.incomplete
-                },
-                'broken': { 
-                    stroke: '#dc2626', glow: '#dc262640',
-                    charge: config.physics.charge.broken, link: config.physics.link.broken
-                },
-                'missing_dependency': { 
-                    stroke: '#b91c1c', glow: '#b91c1c40',
-                    charge: config.physics.charge.missing_dependency, link: config.physics.link.missing_dependency
-                }
-            };
+            // Enhanced state-based styling
+            function getStateConfig(state) {
+                const stateConfigs = {
+                    'external_data': { stroke: '#a855f7', glow: '#a855f740' },
+                    'integrated': { stroke: '#84cc16', glow: '#84cc1640' },
+                    'active': { stroke: '#22c55e', glow: '#22c55e40' },
+                    'input': { stroke: '#3b82f6', glow: '#3b82f640' },
+                    'orphaned': { stroke: '#fb923c', glow: '#fb923c40' },
+                    'configuration': { stroke: '#8b5cf6', glow: '#8b5cf640' },
+                    'unused': { stroke: '#f59e0b', glow: '#f59e0b40' },
+                    'incomplete': { stroke: '#ef4444', glow: '#ef444440' }
+                };
+                return stateConfigs[state] || { stroke: '#666', glow: '#6666' };
+            }
 
+            // Performance-optimized initialization
+            let renderThrottled = false;
+            
             function init() {
                 const container = document.getElementById('graph-container');
                 const width = container.clientWidth, height = container.clientHeight;
@@ -903,7 +933,8 @@ class GraphTemplate(BaseTemplate):
                 
                 const svg = d3.select('#graph-container').append('svg')
                     .attr('width', width)
-                    .attr('height', height);
+                    .attr('height', height)
+                    .classed('performance-optimized', true);
 
                 const defs = svg.append('defs');
 
@@ -944,9 +975,9 @@ class GraphTemplate(BaseTemplate):
                 });
 
                 const g = svg.append('g');
-                graphG = g.append('g'); // Assign to global variable
+                graphG = g.append('g').classed('performance-optimized', true);
 
-                // Enhanced zoom behavior
+                // Enhanced zoom behavior with performance optimizations
                 const zoom = d3.zoom()
                     .scaleExtent([0.05, 8])
                     .wheelDelta(function(event) {
@@ -968,18 +999,18 @@ class GraphTemplate(BaseTemplate):
                         .distance(d => {
                             const source = typeof d.source === 'object' ? d.source : nodeMap.get(d.source);
                             const target = typeof d.target === 'object' ? d.target : nodeMap.get(d.target);
-                            const sourceState = source?.state || 'healthy';
-                            const targetState = target?.state || 'healthy';
+                            const sourceState = source?.state || 'active';
+                            const targetState = target?.state || 'active';
                             return Math.min(
-                                stateConfig[sourceState]?.link || config.physics.link.healthy,
-                                stateConfig[targetState]?.link || config.physics.link.healthy
+                                config.physics.link[sourceState] || config.physics.link.active,
+                                config.physics.link[targetState] || config.physics.link.active
                             );
                         })
                         .strength(0.2)
                     )
                     .force('charge', d3.forceManyBody()
                         .strength(d => {
-                            const stateStrength = stateConfig[d.state]?.charge || config.physics.charge.healthy;
+                            const stateStrength = config.physics.charge[d.state] || config.physics.charge.active;
                             const dependencyFactor = 1 + ((d.dependencies_out || 0) + (d.dependencies_in || 0)) * 0.1;
                             return stateStrength * dependencyFactor;
                         })
@@ -995,22 +1026,6 @@ class GraphTemplate(BaseTemplate):
                             return baseRadius + Math.min(dependencyCount * config.physics.collision.multiplier, 6);
                         })
                         .strength(0.8)
-                    )
-                    .force('state_grouping', d3.forceY()
-                        .strength(d => {
-                            // Updated state grouping for new states
-                            const stateGroups = { 
-                                healthy: 0, active: 0.1, integrated: 0.2, input: -0.1, output: -0.2, 
-                                configuration: 0.3, external_data: -0.3, leaf: 0.4, hub: 0.5,
-                                unused: -0.4, isolated: -0.5, orphaned: -0.6, underutilized: 0.6,
-                                complex: 0.7, incomplete: -0.7, broken: -0.8, missing_dependency: -0.9
-                            };
-                            return (stateGroups[d.state] || 0) * config.physics.force.stateGrouping;
-                        })
-                    )
-                    .force('unused_attraction', d3.forceX()
-                        .strength(d => ['unused', 'isolated', 'orphaned'].includes(d.state) ? config.physics.force.unusedAttraction : 0)
-                        .x(width * 0.7)
                     )
                     .alphaDecay(0.0228)
                     .velocityDecay(0.4);
@@ -1053,10 +1068,10 @@ class GraphTemplate(BaseTemplate):
                         return baseRadius + Math.min(dependencyCount * 0.6, 6);
                     })
                     .style('fill', d => nodeConfig[d.type]?.color || '#666')
-                    .style('stroke', d => stateConfig[d.state]?.stroke || nodeConfig[d.type]?.color || '#666')
+                    .style('stroke', d => getStateConfig(d.state).stroke)
                     .style('stroke-width', 2)
                     .style('cursor', 'pointer')
-                    .style('filter', d => `drop-shadow(0 0 8px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '40' || '#6666'})`);
+                    .style('filter', d => `drop-shadow(0 0 8px ${getStateConfig(d.state).glow})`);
                     
                 node.append('text')
                     .attr('class', 'node-icon')
@@ -1087,20 +1102,20 @@ class GraphTemplate(BaseTemplate):
                     .style('pointer-events', 'none')
                     .style('text-shadow', `0 1px 4px {{ colors.bg_primary }}`);
 
-                // Enhanced simulation tick
+                // Performance-optimized simulation tick
                 simulation.on('tick', () => {
-                    link.attr('x1', d => d.source.x)
-                        .attr('y1', d => d.source.y)
-                        .attr('x2', d => d.target.x)
-                        .attr('y2', d => d.target.y);
+                    if (config.performance.throttleRender && renderThrottled) return;
+                    renderThrottled = true;
                     
-                    node.attr('transform', d => `translate(${d.x},${d.y})`);
-
-                    // Update grid pattern
-                    svg.select('#grid')
-                        .attr('x', currentTransform.x % grid_size)
-                        .attr('y', currentTransform.y % grid_size)
-                        .attr('patternTransform', `scale(${currentTransform.k})`);
+                    requestAnimationFrame(() => {
+                        link.attr('x1', d => d.source.x)
+                            .attr('y1', d => d.source.y)
+                            .attr('x2', d => d.target.x)
+                            .attr('y2', d => d.target.y);
+                        
+                        node.attr('transform', d => `translate(${d.x},${d.y})`);
+                        renderThrottled = false;
+                    });
                 });
                 
                 // Export for global access
@@ -1109,30 +1124,88 @@ class GraphTemplate(BaseTemplate):
                 window.width = width;
                 window.height = height;
 
+                // Apply initial filters
+                applyFilters();
+
                 // Start animations if enabled
                 if (animationsEnabled) {
                     startLinkAnimation();
                 }
             }
 
-            // --- FIXED ZOOM CONTROL FUNCTIONS ---
+            // Enhanced filter system
+            function filterByType(type) {
+                if (currentFilters.types.has(type)) {
+                    currentFilters.types.delete(type);
+                } else {
+                    currentFilters.types.add(type);
+                }
+                applyFilters();
+            }
+
+            function filterByState(state) {
+                if (currentFilters.states.has(state)) {
+                    currentFilters.states.delete(state);
+                } else {
+                    currentFilters.states.add(state);
+                }
+                applyFilters();
+            }
+
+            function applyFilters() {
+                const nodes = graphG.selectAll('.node');
+                const links = graphG.selectAll('.link');
+                
+                nodes.style('display', d => {
+                    if (currentFilters.types.size > 0 && !currentFilters.types.has(d.type)) return 'none';
+                    if (currentFilters.states.size > 0 && !currentFilters.states.has(d.state)) return 'none';
+                    return null;
+                });
+                
+                links.style('display', d => {
+                    const source = typeof d.source === 'object' ? d.source : nodeMap.get(d.source);
+                    const target = typeof d.target === 'object' ? d.target : nodeMap.get(d.target);
+                    
+                    if (!source || !target) return 'none';
+                    if (currentFilters.types.size > 0 && 
+                        (!currentFilters.types.has(source.type) || !currentFilters.types.has(target.type))) return 'none';
+                    if (currentFilters.states.size > 0 && 
+                        (!currentFilters.states.has(source.state) || !currentFilters.states.has(target.state))) return 'none';
+                    return null;
+                });
+            }
+
+            function clearFilters() {
+                currentFilters.types.clear();
+                currentFilters.states.clear();
+                applyFilters();
+            }
+
+            // Enhanced legend interactions
+            function toggleLegendSection(section) {
+                const content = document.getElementById(`${section}-section`);
+                const chevron = document.getElementById(`${section}-chevron`);
+                
+                if (content.style.display === 'none') {
+                    content.style.display = 'block';
+                    chevron.className = 'fas fa-chevron-down';
+                } else {
+                    content.style.display = 'none';
+                    chevron.className = 'fas fa-chevron-right';
+                }
+            }
+
+            // Zoom control functions
             function zoomHandler(direction) {
                 const zoomAmount = direction === 'in' ? 1.2 : 1 / 1.2;
                 window.svg.transition().duration(300).call(window.zoom.scaleBy, zoomAmount);
             }
 
-            function zoomIn() {
-                zoomHandler('in');
-            }
-
-            function zoomOut() {
-                zoomHandler('out');
-            }
-
+            function zoomIn() { zoomHandler('in'); }
+            function zoomOut() { zoomHandler('out'); }
             function resetZoom() {
                 window.svg.transition().duration(500).call(window.zoom.transform, d3.zoomIdentity);
             }
-
             function centerGraph() {
                 const initialScale = 1;
                 const x = window.width / 2;
@@ -1149,9 +1222,8 @@ class GraphTemplate(BaseTemplate):
             function resetView() {
                 resetZoom();
                 clearHighlight();
-                if (!physicsEnabled) {
-                    togglePhysics();
-                }
+                clearFilters();
+                if (!physicsEnabled) togglePhysics();
             }
 
             function togglePhysics() {
@@ -1178,7 +1250,7 @@ class GraphTemplate(BaseTemplate):
                 }
             }
 
-            // --- FIXED ANIMATION SYSTEM ---
+            // Enhanced animation system with performance optimizations
             function startLinkAnimation() {
                 if (animationTimer || !animationsEnabled) return;
                 
@@ -1186,6 +1258,8 @@ class GraphTemplate(BaseTemplate):
                 const particleRadius = 1.5;
 
                 function addParticle(edge) {
+                    if (particles.length >= config.performance.maxParticles) return;
+                    
                     const particle = {
                         id: Math.random(),
                         x: edge.source.x,
@@ -1259,7 +1333,7 @@ class GraphTemplate(BaseTemplate):
                 graphG.selectAll('.particle').remove();
             }
             
-            // --- ENHANCED TOOLTIP FUNCTIONS ---
+            // Enhanced tooltip functions
             function showTooltip(event, d) {
                 if (hoveredNode) hideTooltip(null, hoveredNode);
                 hoveredNode = d;
@@ -1268,14 +1342,23 @@ class GraphTemplate(BaseTemplate):
                 let content = `<div class="node-info-title">${d.label}</div>`;
                 content += `<div class="node-state state-${d.state}">${d.state.charAt(0).toUpperCase() + d.state.slice(1).replace('_', ' ')}</div>`;
                 
+                if (d.state_reason) {
+                    content += `<div class="tooltip-section">`;
+                    content += `<div class="tooltip-label">Status</div>`;
+                    content += `<div class="tooltip-value">${d.state_reason}</div>`;
+                    content += `</div>`;
+                }
+                
                 // Enhanced tooltip content using details
                 const details = d.details || {};
                 
                 // Resource-specific information
-                if (details.resource_type) {
+                if (details.resource_type || details.provider) {
                     content += `<div class="tooltip-section">`;
                     content += `<div class="tooltip-label">Resource</div>`;
-                    content += `<div class="tooltip-stat"><span>Type:</span><span>${details.resource_type}</span></div>`;
+                    if (details.resource_type) {
+                        content += `<div class="tooltip-stat"><span>Type:</span><span>${details.resource_type}</span></div>`;
+                    }
                     if (details.provider) {
                         content += `<div class="tooltip-stat"><span>Provider:</span><span>${details.provider}</span></div>`;
                     }
@@ -1283,30 +1366,25 @@ class GraphTemplate(BaseTemplate):
                 }
                 
                 // Location information
-                if (details.file_path || details.line_number) {
+                if (details.loc) {
                     content += `<div class="tooltip-section">`;
                     content += `<div class="tooltip-label">Location</div>`;
-                    if (details.file_path) {
-                        content += `<div class="tooltip-stat"><span>File:</span><span>${details.file_path}</span></div>`;
-                    }
-                    if (details.line_number) {
-                        content += `<div class="tooltip-stat"><span>Line:</span><span>${details.line_number}</span></div>`;
-                    }
+                    content += `<div class="tooltip-value">${details.loc}</div>`;
                     content += `</div>`;
                 }
                 
                 // Dependencies information
                 content += `<div class="tooltip-section">`;
                 content += `<div class="tooltip-label">Dependencies</div>`;
-                content += `<div class="tooltip-stat"><span>Incoming:</span><span>${adjacencyList.get(d.id)?.in.length || 0}</span></div>`;
-                content += `<div class="tooltip-stat"><span>Outgoing:</span><span>${adjacencyList.get(d.id)?.out.length || 0}</span></div>`;
+                content += `<div class="tooltip-stat"><span>Incoming:</span><span>${d.dependencies_in || 0}</span></div>`;
+                content += `<div class="tooltip-stat"><span>Outgoing:</span><span>${d.dependencies_out || 0}</span></div>`;
                 content += `</div>`;
 
                 // Additional details
-                if (details.description) {
+                if (details.desc) {
                     content += `<div class="tooltip-section">`;
                     content += `<div class="tooltip-label">Description</div>`;
-                    content += `<div class="tooltip-value">${details.description}</div>`;
+                    content += `<div class="tooltip-value">${details.desc}</div>`;
                     content += `</div>`;
                 }
 
@@ -1317,8 +1395,9 @@ class GraphTemplate(BaseTemplate):
 
                 // Enhanced hover effect
                 d3.select(event.currentTarget).select('circle')
-                    .style('filter', `drop-shadow(0 0 15px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '80' || '#6666'})`);
+                    .style('filter', `drop-shadow(0 0 15px ${getStateConfig(d.state).glow})`);
             }
+
             function hideTooltip(event, d) {
                 const tooltip = document.getElementById('node-tooltip');
                 tooltip.classList.remove('show');
@@ -1326,7 +1405,7 @@ class GraphTemplate(BaseTemplate):
                 if (d && !highlightedNodes.has(d.id)) {
                     const selector = event ? event.currentTarget : `[data-id="${d.id}"]`;
                     d3.select(selector).select('circle')
-                        .style('filter', `drop-shadow(0 0 8px ${stateConfig[d.state]?.glow || nodeConfig[d.type]?.color + '40' || '#6666'})`);
+                        .style('filter', `drop-shadow(0 0 8px ${getStateConfig(d.state).glow})`);
                 }
                 hoveredNode = null;
             }
@@ -1346,9 +1425,9 @@ class GraphTemplate(BaseTemplate):
                 if (!event.active) simulation.alphaTarget(0);
             }
             
-            // --- FIXED HIGHLIGHT SYSTEM ---
+            // Enhanced highlight system
             function highlightConnected(event, d) {
-                event.stopPropagation(); // Prevent event bubbling
+                event.stopPropagation();
                 
                 if (highlightedNodes.has(d.id)) {
                     clearHighlight();
@@ -1384,7 +1463,7 @@ class GraphTemplate(BaseTemplate):
                         const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
                         const edgeKey = sourceId + '->' + targetId;
                         const target = nodeMap.get(targetId);
-                        return highlightedEdges.has(edgeKey) ? (target?.color || '{{ colors.accent }}') : '{{ colors.text_secondary }}';
+                        return highlightedEdges.has(edgeKey) ? (nodeConfig[target?.type]?.color || '{{ colors.accent }}') : '{{ colors.text_secondary }}';
                     });
 
                 // Restart animations for highlighted edges
@@ -1409,15 +1488,12 @@ class GraphTemplate(BaseTemplate):
                     stopLinkAnimation();
                 }
             }
-            
-            function highlightState(state) {
-                clearHighlight();
-                d3.selectAll('.node').transition().duration(300)
-                    .style('opacity', n => n.state === state ? 1 : 0.2);
-            }
 
             // Global function exports
-            window.highlightState = highlightState;
+            window.filterByType = filterByType;
+            window.filterByState = filterByState;
+            window.clearFilters = clearFilters;
+            window.toggleLegendSection = toggleLegendSection;
             window.resetView = resetView;
             window.zoomIn = zoomIn;
             window.zoomOut = zoomOut;
@@ -1427,16 +1503,22 @@ class GraphTemplate(BaseTemplate):
             window.toggleAnimations = toggleAnimations;
             window.clearHighlight = clearHighlight;
             
-            // Initialize on load and resize
-            init();
-            window.addEventListener('resize', init);
+            // Initialize on load and resize with debouncing
+            let resizeTimer;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(init, config.performance.debounceDelay);
+            });
             
             // Add click outside to clear highlights
             document.addEventListener('click', (event) => {
-                if (!event.target.closest('.node') && !event.target.closest('.nexus-indicator')) {
+                if (!event.target.closest('.node') && !event.target.closest('.nexus-indicator') && !event.target.closest('.legend-item')) {
                     clearHighlight();
                 }
             });
+
+            // Initialize the graph
+            init();
         </script>
     </body>
     </html>

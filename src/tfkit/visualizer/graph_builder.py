@@ -1,4 +1,5 @@
 import ast
+import os
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List
@@ -55,7 +56,6 @@ class GraphNode:
     state: GraphNodeState
     state_reason: str
 
-    # Connection counts
     dependencies_out: int = 0  # This node depends on X others
     dependencies_in: int = 0  # X others depend on this node
 
@@ -147,33 +147,38 @@ class TerraformGraphBuilder:
         }
 
     def _create_nodes(self, project: TerraformProject) -> None:
-        """Create all graph nodes from project objects."""
+        """Create optimized graph nodes from project objects."""
         for obj in project.all_objects.values():
             visual_state = self._map_object_state_to_visual(obj.state)
-
-            state_meta = self._get_state_metadata(visual_state)
-
             subtype = self._determine_subtype(obj)
 
             details = {
-                "file": obj.location.file_path,
-                "line": obj.location.line_number,
-                "color": state_meta["color"],
-                "severity": state_meta["severity"],
-                "icon": state_meta["icon"],
-                "priority": state_meta["priority"],
+                "loc": self._get_relative_location(obj.location),  # Relative path
+                "provider": obj.provider_info.full_provider_reference
+                if obj.provider_info
+                else None,
             }
 
             if obj.resource_type:
                 details["resource_type"] = obj.resource_type
-            if obj.provider_info:
-                details["provider"] = obj.provider_info.full_provider_reference
             if obj.description:
-                details["description"] = obj.description
+                details["desc"] = (
+                    obj.description[:100] + "..."
+                    if len(obj.description) > 100
+                    else obj.description
+                )
             if obj.source:
                 details["source"] = obj.source
             if obj.sensitive:
                 details["sensitive"] = True
+
+            if obj.variable_type and obj.type == ResourceType.VARIABLE:
+                details["var_type"] = obj.variable_type
+
+            # if obj.dependency_info:
+            #     details["dependencies"] = self._extract_essential_dependencies(
+            #         obj.dependency_info
+            #     )
 
             node = GraphNode(
                 id=self.next_id,
@@ -188,6 +193,37 @@ class TerraformGraphBuilder:
             self.nodes.append(node)
             self.node_map[obj.full_name] = self.next_id
             self.next_id += 1
+
+    def _get_relative_location(self, location) -> str:
+        """Convert absolute path to relative for display."""
+        if not location or not location.file_path:
+            return "unknown"
+
+        filename = os.path.basename(location.file_path)
+        line_num = location.line_number or 0
+        return f"{filename}:{line_num}"
+
+    def _extract_essential_dependencies(self, dependency_info) -> dict:
+        """Extract only essential dependency information to avoid duplication."""
+        if not dependency_info:
+            return {"implicit": [], "dependents": []}
+
+        if hasattr(dependency_info, "to_dict"):
+            deps_dict = dependency_info.to_dict()
+        else:
+            return {"implicit": [], "dependents": []}
+
+        essential_deps = {
+            "implicit": deps_dict.get("implicit_dependencies", [])[:10],
+            "dependents": deps_dict.get("dependent_objects", [])[:10],
+        }
+
+        if deps_dict.get("missing_dependencies"):
+            essential_deps["missing"] = deps_dict["missing_dependencies"]
+        if deps_dict.get("circular_dependencies"):
+            essential_deps["circular"] = deps_dict["circular_dependencies"]
+
+        return essential_deps
 
     def _create_edges(self, project: TerraformProject) -> None:
         """Create all graph edges from project dependencies."""

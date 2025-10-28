@@ -13,12 +13,16 @@
       "args": "${command:pickArgs}"
     },
     {
-      "name": "Run CLI Scan Command with Arguments",
+      "name": "Run CLI Scan Command",
       "type": "debugpy",
       "request": "launch",
       "module": "tfkit.cli",
       "console": "integratedTerminal",
-      "args": "${command:pickArgs}"
+      "cwd": "/home/ivan/development/tfkit",
+      "env": {
+        "PYTHONPATH": "/home/ivan/development/tfkit/src"
+      },
+      "args": ["scan", "-O"]
     }
   ]
 }
