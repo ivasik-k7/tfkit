@@ -1,14 +1,26 @@
 [project]
-name = "tfkit"
-version = "0.1.0"
-description = "A CLI tool to analyze and visualize Terraform projects"
+name = "tfkit-py"
+dynamic = ["version"]
+description = "Advanced Terraform Intelligence & Analysis Suite"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {text = "MIT"}
 authors = [
-    { name = "Ivan Kovtun", email = "kovtun.ivan@proton.me" },
+    {name = "Ivan Kovtun", email = "kovtun.ivan@proton.me"},
 ]
-readme = "README.md"
-requires-python = ">=3.8"
-license = { text = "MIT" }
-keywords = ["terraform", "visualization", "cli", "infrastructure", "devops"]
+maintainers = [
+    {name = "Ivan Kovtun", email = "kovtun.ivan@proton.me"},
+]
+keywords = [
+    "terraform", 
+    "iac", 
+    "infrastructure-as-code", 
+    "analysis", 
+    "visualization", 
+    "security", 
+    "cost-optimization",
+    "devops",
+    "cli"
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -23,8 +35,10 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+    "Environment :: Console",
 ]
-
+requires-python = ">=3.8"
 dependencies = [
     "click>=8.1.0",
     "jinja2>=3.1.0",
@@ -41,22 +55,25 @@ dev = [
     "isort>=5.12.0",
     "mypy>=1.0.0",
     "ruff>=0.1.0",
-]
-build = [
-    "pyinstaller>=6.0.0",
+    "build>=1.0.0",
+    "twine>=4.0.0",
 ]
 
 [project.scripts]
 tfkit = "tfkit.cli:cli"
 
 [project.urls]
-Homepage = "https://github.com/your-username/tfkit"
-Repository = "https://github.com/your-username/tfkit"
-Issues = "https://github.com/your-username/tfkit/issues"
+Homepage = "https://github.com/ivasik-k7/tfkit"
+Documentation = "https://github.com/ivasik-k7/tfkit#readme"
+Repository = "https://github.com/ivasik-k7/tfkit"
+"Bug Tracker" = "https://github.com/ivasik-k7/tfkit/issues"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/tfkit/__init__.py"
 
 [tool.hatch.build]
 include = [

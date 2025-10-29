@@ -17,7 +17,6 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.text import Text
-from rich.tree import Tree
 
 from tfkit import __version__
 from tfkit.analyzer.terraform_analyzer import TerraformAnalyzer
@@ -42,35 +41,21 @@ TFKIT_TAGLINE = "[bold cyan]Terraform Intelligence & Analysis Suite[/bold cyan]"
 def print_banner(show_version: bool = True):
     """Print enhanced tfkit banner."""
     console.print(f"[bold blue]{TFKIT_BANNER}[/bold blue]", highlight=False)
-    if show_version:
-        console.print(f"  [dim]v{__version__} [/dim]\n")
 
 
 def print_welcome():
-    """Print comprehensive welcome screen."""
-    print_banner()
+    """Display welcome message."""
+    print(f"tfkit v{__version__} - Terraform Analysis Tool\n")
 
-    welcome_text = """[bold white]Welcome to TFKIT[/bold white] - Your Terraform analysis companion
+    print("Repository: https://github.com/ivasik-k7/tfkit")
+    print("Homepage: https://tfkit.netlify.app")
 
-[bold cyan]What can TFKIT do?[/bold cyan]
-  • Deep analysis of Terraform projects with dependency tracking
-  • Interactive HTML visualizations with resource graphs
-  • Multi-format exports (JSON, YAML, Markdown, CSV)
-  • Resource dependency mapping and impact analysis
-  • Security and compliance scanning
-  • Cost estimation and optimization insights
-  • Module usage analytics and recommendations
+    print("\nQuick Start:")
+    print("  tfkit scan <path>        # Analyze Terraform project")
+    print("  tfkit validate           # Validate configurations")
+    print("  tfkit export --format    # Export analysis results")
 
-[bold yellow]Quick Commands:[/bold yellow]
-  tfkit scan                    # Quick scan of current directory
-  tfkit analyze --deep          # Deep analysis with all features
-  tfkit inspect resource        # Inspect specific resources
-  tfkit report --interactive    # Generate interactive report
-
-[dim]Run 'tfkit --help' for complete documentation
-Run 'tfkit examples' for common usage patterns[/dim]
-"""
-    console.print(Panel(welcome_text, border_style="blue", padding=(1, 2)))
+    print("\nRun 'tfkit --help' for complete usage")
 
 
 # ============================================================================
@@ -82,35 +67,14 @@ Run 'tfkit examples' for common usage patterns[/dim]
     invoke_without_command=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-@click.option("--version", "-v", is_flag=True, help="Show version information")
-@click.option(
-    "--welcome", "-w", is_flag=True, help="Show welcome screen with quick start guide"
-)
-@click.option("--debug", is_flag=True, help="Enable debug mode with verbose logging")
+@click.option("--version", "-v", is_flag=True, help="Show version and exit")
+@click.option("--welcome", "-w", is_flag=True, help="Show welcome message")
+@click.option("--debug", is_flag=True, help="Enable debug output")
 @click.pass_context
 def cli(ctx, version, welcome, debug):
-    """TFKIT - Advanced Terraform Intelligence & Analysis Suite
+    """tfkit - Terraform analysis tool
 
-    A comprehensive toolkit for analyzing, visualizing, and understanding
-    your Terraform infrastructure. Perform deep analysis, generate reports,
-    inspect resources, and gain insights into your IaC projects.
-
-    \b
-    Core Commands:
-      scan       Quick scan of Terraform project
-      analyze    Deep analysis with full feature set
-      inspect    Detailed inspection of specific components
-      report     Generate comprehensive reports
-      export     Export analysis data in multiple formats
-      validate   Validate Terraform configurations
-
-    \b
-    Utility Commands:
-      examples   Show usage examples and patterns
-      config     Manage TFKIT configuration
-      info       Display system and project information
-
-    Use 'tfkit COMMAND --help' for detailed command information.
+    Analyze, validate, and export Terraform configurations.
     """
     ctx.ensure_object(dict)
     ctx.obj["DEBUG"] = debug
@@ -1427,146 +1391,145 @@ def scan(path, output, format, open, quiet, save, theme, layout):
 # REPORT COMMAND - Generate Reports
 # ============================================================================
 
+# @cli.command()
+# @click.argument("path", type=click.Path(exists=True, path_type=Path), default=".")
+# @click.option(
+#     "--type",
+#     "-t",
+#     "report_type",
+#     type=click.Choice(
+#         ["summary", "detailed", "security", "cost", "compliance", "custom"],
+#         case_sensitive=False,
+#     ),
+#     default="summary",
+#     help="Report type",
+# )
+# @click.option(
+#     "--format",
+#     "-f",
+#     type=click.Choice(["html", "pdf", "markdown", "json"], case_sensitive=False),
+#     default="html",
+#     help="Output format",
+# )
+# @click.option(
+#     "--output", "-o", type=click.Path(path_type=Path), help="Output file path"
+# )
+# @click.option("--title", help="Custom report title")
+# @click.option("--template", type=click.Path(exists=True), help="Custom template file")
+# @click.option(
+#     "--include-graph", "-g", is_flag=True, help="Include resource dependency graph"
+# )
+# @click.option("--include-metrics", "-m", is_flag=True, help="Include detailed metrics")
+# @click.option(
+#     "--interactive", "-i", is_flag=True, help="Generate interactive HTML report"
+# )
+# @click.option("--open", "-O", is_flag=True, help="Open report after generation")
+# @click.option(
+#     "--theme",
+#     type=click.Choice(["light", "dark", "cyber", "nord"], case_sensitive=False),
+#     default="dark",
+#     help="Report theme",
+# )
+# def report(
+#     path,
+#     report_type,
+#     format,
+#     output,
+#     title,
+#     template,
+#     include_graph,
+#     include_metrics,
+#     interactive,
+#     open,
+#     theme,
+# ):
+#     """Generate comprehensive reports from Terraform analysis.
 
-@cli.command()
-@click.argument("path", type=click.Path(exists=True, path_type=Path), default=".")
-@click.option(
-    "--type",
-    "-t",
-    "report_type",
-    type=click.Choice(
-        ["summary", "detailed", "security", "cost", "compliance", "custom"],
-        case_sensitive=False,
-    ),
-    default="summary",
-    help="Report type",
-)
-@click.option(
-    "--format",
-    "-f",
-    type=click.Choice(["html", "pdf", "markdown", "json"], case_sensitive=False),
-    default="html",
-    help="Output format",
-)
-@click.option(
-    "--output", "-o", type=click.Path(path_type=Path), help="Output file path"
-)
-@click.option("--title", help="Custom report title")
-@click.option("--template", type=click.Path(exists=True), help="Custom template file")
-@click.option(
-    "--include-graph", "-g", is_flag=True, help="Include resource dependency graph"
-)
-@click.option("--include-metrics", "-m", is_flag=True, help="Include detailed metrics")
-@click.option(
-    "--interactive", "-i", is_flag=True, help="Generate interactive HTML report"
-)
-@click.option("--open", "-O", is_flag=True, help="Open report after generation")
-@click.option(
-    "--theme",
-    type=click.Choice(["light", "dark", "cyber", "nord"], case_sensitive=False),
-    default="dark",
-    help="Report theme",
-)
-def report(
-    path,
-    report_type,
-    format,
-    output,
-    title,
-    template,
-    include_graph,
-    include_metrics,
-    interactive,
-    open,
-    theme,
-):
-    """Generate comprehensive reports from Terraform analysis.
+#     Create detailed reports in multiple formats with customizable
+#     content and styling options.
 
-    Create detailed reports in multiple formats with customizable
-    content and styling options.
+#     \b
+#     Report Types:
+#       summary      High-level overview (default)
+#       detailed     Comprehensive analysis
+#       security     Security and compliance focus
+#       cost         Cost analysis and optimization
+#       compliance   Compliance and best practices
+#       custom       Use custom template
 
-    \b
-    Report Types:
-      summary      High-level overview (default)
-      detailed     Comprehensive analysis
-      security     Security and compliance focus
-      cost         Cost analysis and optimization
-      compliance   Compliance and best practices
-      custom       Use custom template
+#     \b
+#     Output Formats:
+#       html         Interactive HTML (default)
+#       pdf          PDF document (requires wkhtmltopdf)
+#       markdown     Markdown document
+#       json         Structured JSON data
 
-    \b
-    Output Formats:
-      html         Interactive HTML (default)
-      pdf          PDF document (requires wkhtmltopdf)
-      markdown     Markdown document
-      json         Structured JSON data
+#     \b
+#     Examples:
+#       # Generate summary report
+#       tfkit report
 
-    \b
-    Examples:
-      # Generate summary report
-      tfkit report
+#       # Detailed interactive report
+#       tfkit report --type detailed --interactive --open
 
-      # Detailed interactive report
-      tfkit report --type detailed --interactive --open
+#       # Security report with graph
+#       tfkit report --type security --include-graph -o security.html
 
-      # Security report with graph
-      tfkit report --type security --include-graph -o security.html
+#       # Custom styled report
+#       tfkit report --title "Production Infrastructure" --theme dark
 
-      # Custom styled report
-      tfkit report --title "Production Infrastructure" --theme dark
+#       # PDF report with metrics
+#       tfkit report --format pdf --include-metrics -o infra-report.pdf
+#     """
+#     print_banner(show_version=False)
+#     console.print(f"[bold]📊 Generating {report_type.upper()} Report[/bold]")
+#     console.print(f"   Format: [cyan]{format.upper()}[/cyan]")
+#     console.print(f"   Theme: [yellow]{theme}[/yellow]")
+#     console.print()
 
-      # PDF report with metrics
-      tfkit report --format pdf --include-metrics -o infra-report.pdf
-    """
-    print_banner(show_version=False)
-    console.print(f"[bold]📊 Generating {report_type.upper()} Report[/bold]")
-    console.print(f"   Format: [cyan]{format.upper()}[/cyan]")
-    console.print(f"   Theme: [yellow]{theme}[/yellow]")
-    console.print()
+#     try:
+#         with Progress(
+#             SpinnerColumn(),
+#             TextColumn("[progress.description]{task.description}"),
+#             console=console,
+#         ) as progress:
+#             task = progress.add_task("Analyzing project...", total=None)
 
-    try:
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            console=console,
-        ) as progress:
-            task = progress.add_task("Analyzing project...", total=None)
+#             analyzer = TerraformAnalyzer()
+#             project = analyzer.analyze_project(path)
 
-            analyzer = TerraformAnalyzer()
-            project = analyzer.analyze_project(path)
+#             progress.update(task, description="Generating report content...")
 
-            progress.update(task, description="Generating report content...")
+#             report_file = _generate_report(
+#                 project,
+#                 report_type,
+#                 format,
+#                 output,
+#                 title,
+#                 template,
+#                 include_graph,
+#                 include_metrics,
+#                 interactive,
+#                 theme,
+#             )
 
-            report_file = _generate_report(
-                project,
-                report_type,
-                format,
-                output,
-                title,
-                template,
-                include_graph,
-                include_metrics,
-                interactive,
-                theme,
-            )
+#             progress.update(task, description="✓ Report generation complete")
 
-            progress.update(task, description="✓ Report generation complete")
+#         console.print(f"\n✓ Report generated: [green]{report_file}[/green]")
+#         console.print(f"   Type: [cyan]{report_type}[/cyan]")
+#         console.print(
+#             f"   Size: [yellow]{report_file.stat().st_size / 1024:.1f} KB[/yellow]"
+#         )
 
-        console.print(f"\n✓ Report generated: [green]{report_file}[/green]")
-        console.print(f"   Type: [cyan]{report_type}[/cyan]")
-        console.print(
-            f"   Size: [yellow]{report_file.stat().st_size / 1024:.1f} KB[/yellow]"
-        )
+#         if open:
+#             import webbrowser
 
-        if open:
-            import webbrowser
+#             webbrowser.open(f"file://{report_file.resolve()}")
+#             console.print("   🌐 Opened in browser")
 
-            webbrowser.open(f"file://{report_file.resolve()}")
-            console.print("   🌐 Opened in browser")
-
-    except Exception as e:
-        console.print(f"\n[red]✗ Report generation failed:[/red] {e}")
-        sys.exit(1)
+#     except Exception as e:
+#         console.print(f"\n[red]✗ Report generation failed:[/red] {e}")
+#         sys.exit(1)
 
 
 # ============================================================================
@@ -1669,7 +1632,7 @@ def export(path, formats, output_dir, prefix, split_by, include, exclude, compre
                     file.unlink()
             console.print(f"   ✓ Compressed to: [green]{zip_path}[/green]")
         else:
-            console.print(f"\n[bold]Exported files:[/bold]")
+            console.print("\n[bold]Exported files:[/bold]")
             for file in exported_files:
                 console.print(f"   • [green]{file}[/green]")
 
@@ -2005,238 +1968,146 @@ def _display_validation_results_sarif(result, base_path):
 
 @cli.command()
 def examples():
-    """Show comprehensive usage examples and patterns.
+    """
+    Show practical usage examples and common patterns.
 
-    Display common usage patterns, workflows, and advanced
-    examples for different scenarios.
+    Display real-world examples for scanning complex projects, validating
+    multi-environment setups, and exporting data for CI/CD pipelines.
+    Includes advanced usage scenarios aExport analysis results in multiple formats.expnd integration patterns.
     """
     print_banner()
 
     examples_content = """
-[bold yellow]🚀 Quick Start Workflows[/bold yellow]
+[bold yellow]🔍 SCAN - Analyze Terraform Projects[/bold yellow]
 
-  [bold]1. Fast Project Scan[/bold]
-     tfkit scan
-     tfkit scan --format json --save results.json
-  
-  [bold]2. Full Analysis[/bold]
-     tfkit analyze --deep --open-browser
-     tfkit analyze -d -D -S -C -o ./reports
-  
-  [bold]3. Generate Reports[/bold]
-     tfkit report --type detailed --interactive
-     tfkit report --type security --format pdf
+  # Quick scan of current directory
+  tfkit scan
 
-[bold yellow]📊 Advanced Analysis Patterns[/bold yellow]
+  # Scan specific path with JSON output
+  tfkit scan /path/to/terraform --format json
 
-  [bold]Deep Dive with All Features:[/bold]
-  $ tfkit analyze --deep \\
-      --include-dependencies \\
-      --include-security \\
-      --include-costs \\
-      --export-json full-analysis.json \\
-      --export-markdown report.md \\
-      --open-browser
+  # Save results to file
+  tfkit scan --save results.json
 
-  [bold]Filtered Analysis:[/bold]
-  $ tfkit analyze \\
-      --providers aws azure \\
-      --exclude "*.test.tf" \\
-      --tags production \\
-      --threads 8
+  # Open visualization in browser
+  tfkit scan --open
 
-  [bold]Multi-Format Export:[/bold]
-  $ tfkit export \\
-      --format json --format yaml --format csv \\
-      --split-by provider \\
-      --compress
+[bold yellow]✅ VALIDATE - Check Configurations[/bold yellow]
 
-[bold yellow]🔍 Inspection Examples[/bold yellow]
+  # Basic validation
+  tfkit validate
 
-  [bold]Inspect Resources:[/bold]
-  $ tfkit inspect resource --name aws_instance.web --show-dependencies
-  $ tfkit inspect resource --type aws_s3_bucket --format table
-  
-  [bold]Module Analysis:[/bold]
-  $ tfkit inspect module --show-attributes --format detailed
-  
-  [bold]Provider Investigation:[/bold]
-  $ tfkit inspect provider --show-references
+  # Full validation with all checks
+  tfkit validate --all
 
-[bold yellow]📋 Reporting Scenarios[/bold yellow]
+  # Security-focused validation
+  tfkit validate --check-security
 
-  [bold]Executive Summary:[/bold]
-  $ tfkit report --type summary --format pdf -o executive-report.pdf
-  
-  [bold]Security Audit:[/bold]
-  $ tfkit report --type security --include-graph --include-metrics
-  
-  [bold]Cost Analysis:[/bold]
-  $ tfkit report --type cost --format html --theme dark --open
+  # CI/CD mode (fails on warnings)
+  tfkit validate --all --fail-on-warning
 
-[bold yellow]✓ Validation & CI/CD[/bold yellow]
+[bold yellow]📦 EXPORT - Export Data[/bold yellow]
 
-  [bold]Pre-commit Hook:[/bold]
-  $ tfkit validate --check-syntax --check-references --fail-on-warning
-  
-  [bold]Full Validation Pipeline:[/bold]
-  $ tfkit validate --strict \\
-      --check-syntax \\
-      --check-references \\
-      --check-best-practices \\
-      --check-security \\
-      --format sarif > results.sarif
+  # Export as JSON
+  tfkit export --format json
 
-  [bold]CI/CD Integration:[/bold]
-  $ tfkit scan --quiet --format json --save scan-results.json
-  $ tfkit analyze --quiet --export-json analysis.json
+  # Export multiple formats
+  tfkit export --format json --format yaml
 
-[bold yellow]🔧 Workflow Combinations[/bold yellow]
+  # Export to custom directory
+  tfkit export -o ./exports
 
-  [bold]Complete Analysis Pipeline:[/bold]
-  $ tfkit scan --save initial-scan.json
-  $ tfkit analyze --deep -D -S -C --export-json detailed.json
-  $ tfkit report --type detailed --include-graph --open
-  $ tfkit export --format json --format yaml --compress
+  # Compress exported files
+  tfkit export --format json --compress
 
-  [bold]Security-Focused Workflow:[/bold]
-  $ tfkit analyze --include-security --export-json security-data.json
-  $ tfkit validate --check-security --strict
-  $ tfkit report --type security --format pdf
+[bold yellow]⚡ QUICK WORKFLOWS[/bold yellow]
 
-  [bold]Cost Optimization Workflow:[/bold]
-  $ tfkit analyze --include-costs --export-csv costs.csv
-  $ tfkit report --type cost --include-metrics
-  $ tfkit inspect resource --filter cost>100
+  # Complete analysis
+  tfkit scan && tfkit validate --all
 
-[bold cyan]═══════════════════════════════════════════════════════════════[/bold cyan]
+  # Export everything
+  tfkit scan --save scan.json && tfkit export --format json --format yaml
 
-[dim]For detailed command help: tfkit COMMAND --help
-For configuration options: tfkit config --help[/dim]
+  # Security check
+  tfkit validate --check-security --fail-on-warning
 """
 
     console.print(Panel(examples_content, border_style="cyan", padding=(1, 2)))
 
 
-@cli.command()
-@click.option("--show", "-s", is_flag=True, help="Show current configuration")
-@click.option("--set", "set_key", help="Set configuration key=value")
-@click.option("--reset", is_flag=True, help="Reset to defaults")
-@click.option("--edit", is_flag=True, help="Open config in editor")
-def config(show, set_key, reset, edit):
-    """Manage TFKIT configuration settings.
+# @cli.command()
+# @click.option("--show", "-s", is_flag=True, help="Show current configuration")
+# @click.option("--set", "set_key", help="Set configuration key=value")
+# @click.option("--reset", is_flag=True, help="Reset to defaults")
+# @click.option("--edit", is_flag=True, help="Open config in editor")
+# def config(show, set_key, reset, edit):
+#     """Manage TFKIT configuration settings.
 
-    Configure default behaviors, output preferences, and
-    integration settings for TFKIT.
+#     Configure default behaviors, output preferences, and
+#     integration settings for TFKIT.
 
-    \b
-    Examples:
-      tfkit config --show                    # Show current config
-      tfkit config --set theme=dark          # Set theme
-      tfkit config --set default_format=json # Set default format
-      tfkit config --reset                   # Reset to defaults
-      tfkit config --edit                    # Edit in $EDITOR
-    """
-    print_banner(show_version=False)
+#     \b
+#     Examples:
+#       tfkit config --show                    # Show current config
+#       tfkit config --set theme=dark          # Set theme
+#       tfkit config --set default_format=json # Set default format
+#       tfkit config --reset                   # Reset to defaults
+#       tfkit config --edit                    # Edit in $EDITOR
+#     """
+#     print_banner(show_version=False)
 
-    config_file = Path.home() / ".tfkit" / "config.json"
+#     config_file = Path.home() / ".tfkit" / "config.json"
 
-    if show or (not set_key and not reset and not edit):
-        if config_file.exists():
-            with config_file.open() as f:
-                cfg = json.load(f)
+#     if show or (not set_key and not reset and not edit):
+#         if config_file.exists():
+#             with config_file.open() as f:
+#                 cfg = json.load(f)
 
-            table = Table(
-                title="TFKIT Configuration", show_header=True, border_style="cyan"
-            )
-            table.add_column("Setting", style="cyan")
-            table.add_column("Value", style="green")
+#             table = Table(
+#                 title="TFKIT Configuration", show_header=True, border_style="cyan"
+#             )
+#             table.add_column("Setting", style="cyan")
+#             table.add_column("Value", style="green")
 
-            for key, value in cfg.items():
-                table.add_row(key, str(value))
+#             for key, value in cfg.items():
+#                 table.add_row(key, str(value))
 
-            console.print(table)
-            console.print(f"\n[dim]Config file: {config_file}[/dim]")
-        else:
-            console.print("[yellow]⚠[/yellow]  No configuration file found")
-            console.print(f"   Run 'tfkit config --set KEY=VALUE' to create one")
+#             console.print(table)
+#             console.print(f"\n[dim]Config file: {config_file}[/dim]")
+#         else:
+#             console.print("[yellow]⚠[/yellow]  No configuration file found")
+#             console.print("   Run 'tfkit config --set KEY=VALUE' to create one")
 
-    elif set_key:
-        if "=" not in set_key:
-            console.print("[red]✗[/red] Invalid format. Use: KEY=VALUE")
-            sys.exit(1)
+#     elif set_key:
+#         if "=" not in set_key:
+#             console.print("[red]✗[/red] Invalid format. Use: KEY=VALUE")
+#             sys.exit(1)
 
-        key, value = set_key.split("=", 1)
-        config_file.parent.mkdir(parents=True, exist_ok=True)
+#         key, value = set_key.split("=", 1)
+#         config_file.parent.mkdir(parents=True, exist_ok=True)
 
-        cfg = {}
-        if config_file.exists():
-            with config_file.open() as f:
-                cfg = json.load(f)
+#         cfg = {}
+#         if config_file.exists():
+#             with config_file.open() as f:
+#                 cfg = json.load(f)
 
-        cfg[key] = value
+#         cfg[key] = value
 
-        with config_file.open("w") as f:
-            json.dump(cfg, f, indent=2)
+#         with config_file.open("w") as f:
+#             json.dump(cfg, f, indent=2)
 
-        console.print(f"✓ Set [cyan]{key}[/cyan] = [green]{value}[/green]")
+#         console.print(f"✓ Set [cyan]{key}[/cyan] = [green]{value}[/green]")
 
-    elif reset:
-        if config_file.exists():
-            config_file.unlink()
-        console.print("✓ Configuration reset to defaults")
-
-
-@cli.command()
-@click.argument("path", type=click.Path(exists=True, path_type=Path), default=".")
-def info(path):
-    """Display comprehensive system and project information.
-
-    Show detailed information about the Terraform project,
-    TFKIT installation, and system environment.
-    """
-    print_banner()
-
-    import platform
-
-    system_table = Table(
-        title="System Information", show_header=False, border_style="blue"
-    )
-    system_table.add_column("Property", style="cyan")
-    system_table.add_column("Value", style="white")
-
-    system_table.add_row("TFKIT Version", __version__)
-    system_table.add_row("Python Version", platform.python_version())
-    system_table.add_row("Platform", platform.platform())
-    system_table.add_row("Machine", platform.machine())
-
-    console.print(system_table)
-    console.print()
+#     elif reset:
+#         if config_file.exists():
+#             config_file.unlink()
+#         console.print("✓ Configuration reset to defaults")
 
 
 def show_version_info():
-    """Display detailed version information."""
-    import platform
-
-    from tfkit import __version__
-
-    print_banner()
-
-    version_panel = Panel(
-        f"""[bold cyan]TFKIT Version:[/bold cyan] {__version__}
-[bold cyan]Python:[/bold cyan] {platform.python_version()}
-[bold cyan]Platform:[/bold cyan] {platform.system()} {platform.release()}
-[bold cyan]Architecture:[/bold cyan] {platform.machine()}
-
-[dim]Terraform Intelligence & Analysis Suite
-Advanced infrastructure code analysis and visualization
-https://github.com/ivasik-k7/tfkit[/dim]""",
-        title="Version Information",
-        border_style="blue",
-        padding=(1, 2),
-    )
-
-    console.print(version_panel)
+    """Show version information."""
+    print(f"tfkit v{__version__}")
+    print("https://github.com/ivasik-k7/tfkit/releases")
 
 
 # ============================================================================
@@ -2336,102 +2207,102 @@ https://github.com/ivasik-k7/tfkit[/dim]""",
 #         console.print(features_table)
 
 
-def _get_resource_breakdown(project):
-    """Get resource type breakdown."""
-    resource_types = {}
-    for res_id, res in project.resources.items():
-        res_type = res.get("type", "unknown")
-        resource_types[res_type] = resource_types.get(res_type, 0) + 1
+# def _get_resource_breakdown(project):
+#     """Get resource type breakdown."""
+#     resource_types = {}
+#     for _, res in project.resources.items():
+#         res_type = res.get("type", "unknown")
+#         resource_types[res_type] = resource_types.get(res_type, 0) + 1
 
-    if resource_types:
-        top = sorted(resource_types.items(), key=lambda x: x[1], reverse=True)[:3]
-        return ", ".join([f"{t}: {c}" for t, c in top])
-    return ""
-
-
-def _get_module_summary(project):
-    """Get module summary."""
-    if project.modules:
-        return f"{len(project.modules)} modules detected"
-    return ""
+#     if resource_types:
+#         top = sorted(resource_types.items(), key=lambda x: x[1], reverse=True)[:3]
+#         return ", ".join([f"{t}: {c}" for t, c in top])
+#     return ""
 
 
-def _get_components_by_type(project, component_type, name, resource_type, filters):
-    """Get components by type with filtering."""
-    components = {}
-
-    if component_type == "resource":
-        components = project.resources
-    elif component_type == "module":
-        components = project.modules
-    elif component_type == "variable":
-        components = project.variables
-    elif component_type == "output":
-        components = project.outputs
-    elif component_type == "provider":
-        components = project.providers
-    elif component_type == "data":
-        components = project.data_sources
-
-    # Filter by name
-    if name:
-        components = {k: v for k, v in components.items() if name in k}
-
-    # Filter by type
-    if resource_type:
-        components = {
-            k: v for k, v in components.items() if v.get("type") == resource_type
-        }
-
-    return components
+# def _get_module_summary(project):
+#     """Get module summary."""
+#     if project.modules:
+#         return f"{len(project.modules)} modules detected"
+#     return ""
 
 
-def _display_component_tree(
-    components,
-    component_type,
-    show_dependencies,
-    show_references,
-    show_attributes,
-):
-    """Display components as tree."""
-    tree = Tree(f"[bold cyan]{component_type.upper()}S[/bold cyan]")
+# def _get_components_by_type(project, component_type, name, resource_type, filters):
+#     """Get components by type with filtering."""
+#     components = {}
 
-    for name, comp in list(components.items())[:20]:  # Limit to 20
-        branch = tree.add(f"[green]{name}[/green]")
+#     if component_type == "resource":
+#         components = project.resources
+#     elif component_type == "module":
+#         components = project.modules
+#     elif component_type == "variable":
+#         components = project.variables
+#     elif component_type == "output":
+#         components = project.outputs
+#     elif component_type == "provider":
+#         components = project.providers
+#     elif component_type == "data":
+#         components = project.data_sources
 
-        if isinstance(comp, dict):
-            if "type" in comp:
-                branch.add(f"[dim]Type: {comp['type']}[/dim]")
-            if show_attributes:
-                attrs = branch.add("[yellow]Attributes[/yellow]")
-                for key, value in list(comp.items())[:5]:
-                    if key != "type":
-                        attrs.add(f"{key}: {str(value)[:50]}")
+#     # Filter by name
+#     if name:
+#         components = {k: v for k, v in components.items() if name in k}
 
-    console.print(tree)
+#     # Filter by type
+#     if resource_type:
+#         components = {
+#             k: v for k, v in components.items() if v.get("type") == resource_type
+#         }
+
+#     return components
 
 
-def _display_component_table(components, component_type, show_attributes):
-    """Display components as table."""
-    table = Table(
-        title=f"{component_type.upper()} List", show_header=True, border_style="cyan"
-    )
-    table.add_column("Name", style="cyan")
-    table.add_column("Type", style="green")
+# def _display_component_tree(
+#     components,
+#     component_type,
+#     show_dependencies,
+#     show_references,
+#     show_attributes,
+# ):
+#     """Display components as tree."""
+#     tree = Tree(f"[bold cyan]{component_type.upper()}S[/bold cyan]")
 
-    if show_attributes:
-        table.add_column("Attributes", style="dim", max_width=40)
+#     for name, comp in list(components.items())[:20]:  # Limit to 20
+#         branch = tree.add(f"[green]{name}[/green]")
 
-    for name, comp in list(components.items())[:50]:
-        comp_type = comp.get("type", "N/A") if isinstance(comp, dict) else "N/A"
+#         if isinstance(comp, dict):
+#             if "type" in comp:
+#                 branch.add(f"[dim]Type: {comp['type']}[/dim]")
+#             if show_attributes:
+#                 attrs = branch.add("[yellow]Attributes[/yellow]")
+#                 for key, value in list(comp.items())[:5]:
+#                     if key != "type":
+#                         attrs.add(f"{key}: {str(value)[:50]}")
 
-        if show_attributes and isinstance(comp, dict):
-            attrs = ", ".join([f"{k}" for k in list(comp.keys())[:5]])
-            table.add_row(name, comp_type, attrs)
-        else:
-            table.add_row(name, comp_type)
+#     console.print(tree)
 
-    console.print(table)
+
+# def _display_component_table(components, component_type, show_attributes):
+#     """Display components as table."""
+#     table = Table(
+#         title=f"{component_type.upper()} List", show_header=True, border_style="cyan"
+#     )
+#     table.add_column("Name", style="cyan")
+#     table.add_column("Type", style="green")
+
+#     if show_attributes:
+#         table.add_column("Attributes", style="dim", max_width=40)
+
+#     for name, comp in list(components.items())[:50]:
+#         comp_type = comp.get("type", "N/A") if isinstance(comp, dict) else "N/A"
+
+#         if show_attributes and isinstance(comp, dict):
+#             attrs = ", ".join([f"{k}" for k in list(comp.keys())[:5]])
+#             table.add_row(name, comp_type, attrs)
+#         else:
+#             table.add_row(name, comp_type)
+
+#     console.print(table)
 
 
 def _export_yaml(data):
@@ -2487,46 +2358,34 @@ def _export_csv_resources(project, filepath):
             writer.writerow([name, res_type, provider])
 
 
-def _apply_provider_filter(project, providers):
-    """Filter project by providers."""
-    filtered_resources = {}
-    for name, res in project.resources.items():
-        res_type = res.get("type", "")
-        provider = res_type.split("_")[0] if "_" in res_type else ""
-        if provider in providers:
-            filtered_resources[name] = res
-    project.resources = filtered_resources
+# def _generate_report(
+#     project,
+#     report_type,
+#     format,
+#     output,
+#     title,
+#     template,
+#     include_graph,
+#     include_metrics,
+#     interactive,
+#     theme,
+# ):
+#     """Generate report file."""
+#     if not output:
+#         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+#         output = Path(f"tfkit-{report_type}-report-{timestamp}.{format}")
 
-
-def _generate_report(
-    project,
-    report_type,
-    format,
-    output,
-    title,
-    template,
-    include_graph,
-    include_metrics,
-    interactive,
-    theme,
-):
-    """Generate report file."""
-    if not output:
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output = Path(f"tfkit-{report_type}-report-{timestamp}.{format}")
-
-    if format == "html":
-        generator = ReportGenerator()
-        html_file = generator.generate_visualization(project, output.parent)
-        return html_file
-    elif format == "markdown":
-        _export_markdown_report(project, output, False, False)
-        return output
-    else:
-        # Default to JSON
-        with output.open("w") as f:
-            json.dump(project.to_dict(), f, indent=2, default=str)
-        return output
+#     if format == "html":
+#         generator = ReportGenerator()
+#         html_file = generator.generate_visualization(project, output.parent)
+#         return html_file
+#     elif format == "markdown":
+#         _export_markdown_report(project, output, False, False)
+#         return output
+#     else:
+#         with output.open("w") as f:
+#             json.dump(project.to_dict(), f, indent=2, default=str)
+#         return output
 
 
 def _export_single(project, format, output_dir, prefix):
@@ -2553,57 +2412,57 @@ def _export_split(project, format, output_dir, prefix, split_by):
     return files
 
 
-def _display_validation_results(results):
-    """Display validation results."""
-    # Passed checks
-    if results["passed"]:
-        passed_table = Table(
-            title="✓ Passed Checks", border_style="green", show_header=False
-        )
-        passed_table.add_column("Check", style="green")
-        for check in results["passed"]:
-            passed_table.add_row(f"✓ {check}")
-        console.print(passed_table)
-        console.print()
+# def _display_validation_results(results):
+#     """Display validation results."""
+#     # Passed checks
+#     if results["passed"]:
+#         passed_table = Table(
+#             title="✓ Passed Checks", border_style="green", show_header=False
+#         )
+#         passed_table.add_column("Check", style="green")
+#         for check in results["passed"]:
+#             passed_table.add_row(f"✓ {check}")
+#         console.print(passed_table)
+#         console.print()
 
-    # Warnings
-    if results["warnings"]:
-        warn_table = Table(title="⚠ Warnings", border_style="yellow", show_header=False)
-        warn_table.add_column("Warning", style="yellow")
-        for warning in results["warnings"]:
-            warn_table.add_row(f"⚠ {warning}")
-        console.print(warn_table)
-        console.print()
+#     # Warnings
+#     if results["warnings"]:
+#         warn_table = Table(title="⚠ Warnings", border_style="yellow", show_header=False)
+#         warn_table.add_column("Warning", style="yellow")
+#         for warning in results["warnings"]:
+#             warn_table.add_row(f"⚠ {warning}")
+#         console.print(warn_table)
+#         console.print()
 
-    # Errors
-    if results["errors"]:
-        error_table = Table(title="✗ Errors", border_style="red", show_header=False)
-        error_table.add_column("Error", style="red")
-        for error in results["errors"]:
-            error_table.add_row(f"✗ {error}")
-        console.print(error_table)
+#     # Errors
+#     if results["errors"]:
+#         error_table = Table(title="✗ Errors", border_style="red", show_header=False)
+#         error_table.add_column("Error", style="red")
+#         for error in results["errors"]:
+#             error_table.add_row(f"✗ {error}")
+#         console.print(error_table)
 
-    # Summary
-    summary = f"\n[bold]Validation Complete:[/bold] "
-    summary += f"[green]{len(results['passed'])} passed[/green], "
-    summary += f"[yellow]{len(results['warnings'])} warnings[/yellow], "
-    summary += f"[red]{len(results['errors'])} errors[/red]"
-    console.print(summary)
+#     # Summary
+#     summary = "\n[bold]Validation Complete:[/bold] "
+#     summary += f"[green]{len(results['passed'])} passed[/green], "
+#     summary += f"[yellow]{len(results['warnings'])} warnings[/yellow], "
+#     summary += f"[red]{len(results['errors'])} errors[/red]"
+#     console.print(summary)
 
 
-def _export_sarif(results):
-    """Export validation results in SARIF format."""
-    sarif = {
-        "version": "2.1.0",
-        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-        "runs": [
-            {
-                "tool": {"driver": {"name": "TFKIT", "version": __version__}},
-                "results": [],
-            }
-        ],
-    }
-    console.print(json.dumps(sarif, indent=2))
+# def _export_sarif(results):
+#     """Export validation results in SARIF format."""
+#     sarif = {
+#         "version": "2.1.0",
+#         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+#         "runs": [
+#             {
+#                 "tool": {"driver": {"name": "TFKIT", "version": __version__}},
+#                 "results": [],
+#             }
+#         ],
+#     }
+#     console.print(json.dumps(sarif, indent=2))
 
 
 # ============================================================================

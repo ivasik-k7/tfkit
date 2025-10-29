@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![TFKit Version](https://img.shields.io/badge/version-0.2.4-orange.svg)](https://github.com/your-org/tfkit)
+[![TFKit Version](https://img.shields.io/badge/version-0.4.42-purple.svg)](https://github.com/ivasik-k7/tfkit)
 
 A comprehensive toolkit for analyzing, visualizing, and validating Terraform infrastructure code. TFKit provides deep insights into your Terraform projects with advanced dependency tracking, security scanning, and interactive visualizations.
 
@@ -10,10 +10,10 @@ A comprehensive toolkit for analyzing, visualizing, and validating Terraform inf
 
 TFKit helps infrastructure teams understand, validate, and optimize their Terraform configurations through:
 
-- **Detailed Analysis**: Deep dependency mapping and resource relationship tracking
+- **Quick Scanning**: Rapid project analysis with comprehensive metrics
+- **Validation Suite**: Built-in validation with security and compliance checks
 - **Multi-Format Export**: Flexible output formats for integration with other tools
-- **Interactive Visualizations**: Rich graphical representations of your infrastructure
-- **Security Validation**: Built-in security scanning and compliance checks
+- **Interactive Visualizations**: Rich graphical representations with multiple themes and layouts
 - **CI/CD Ready**: SARIF output and automation-friendly interfaces
 
 ## Quick Start
@@ -21,49 +21,79 @@ TFKit helps infrastructure teams understand, validate, and optimize their Terraf
 ### Installation
 
 ```bash
-pip install tfkit
+pip install tfkit-py
 ```
 
 ### Basic Usage
 
-Get started with these common commands:
+Get started with these essential commands:
 
 ```bash
 # Quick project scan
 tfkit scan
 
-# Deep analysis with all features
-tfkit analyze --deep --include-dependencies --include-security --include-costs
-
-# Generate interactive report
-tfkit report --interactive --open
+# Scan with visualization
+tfkit scan --open --theme dark --layout graph
 
 # Validate configurations
 tfkit validate --all --strict
+
+# Export analysis results
+tfkit export --format json --format yaml
 ```
 
 ## Visualizations
 
-TFKit provides multiple visualization layouts to suit different analysis needs:
+TFKit provides multiple visualization layouts and themes to suit different analysis needs:
 
 <div align="center">
 
-|                    Graph Layout                     |                   Dashboard Layout                    |                  Classic Layout                   |
-| :-------------------------------------------------: | :---------------------------------------------------: | :-----------------------------------------------: |
-|    ![Graph Visualization](images/graph-scan.png)    | ![Dashboard Visualization](images/dashboard-scan.png) | ![Classic Visualization](images/classic-scan.png) |
-| Force-directed graph showing resource relationships |          Dashboard with metrics and insights          |          Traditional hierarchical layout          |
+| Graph Layout | Dashboard Layout | Classic Layout |
+| :----------: | :--------------: | :------------: |
+
+| [![Graph Visualization](https://iili.io/KPVF9cv.md.png)](https://freeimage.host/i/KPVF9cv) | [![Dashboard Visualization](https://iili.io/KPV3mPa.md.png)](https://freeimage.host/i/KPV3mPa) | [![Classic Visualization](https://iili.io/KPV3yKJ.md.png)](https://freeimage.host/i/KPV3yKJ) |
+| Force-directed graph showing resource relationships | Dashboard with metrics and insights | Traditional hierarchical layout |
 
 </div>
+
+### Available Themes
+
+- **Dark** (default) - Dark theme for extended viewing sessions
+- **Light** - Light theme for printed reports
+- **Cyber** - High-contrast theme for presentations
+- **GitHub Dark** - GitHub's dark color scheme
+- **Monokai** - Popular code editor theme
+- **Solarized Light** - Eye-friendly light theme
+- **Dracula** - Popular dark theme
+- **Atom One Dark** - Atom editor's dark theme
+- **Gruvbox Dark** - Retro groove color scheme
+- **Night Owl** - Night-optimized theme
+
+### Layout Options
+
+- **Classic** - Traditional hierarchical tree layout
+- **Graph** - Force-directed graph for complex relationships (default)
+- **Dashboard** - Metrics-focused layout with key insights
 
 ## Command Reference
 
 ### Scan Command
 
-Quick analysis for rapid insights into your Terraform project.
+Quick analysis for rapid insights into your Terraform project with comprehensive statistics and health assessment.
 
 ```bash
 tfkit scan [PATH] [OPTIONS]
 ```
+
+**Options:**
+
+- `--output, -o DIR` - Output directory for reports
+- `--format, -f FORMAT` - Output format: `table` (default), `json`, `yaml`, `simple`
+- `--open, -O` - Open results in browser
+- `--quiet, -q` - Minimal output
+- `--save, -s FILE` - Save scan results to file
+- `--theme THEME` - Visualization theme (default: dark)
+- `--layout LAYOUT` - Visualization layout (default: graph)
 
 **Examples:**
 
@@ -71,182 +101,174 @@ tfkit scan [PATH] [OPTIONS]
 # Scan current directory
 tfkit scan
 
+# Scan specific path
+tfkit scan /path/to/terraform
+
 # Scan with JSON output
-tfkit scan /path/to/terraform --format json
+tfkit scan --format json
 
 # Scan and open visualization
-tfkit scan --open --theme dark --layout graph
+tfkit scan --open --theme cyber --layout dashboard
+
+# Save results and open browser
+tfkit scan --save scan.json --open
+
+# Quiet mode with simple output
+tfkit scan --quiet --format simple
 ```
 
-### Analyze Command
+**Output:**
 
-Deep analysis with detailed feature set for detailed infrastructure understanding.
+The scan command provides:
+
+- **Project Summary**: Total objects, resources, data sources, variables, outputs, providers
+- **Health Assessment**: Overall health score, unused objects, orphaned outputs, incomplete resources
+- **Resource Types**: Breakdown of resource types with counts
+- **Potential Issues**: Unused objects, orphaned outputs, incomplete configurations
+- **State Distribution**: Classification of all Terraform components
+
+### Validate Command
+
+Comprehensive validation of Terraform configurations with multiple check types and flexible output formats.
 
 ```bash
-tfkit analyze [PATH] [OPTIONS]
+tfkit validate [PATH] [OPTIONS]
 ```
 
-**Key Options:**
+**Validation Options:**
 
-- `--deep, -d` - Enable deep analysis with dependency tracking
-- `--include-dependencies, -D` - Analyze module dependencies
-- `--include-security, -S` - Include security analysis
-- `--include-costs, -C` - Include cost estimation
-- `--export-json FILE` - Export analysis as JSON
-- `--export-markdown FILE` - Generate Markdown report
+- `--strict, -s` - Enable strict validation mode
+- `--check-syntax` - Check HCL syntax
+- `--check-references` - Validate references
+- `--check-best-practices` - Check against best practices
+- `--check-security` - Security validation
+- `--all, -a` - Run all validation checks (recommended)
+- `--fail-on-warning` - Treat warnings as errors (CI/CD mode)
+- `--ignore RULE` - Ignore specific validation rules (can use multiple times)
+
+**Output Options:**
+
+- `--format, -f FORMAT` - Output format: `table` (default), `json`, `sarif`
 
 **Examples:**
 
 ```bash
-# Full analysis with all features
-tfkit analyze --deep -D -S -C --open-browser
+# Basic validation (syntax + references)
+tfkit validate
 
-# Security-focused analysis
-tfkit analyze --include-security --export-markdown security-report.md
+# Full validation suite
+tfkit validate --all
 
-# AWS-specific analysis
-tfkit analyze --providers aws --tags production
+# Strict validation with all checks
+tfkit validate --all --strict
+
+# Security-focused validation
+tfkit validate --check-security --strict
+
+# CI/CD integration with SARIF output
+tfkit validate --all --strict --fail-on-warning --format sarif > results.sarif
+
+# Validation with ignored rules
+tfkit validate --all --ignore TF020 --ignore TF021
+
+# JSON output for programmatic use
+tfkit validate --all --format json
 ```
 
-### Inspect Command
+**Validation Output:**
 
-Detailed inspection of specific Terraform components with dependency tracking.
+Results include:
 
-```bash
-tfkit inspect COMPONENT_TYPE [PATH] [OPTIONS]
-```
+- **Summary**: Count of errors, warnings, info messages, and passed checks
+- **Issues Table**: Detailed list with severity, category, rule ID, location, resource name, and message
+- **Suggestions**: Actionable recommendations for fixing issues
+- **Passed Checks**: List of successfully validated rules
 
-**Available Component Types:**
+**Severity Levels:**
 
-- `resource` - Terraform resources
-- `module` - Module configurations
-- `variable` - Input variables
-- `output` - Output values
-- `provider` - Provider configurations
-- `data` - Data sources
-- `local` - Local values
-- `terraform` - Terraform configuration blocks
-
-**Examples:**
-
-```bash
-# Inspect all resources
-tfkit inspect resource
-
-# Inspect specific resource with dependencies
-tfkit inspect resource --name aws_instance.web --show-dependencies
-
-# Inspect modules with detailed metadata
-tfkit inspect module --show-attributes --show-metadata --format table
-```
-
-### Report Command
-
-Generate detailed reports in multiple formats with customizable themes.
-
-```bash
-tfkit report [PATH] [OPTIONS]
-```
-
-**Report Types:**
-
-- `summary` - High-level overview (default)
-- `detailed` - Detailed analysis
-- `security` - Security and compliance focus
-- `cost` - Cost analysis and optimization
-- `compliance` - Compliance and best practices
-
-**Output Formats:**
-
-- `html` - Interactive HTML (default)
-- `pdf` - PDF document
-- `markdown` - Markdown document
-- `json` - Structured JSON data
-
-**Examples:**
-
-```bash
-# Interactive HTML report
-tfkit report --type detailed --interactive --open
-
-# PDF security report
-tfkit report --type security --format pdf -o security-report.pdf
-
-# Custom themed report
-tfkit report --title "Production Infrastructure" --theme cyber
-```
+- ❌ **ERROR** - Critical issues that must be fixed
+- ⚠️ **WARNING** - Issues that should be addressed
+- ℹ️ **INFO** - Informational messages and suggestions
 
 ### Export Command
 
-Export analysis data in multiple structured formats for integration with other tools.
+Export analysis data in multiple structured formats for integration with other tools and workflows.
 
 ```bash
 tfkit export [PATH] [OPTIONS]
 ```
 
-**Supported Formats:**
+**Options:**
 
-- `json` - JSON format (standard)
-- `yaml` - YAML format (human-readable)
-- `csv` - CSV format (spreadsheet-compatible)
-- `xml` - XML format (legacy systems)
-- `toml` - TOML format (config files)
+- `--format, -f FORMAT` - Export formats: `json`, `yaml`, `csv`, `xml`, `toml` (can specify multiple)
+- `--output-dir, -o DIR` - Output directory (default: current directory)
+- `--prefix, -p PREFIX` - Output filename prefix (default: "tfkit-export")
+- `--split-by TYPE` - Split exports by category: `type`, `provider`, `module`
+- `--include PATTERN` - Include specific components (can use multiple times)
+- `--exclude PATTERN` - Exclude specific components (can use multiple times)
+- `--compress, -c` - Compress output files into ZIP archive
 
 **Examples:**
 
 ```bash
-# Export as JSON and YAML
-tfkit export --format json --format yaml
+# Export as JSON (default)
+tfkit export
+
+# Export multiple formats
+tfkit export --format json --format yaml --format csv
+
+# Export to specific directory
+tfkit export --format json --output-dir ./exports
 
 # Split exports by provider
 tfkit export --format csv --split-by provider
 
 # Export with compression
 tfkit export --format json --format yaml --compress
+
+# Custom filename prefix
+tfkit export --format json --prefix infrastructure-2024
 ```
 
-### Validate Command
+**Exported Data:**
 
-Comprehensive validation of Terraform configurations with multiple check types.
+The export includes:
+
+- **Summary**: Resource counts and project metadata
+- **Health Metrics**: Health score and issue counts
+- **Resource Types**: Detailed breakdown of all resource types
+- **State Distribution**: Classification of components
+- **Issues**: Unused objects, orphaned outputs, incomplete configurations
+- **Providers**: List of used providers
+
+### Examples Command
+
+Display practical usage examples and common patterns for all TFKit commands.
 
 ```bash
-tfkit validate [PATH] [OPTIONS]
+tfkit examples
 ```
 
-**Validation Checks:**
+Shows real-world examples including:
 
-- `--check-syntax` - HCL syntax validation
-- `--check-references` - Reference validation
-- `--check-best-practices` - Best practices compliance
-- `--check-security` - Security configuration checks
-- `--all, -a` - Run all validation checks
-
-**Examples:**
-
-```bash
-# Full validation suite
-tfkit validate --all
-
-# CI/CD integration with SARIF output
-tfkit validate --all --strict --fail-on-warning --format sarif
-
-# Targeted validation
-tfkit validate --check-syntax --check-references --check-security
-```
+- Quick scanning workflows
+- Validation patterns
+- Export strategies
+- Complete analysis pipelines
 
 ## Advanced Usage
 
 ### Complete Analysis Pipeline
 
 ```bash
-# 1. Initial project scan
+# 1. Quick project scan with health assessment
 tfkit scan --save initial-scan.json
 
-# 2. Deep analysis with all features
-tfkit analyze --deep -D -S -C --export-json detailed.json
+# 2. Full validation with all checks
+tfkit validate --all --strict
 
-# 3. Generate comprehensive report
-tfkit report --type detailed --include-graph --open
+# 3. Generate interactive visualization
+tfkit scan --open --theme dark --layout graph
 
 # 4. Export data for external tools
 tfkit export --format json --format yaml --compress
@@ -255,14 +277,14 @@ tfkit export --format json --format yaml --compress
 ### Security-Focused Workflow
 
 ```bash
-# Security analysis and data collection
-tfkit analyze --include-security --export-json security-data.json
-
 # Security validation
-tfkit validate --check-security --strict
+tfkit validate --check-security --strict --fail-on-warning
 
-# Security report generation
-tfkit report --type security --format pdf
+# Scan with security assessment
+tfkit scan --format json --save security-scan.json
+
+# Generate security report
+tfkit scan --open --theme cyber
 ```
 
 ### CI/CD Integration
@@ -271,99 +293,107 @@ tfkit report --type security --format pdf
 # Pre-commit validation
 tfkit validate --check-syntax --check-references --fail-on-warning
 
-# SARIF output for GitHub Actions
-tfkit validate --all --format sarif > results.sarif
+# Full CI validation with SARIF
+tfkit validate --all --strict --fail-on-warning --format sarif > results.sarif
 
-# Automated scanning
+# Automated scanning with JSON output
 tfkit scan --quiet --format json --save scan-results.json
 ```
 
-### Configuration Management
+### Multi-Format Export Workflow
 
 ```bash
-# View current configuration
-tfkit config --show
+# Export all formats with compression
+tfkit export --format json --format yaml --format csv --compress
 
-# Set default theme
-tfkit config --set theme=dark
+# Split by provider for large projects
+tfkit export --format json --split-by provider --output-dir exports/
 
-# Set default output format
-tfkit config --set default_format=json
-
-# Edit configuration in default editor
-tfkit config --edit
-```
-
-## Visualization Features
-
-### Available Themes
-
-- **Dark** (default) - Dark theme for extended viewing sessions
-- **Light** - Light theme for printed reports and documentation
-- **Cyber** - High-contrast theme for presentations
-- **Nord** - Nord color scheme for consistent styling
-
-### Layout Options
-
-- **Classic** - Traditional hierarchical tree layout
-- **Graph** - Force-directed graph for complex relationships
-- **Dashboard** - Metrics-focused layout with key insights
-
-## Project Structure
-
-```
-tfkit/
-├── analyzer/           # Terraform analysis components
-│   ├── models.py      # Data models and types
-│   └── terraform_analyzer.py
-├── validator/         # Validation engine
-│   ├── models.py      # Validation models
-│   └── validator.py   # Core validation logic
-├── visualizer/        # Visualization components
-│   └── html_generator.py
-├── cli/              # Command-line interface
-│   └── main.py       # CLI entry point
-└── utils/            # Utility functions
+# Custom export with filtering
+tfkit export --format yaml --prefix prod-infra --exclude "*.test.tf"
 ```
 
 ## Output Examples
 
-### Scan Results
-
-```bash
-$ tfkit scan
-```
+### Scan Results (Table Format)
 
 ```
-Analysis Summary
-──────────────────────────────────────────────────
-Category        Count   Details
-──────────────────────────────────────────────────
-Resources       24      aws_instance: 5
-Data Sources    3
-Modules         2       2 modules detected
-Variables       12
-Outputs         8
-Providers       3       aws, null, template
-──────────────────────────────────────────────────
+████████╗███████╗██╗  ██╗██╗████████╗
+╚══██╔══╝██╔════╝██║ ██╔╝██║╚══██╔══╝
+   ██║   █████╗  █████╔╝ ██║   ██║
+   ██║   ██╔══╝  ██╔═██╗ ██║   ██║
+   ██║   ██║     ██║  ██╗██║   ██║
+   ╚═╝   ╚═╝     ╚═╝  ╚═╝╚═╝   ╚═╝
+
+📊 TERRAFORM PROJECT SUMMARY
+┏━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Metric       ┃ Count ┃ Details                ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Total Objects│   24  │ All Terraform components│
+│ Resources    │   15  │ 8 unique types         │
+│ Data Sources │    3  │ External data references│
+│ Variables    │   12  │ 10 used                │
+│ Outputs      │    8  │ 2 orphaned             │
+│ Providers    │    3  │ aws, null, template    │
+└──────────────┴───────┴────────────────────────┘
+
+🏥 HEALTH ASSESSMENT
+┏━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Category       ┃ Count ┃ Status           ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ Overall Score  │ 85.0% │ Excellent        │
+│ Unused Objects │   2   │ Potential cleanup│
+│ Orphaned Outputs│  2   │ Unused outputs   │
+│ Incomplete     │   1   │ Missing values   │
+└────────────────┴───────┴──────────────────┘
 ```
 
-### Validation Results
-
-```bash
-$ tfkit validate --all
-```
+### Validation Results (Table Format)
 
 ```
-Validation Complete: 45 passed, 3 warnings, 1 errors
+✓ Validating Configuration
+   Path: /path/to/terraform
+   Mode: STRICT
 
-Errors
-─────────────────────────────────────────────────────────────────────
-Severity   Category   Rule    Location    Resource   Message
-─────────────────────────────────────────────────────────────────────
-ERROR      Security   TF101   main.tf:15            Missing security group
-─────────────────────────────────────────────────────────────────────
+   🔍 Checking syntax...
+   🔗 Validating references...
+   📋 Checking best practices...
+   🔒 Security validation...
+
+┏━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Severity ┃ Category   ┃ Rule   ┃ Location       ┃ Resource      ┃ Message                ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ ❌ ERROR │ Security   │ TF101  │ main.tf:15     │               │ Missing security group │
+│ ⚠️ WARNING│ References│ TF020  │ variables.tf:8 │ var.region    │ Unused variable       │
+└──────────┴────────────┴────────┴────────────────┴───────────────┴────────────────────────┘
+
+Validation Summary
+Errors: 1  Warnings: 1  Info: 0  Passed: 45
+
+✗ Validation failed
 ```
+
+### Scan Results (Simple Format)
+
+```
+TERRAFORM SCAN RESULTS
+📦 Total Objects: 24
+🔧 Resources: 15 (8 types)
+📊 Data Sources: 3
+⚙️  Providers: aws, null, template
+🏥 Health: 🟢 85.0%
+⚠️  Unused: 2 objects
+📤 Orphaned: 2 outputs
+```
+
+## Global Options
+
+Available for all commands:
+
+- `--version, -v` - Show version and exit
+- `--welcome, -w` - Show welcome message with quick start guide
+- `--debug` - Enable debug output for troubleshooting
+- `--help, -h` - Show command help
 
 ## Development
 
@@ -381,12 +411,13 @@ pip install -e .
 pytest tests/ -v
 ```
 
-### Building Documentation
+## Requirements
 
-```bash
-pip install -r requirements-docs.txt
-mkdocs serve
-```
+- Python 3.8+
+- Click 8.0+
+- Rich 13.0+
+- python-hcl2 (for validation features)
+- PyYAML (optional, for YAML export)
 
 ## License
 
@@ -397,14 +428,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Built with [Rich](https://github.com/Textualize/rich) for beautiful terminal output
 - Uses [Click](https://click.palletsprojects.com/) for CLI framework
 - Inspired by Terraform best practices and community tools
-
----
-
-<div align="center">
-
-**TFKit** - Advanced Terraform analysis and visualization
-
-[Documentation](https://github.com/ivasik-k7) •
-[Report Issue](https://github.com/ivasik-k7)
-
-</div>
