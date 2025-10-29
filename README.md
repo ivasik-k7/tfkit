@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![TFKit Version](https://img.shields.io/badge/version-0.4.42-purple.svg)](https://github.com/ivasik-k7/tfkit)
+[![TFKit Version](https://img.shields.io/badge/version-0.4.43-purple.svg)](https://github.com/ivasik-k7/tfkit)
 
 A comprehensive toolkit for analyzing, visualizing, and validating Terraform infrastructure code. TFKit provides deep insights into your Terraform projects with advanced dependency tracking, security scanning, and interactive visualizations.
 
@@ -48,11 +48,12 @@ TFKit provides multiple visualization layouts and themes to suit different analy
 
 <div align="center">
 
-| Graph Layout | Dashboard Layout | Classic Layout |
-| :----------: | :--------------: | :------------: |
+## Visualization Layouts
 
+|                                        Graph Layout                                        |                                        Dashboard Layout                                        |                                        Classic Layout                                        |
+| :----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: |
 | [![Graph Visualization](https://iili.io/KPVF9cv.md.png)](https://freeimage.host/i/KPVF9cv) | [![Dashboard Visualization](https://iili.io/KPV3mPa.md.png)](https://freeimage.host/i/KPV3mPa) | [![Classic Visualization](https://iili.io/KPV3yKJ.md.png)](https://freeimage.host/i/KPV3yKJ) |
-| Force-directed graph showing resource relationships | Dashboard with metrics and insights | Traditional hierarchical layout |
+|                    Force-directed graph showing resource relationships                     |                              Dashboard with metrics and insights                               |                               Traditional hierarchical layout                                |
 
 </div>
 

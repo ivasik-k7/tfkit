@@ -45,9 +45,9 @@ def print_banner(show_version: bool = True):
 
 def print_welcome():
     """Display welcome message."""
-    print(f"tfkit v{__version__} - Terraform Analysis Tool\n")
+    print(f"tfkit v{__version__} - Terraform Analysis Tool")
 
-    print("Repository: https://github.com/ivasik-k7/tfkit")
+    print("\nRepository: https://github.com/ivasik-k7/tfkit")
     print("Homepage: https://tfkit.netlify.app")
 
     print("\nQuick Start:")
