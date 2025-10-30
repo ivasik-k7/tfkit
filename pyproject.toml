@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "tfkit-py"
 dynamic = ["version"]
@@ -45,6 +49,7 @@ dependencies = [
     "python-hcl2>=4.3.0",
     "rich>=13.0.0",
     "pyyaml>=6.0.0",
+    "toml>=0.10.2",
 ]
 
 [project.optional-dependencies]
@@ -60,48 +65,67 @@ dev = [
 ]
 
 [project.scripts]
-tfkit = "tfkit.cli:cli"
+tfkit = "tfkit.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/ivasik-k7/tfkit"
-Documentation = "https://github.com/ivasik-k7/tfkit#readme"
+Homepage = "https://tfkit.netlify.app"
+Documentation = "https://tfkit.netlify.app/docs"
 Repository = "https://github.com/ivasik-k7/tfkit"
-"Bug Tracker" = "https://github.com/ivasik-k7/tfkit/issues"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+Issues = "https://github.com/ivasik-k7/tfkit/issues"
 
 [tool.hatch.version]
 path = "src/tfkit/__init__.py"
 
 [tool.hatch.build]
+# Only include essential files
 include = [
     "src/tfkit/**/*.py",
-    "src/tfkit/**/*.pyi",
-    "templates/**/*.j2",
     "README.md",
     "LICENSE",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tfkit"]
+exclude = [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/*.pyd",
+    "**/.DS_Store",
+    "**/tests",
+    "**/test_*.py",
+    "**/*.log",
+    "**/*.tmp",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "/src",
-    "/templates",
-    "/examples",
     "pyproject.toml",
     "README.md",
     "LICENSE",
     "INSTALLATION.md",
 ]
+exclude = [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/*.pyo",
+    "/dist",
+    "/build",
+    "/.venv",
+    "/venv",
+    "*.egg-info",
+    ".git",
+    ".github",
+    "install.sh",
+    "publish.sh",
+    "graph_data.json",
+    "uv.lock",
+]
 
 [tool.black]
 target-version = ['py38']
 line-length = 88
-include = '\.pyi?$'
 extend-exclude = '''
 /(
   # directories
@@ -127,7 +151,7 @@ known_first_party = ["tfkit"]
 python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = true
+disallow_untyped_defs = false
 check_untyped_defs = true
 
 [[tool.mypy.overrides]]
@@ -136,6 +160,7 @@ module = [
     "rich.*",
     "jinja2.*",
     "yaml.*",
+    "toml.*",
 ]
 ignore_missing_imports = true
 
@@ -152,19 +177,18 @@ select = [
     "UP", # pyupgrade
 ]
 ignore = [
-    "E501",  # line too long, handled by black
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex
+    "E501",
+    "B008",
+    "C901",
 ]
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]
+"cli.py" = ["E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
 addopts = [
     "--verbose",
     "--color=yes",
@@ -174,19 +198,35 @@ addopts = [
     "--import-mode=importlib",
 ]
 
-# Additional build configuration
-[tool.setuptools.packages.find]
-where = ["src"]
-include = ["tfkit*"]
-exclude = [
-    "tfkit*.tests*",
-    "tfkit*.tests.*",
-    "tfkit.tests*",
-    "tfkit.tests.*",
+[tool.coverage.run]
+source = ["src/tfkit"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
 ]
 
-[tool.setuptools.package-data]
-"tfkit" = [
-    "templates/*.j2",
-    "*.md",
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.7.10",
+    "black>=24.8.0",
+    "isort>=5.13.2",
+    "mypy>=1.14.1",
+    "pytest>=8.3.5",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.14.2",
+    "safety>=3.6.2",
 ]

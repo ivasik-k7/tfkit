@@ -1,6 +1,4 @@
-"""Main entry point for python -m tfkit."""
-
-from tfkit.cli import cli
+from tfkit.cli import main
 
 if __name__ == "__main__":
-    cli()
+    main()

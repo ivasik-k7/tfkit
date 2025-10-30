@@ -1,0 +1,14 @@
+include README.md
+include LICENSE
+include INSTALLATION.md
+
+recursive-include src/tfkit *.py
+recursive-include src/tfkit *.json
+recursive-include src/tfkit *.yaml
+recursive-include src/tfkit *.jinja2
+recursive-include src/tfkit/templates *
+
+global-exclude __pycache__
+global-exclude *.pyc
+global-exclude .DS_Store
+global-exclude *.egg-info

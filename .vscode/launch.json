@@ -5,24 +5,12 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python Debugger: Current File with Arguments",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "args": "${command:pickArgs}"
-    },
-    {
-      "name": "Run CLI Scan Command",
+      "name": "Debug tfkit (custom args)",
       "type": "debugpy",
       "request": "launch",
       "module": "tfkit.cli",
-      "console": "integratedTerminal",
-      "cwd": "/home/ivan/development/tfkit",
-      "env": {
-        "PYTHONPATH": "/home/ivan/development/tfkit/src"
-      },
-      "args": ["scan", "-O", "--layout=dashboard"]
+      "args": "${command:pickArgs}",
+      "console": "integratedTerminal"
     }
   ]
 }

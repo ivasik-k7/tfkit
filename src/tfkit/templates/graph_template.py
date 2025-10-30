@@ -1751,7 +1751,7 @@ class GraphTemplate(BaseTemplate):
                                 <div class="state-icon" style="background: ${stateInfo.color}20; color: ${stateInfo.color}">
                                     <i class="fas ${stateInfo.icon}"></i>
                                 </div>
-                                ${state.replace('_', ' ').replace(/(^\w{1})|(\.\s+\w{1})/g, letter => letter.toUpperCase())}
+                                ${state.replace('_', ' ').replace(/(^\\w{1})|(\\.\\s+\\w{1})/g, letter => letter.toUpperCase())}
                             </div>
                             <div class="state-count" style="background: ${stateInfo.color}15; color: ${stateInfo.color}">${count}</div>
                         </div>

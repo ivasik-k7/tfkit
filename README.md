@@ -2,7 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![TFKit Version](https://img.shields.io/badge/version-0.4.43-purple.svg)](https://github.com/ivasik-k7/tfkit)
+[![TFKit Version](https://img.shields.io/badge/version-0.4.44-orange.svg)](https://github.com/ivasik-k7/tfkit)
 
 A comprehensive toolkit for analyzing, visualizing, and validating Terraform infrastructure code. TFKit provides deep insights into your Terraform projects with advanced dependency tracking, security scanning, and interactive visualizations.
 
@@ -41,12 +41,6 @@ tfkit validate --all --strict
 # Export analysis results
 tfkit export --format json --format yaml
 ```
-
-## Visualizations
-
-TFKit provides multiple visualization layouts and themes to suit different analysis needs:
-
-<div align="center">
 
 ## Visualization Layouts
 
