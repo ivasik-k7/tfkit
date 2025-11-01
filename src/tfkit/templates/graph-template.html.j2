@@ -1694,238 +1694,242 @@
           updateStateIndicators();
       }
 
-      const nodeConfig = {
-        resource: {
-            icon: 'fas fa-cube',
-            color: '#3b82f6',
-            size: 'medium'
-        },
-        module: {
-            icon: 'fas fa-cubes',
-            color: '#8b5cf6',
-            size: 'large'
-        },
-        variable: {
-            icon: 'fas fa-code',
-            color: '#10b981',
-            size: 'small'
-        },
-        output: {
-            icon: 'fas fa-arrow-right',
-            color: '#f59e0b',
-            size: 'small'
-        },
-        data: {
-            icon: 'fas fa-database',
-            color: '#06b6d4',
-            size: 'medium'
-        },
-        provider: {
-            icon: 'fas fa-cog',
-            color: '#ef4444',
-            size: 'medium'
-        },
-        local: {
-            icon: 'fas fa-terminal',
-            color: '#84cc16',
-            size: 'small'
-        },
-        terraform: {
-            icon: 'fas fa-sitemap',
-            color: '#a855f7',
-            size: 'medium'
-        },
+        const nodeConfig = {
+            // Core Terraform types
+            resource: {
+                icon: 'fas fa-cube',
+                color: '#000000',
+                size: 'medium'
+            },
+            module: {
+                icon: 'fas fa-cubes',
+                color: '#000000',
+                size: 'large'
+            },
+            variable: {
+                icon: 'fas fa-code',
+                color: '#000000',
+                size: 'small'
+            },
+            output: {
+                icon: 'fas fa-arrow-right',
+                color: '#000000',
+                size: 'small'
+            },
+            data: {
+                icon: 'fas fa-database',
+                color: '#000000',
+                size: 'medium'
+            },
+            provider: {
+                icon: 'fas fa-cog',
+                color: '#000000',
+                size: 'medium'
+            },
+            local: {
+                icon: 'fas fa-terminal',
+                color: '#000000',
+                size: 'small'
+            },
+            terraform: {
+                icon: 'fas fa-sitemap',
+                color: '#000000',
+                size: 'medium'
+            },
 
-        // Provider-specific icons
-        aws: {
-            icon: 'fab fa-aws',
-            color: '#000000',
-            size: 'medium'
-        },
-        random: {
-            icon: 'fas fa-dice',
-            color: '#000000',
-            size: 'medium'
-        },
-        null: {
-            icon: 'fas fa-ban',
-            color: '#000000',
-            size: 'medium'
-        },
+            // ========== MAJOR PROVIDERS ==========
+            aws: {
+                icon: 'fab fa-aws',
+                color: '#000000',
+                size: 'medium'
+            },
+            google: {
+                icon: 'fab fa-google',
+                color: '#000000',
+                size: 'medium'
+            },
+            azure: {
+                icon: 'fas fa-cloud',
+                color: '#000000',
+                size: 'medium'
+            },
+            azurerm: {
+                icon: 'fas fa-cloud',
+                color: '#000000',
+                size: 'medium'
+            },
+            tfe: {
+                icon: 'fas fa-cloud',
+                color: '#000000',
+                size: 'medium'
+            },
+            kubernetes: {
+                icon: 'fas fa-dharmachakra',
+                color: '#000000',
+                size: 'medium'
+            },
+            docker: {
+                icon: 'fab fa-docker',
+                color: '#000000',
+                size: 'medium'
+            },
+            github: {
+                icon: 'fab fa-github',
+                color: '#000000',
+                size: 'medium'
+            },
+            random: {
+                icon: 'fas fa-dice',
+                color: '#000000',
+                size: 'medium'
+            },
+            null: {
+                icon: 'fas fa-ban',
+                color: '#000000',
+                size: 'medium'
+            },
+            vault: {
+                icon: 'fas fa-lock',
+                color: '#000000',
+                size: 'medium'
+            },
+            consul: {
+                icon: 'fas fa-network-wired',
+                color: '#000000',
+                size: 'medium'
+            },
+            nomad: {
+                icon: 'fas fa-server',
+                color: '#000000',
+                size: 'medium'
+            },
 
-        // AWS Resource Categories based on your subtypes
-        // Compute
-        aws_instance: {
-            icon: 'fas fa-server',
-            color: '#ec7211',
-            size: 'medium'
-        },
-        aws_lb: {
-            icon: 'fas fa-balance-scale',
-            color: '#ec7211',
-            size: 'medium'
-        },
-        aws_cloudfront_distribution: {
-            icon: 'fas fa-cloud',
-            color: '#ec7211',
-            size: 'medium'
-        },
+            // ========== AWS RESOURCES ==========
+            // Compute
+            aws_instance: { icon: 'fas fa-server', color: '#000000', size: 'medium' },
+            aws_lambda_function: { icon: 'fas fa-bolt', color: '#000000', size: 'medium' },
+            aws_ecs_cluster: { icon: 'fas fa-cubes', color: '#000000', size: 'medium' },
+            aws_ecs_service: { icon: 'fas fa-cogs', color: '#000000', size: 'medium' },
+            aws_ami: { icon: 'fas fa-image', color: '#000000', size: 'medium' },
+            aws_launch_configuration: { icon: 'fas fa-rocket', color: '#000000', size: 'medium' },
+            aws_autoscaling_group: { icon: 'fas fa-expand-arrows-alt', color: '#000000', size: 'medium' },
 
-        // Networking
-        aws_vpc: {
-            icon: 'fas fa-network-wired',
-            color: '#3b82f6',
-            size: 'large'
-        },
-        aws_subnet: {
-            icon: 'fas fa-sitemap',
-            color: '#3b82f6',
-            size: 'medium'
-        },
-        aws_internet_gateway: {
-            icon: 'fas fa-globe',
-            color: '#3b82f6',
-            size: 'medium'
-        },
-        aws_route_table: {
-            icon: 'fas fa-route',
-            color: '#3b82f6',
-            size: 'medium'
-        },
-        aws_security_group: {
-            icon: 'fas fa-shield-alt',
-            color: '#10b981',
-            size: 'medium'
-        },
+            // Networking
+            aws_vpc: { icon: 'fas fa-network-wired', color: '#000000', size: 'large' },
+            aws_subnet: { icon: 'fas fa-sitemap', color: '#000000', size: 'medium' },
+            aws_internet_gateway: { icon: 'fas fa-globe', color: '#000000', size: 'medium' },
+            aws_nat_gateway: { icon: 'fas fa-exchange-alt', color: '#000000', size: 'medium' },
+            aws_route_table: { icon: 'fas fa-route', color: '#000000', size: 'medium' },
+            aws_route_table_association: { icon: 'fas fa-link', color: '#000000', size: 'small' },
+            aws_security_group: { icon: 'fas fa-shield-alt', color: '#000000', size: 'medium' },
+            aws_acl: { icon: 'fas fa-filter', color: '#000000', size: 'medium' },
+            aws_elb: { icon: 'fas fa-balance-scale', color: '#000000', size: 'medium' },
+            aws_lb: { icon: 'fas fa-balance-scale', color: '#000000', size: 'medium' },
+            aws_lb_target_group: { icon: 'fas fa-bullseye', color: '#000000', size: 'medium' },
+            aws_lb_listener: { icon: 'fas fa-ear-listen', color: '#000000', size: 'medium' },
+            aws_cloudfront_distribution: { icon: 'fas fa-bolt', color: '#000000', size: 'medium' },
+            aws_route53_zone: { icon: 'fas fa-globe-americas', color: '#000000', size: 'medium' },
 
-        // Database
-        aws_db_instance: {
-            icon: 'fas fa-database',
-            color: '#f59e0b',
-            size: 'medium'
-        },
-        aws_db_subnet_group: {
-            icon: 'fas fa-th',
-            color: '#f59e0b',
-            size: 'medium'
-        },
+            // Database
+            aws_db_instance: { icon: 'fas fa-database', color: '#000000', size: 'medium' },
+            aws_db_subnet_group: { icon: 'fas fa-th', color: '#000000', size: 'medium' },
+            aws_dynamodb_table: { icon: 'fas fa-table', color: '#000000', size: 'medium' },
+            aws_elasticache_cluster: { icon: 'fas fa-memory', color: '#000000', size: 'medium' },
 
-        // Storage
-        aws_s3_bucket: {
-            icon: 'fas fa-archive',
-            color: '#ef4444',
-            size: 'medium'
-        },
-        aws_s3_bucket_versioning: {
-            icon: 'fas fa-history',
-            color: '#ef4444',
-            size: 'small'
-        },
-        aws_s3_bucket_policy: {
-            icon: 'fas fa-file-contract',
-            color: '#ef4444',
-            size: 'small'
-        },
+            // Storage
+            aws_s3_bucket: { icon: 'fas fa-archive', color: '#000000', size: 'medium' },
+            aws_s3_bucket_versioning: { icon: 'fas fa-history', color: '#000000', size: 'small' },
+            aws_s3_bucket_policy: { icon: 'fas fa-file-contract', color: '#000000', size: 'small' },
+            aws_ebs_volume: { icon: 'fas fa-hdd', color: '#000000', size: 'medium' },
+            aws_efs_file_system: { icon: 'fas fa-folder', color: '#000000', size: 'medium' },
 
-        // IAM
-        aws_iam_role: {
-            icon: 'fas fa-user-lock',
-            color: '#8b5cf6',
-            size: 'medium'
-        },
-        aws_iam_role_policy_attachment: {
-            icon: 'fas fa-link',
-            color: '#8b5cf6',
-            size: 'small'
-        },
-        aws_iam_instance_profile: {
-            icon: 'fas fa-id-card',
-            color: '#8b5cf6',
-            size: 'medium'
-        },
+            // IAM & Security
+            aws_iam_role: { icon: 'fas fa-user-lock', color: '#000000', size: 'medium' },
+            aws_iam_policy: { icon: 'fas fa-file-alt', color: '#000000', size: 'medium' },
+            aws_iam_role_policy_attachment: { icon: 'fas fa-link', color: '#000000', size: 'small' },
+            aws_iam_instance_profile: { icon: 'fas fa-id-card', color: '#000000', size: 'medium' },
+            aws_iam_user: { icon: 'fas fa-user', color: '#000000', size: 'medium' },
+            aws_iam_group: { icon: 'fas fa-users', color: '#000000', size: 'medium' },
+            aws_key_pair: { icon: 'fas fa-key', color: '#000000', size: 'medium' },
+            aws_kms_key: { icon: 'fas fa-key', color: '#000000', size: 'medium' },
+            aws_secretsmanager_secret: { icon: 'fas fa-user-secret', color: '#000000', size: 'medium' },
 
-        // Monitoring
-        aws_cloudwatch_metric_alarm: {
-            icon: 'fas fa-chart-line',
-            color: '#06b6d4',
-            size: 'medium'
-        },
-        aws_sns_topic: {
-            icon: 'fas fa-bell',
-            color: '#06b6d4',
-            size: 'medium'
-        },
+            // Monitoring & Notifications
+            aws_cloudwatch_metric_alarm: { icon: 'fas fa-chart-line', color: '#000000', size: 'medium' },
+            aws_cloudwatch_log_group: { icon: 'fas fa-scroll', color: '#000000', size: 'medium' },
+            aws_sns_topic: { icon: 'fas fa-bell', color: '#000000', size: 'medium' },
+            aws_sqs_queue: { icon: 'fas fa-inbox', color: '#000000', size: 'medium' },
 
-        // Data Sources
-        aws_availability_zones: {
-            icon: 'fas fa-map-marker-alt',
-            color: '#06b6d4',
-            size: 'medium'
-        },
-        aws_ami: {
-            icon: 'fas fa-image',
-            color: '#06b6d4',
-            size: 'medium'
-        },
-        aws_caller_identity: {
-            icon: 'fas fa-user',
-            color: '#06b6d4',
-            size: 'medium'
-        },
-        aws_region: {
-            icon: 'fas fa-map',
-            color: '#06b6d4',
-            size: 'medium'
-        },
+            // Data Sources
+            aws_availability_zones: { icon: 'fas fa-map-marker-alt', color: '#000000', size: 'medium' },
+            aws_region: { icon: 'fas fa-map', color: '#000000', size: 'medium' },
+            aws_caller_identity: { icon: 'fas fa-user', color: '#000000', size: 'medium' },
+            aws_ami: { icon: 'fas fa-image', color: '#000000', size: 'medium' },
 
-        // Random provider
-        random_password: {
-            icon: 'fas fa-key',
-            color: '#84cc16',
-            size: 'medium'
-        },
-        random_id: {
-            icon: 'fas fa-fingerprint',
-            color: '#84cc16',
-            size: 'medium'
-        },
-        random_pet: {
-            icon: 'fas fa-paw',
-            color: '#84cc16',
-            size: 'medium'
-        },
-        random_integer: {
-            icon: 'fas fa-hashtag',
-            color: '#84cc16',
-            size: 'medium'
-        },
+            // ========== GOOGLE CLOUD RESOURCES ==========
+            google_compute_instance: { icon: 'fas fa-server', color: '#000000', size: 'medium' },
+            google_compute_disk: { icon: 'fas fa-hdd', color: '#000000', size: 'medium' },
+            google_storage_bucket: { icon: 'fas fa-archive', color: '#000000', size: 'medium' },
+            google_bigquery_dataset: { icon: 'fas fa-chart-bar', color: '#000000', size: 'medium' },
+            google_cloudfunctions_function: { icon: 'fas fa-bolt', color: '#000000', size: 'medium' },
+            google_sql_database_instance: { icon: 'fas fa-database', color: '#000000', size: 'medium' },
+            google_pubsub_topic: { icon: 'fas fa-broadcast-tower', color: '#000000', size: 'medium' },
 
-        // Null provider
-        null_resource: {
-            icon: 'fas fa-cogs',
-            color: '#6b7280',
-            size: 'medium'
-        },
+            // ========== AZURE RESOURCES ==========
+            azurerm_virtual_machine: { icon: 'fas fa-server', color: '#000000', size: 'medium' },
+            azurerm_storage_account: { icon: 'fas fa-archive', color: '#000000', size: 'medium' },
+            azurerm_sql_database: { icon: 'fas fa-database', color: '#000000', size: 'medium' },
+            azurerm_app_service: { icon: 'fas fa-window-maximize', color: '#000000', size: 'medium' },
+            azurerm_function_app: { icon: 'fas fa-bolt', color: '#000000', size: 'medium' },
 
-        // Module types
-        cloudfront: {
-            icon: 'fas fa-bolt',
-            color: '#8b5cf6',
-            size: 'large'
-        },
-        'metric-alarm': {
-            icon: 'fas fa-exclamation-triangle',
-            color: '#8b5cf6',
-            size: 'large'
-        },
-        'cloudwatch-alarm': {
-            icon: 'fas fa-chart-bar',
-            color: '#8b5cf6',
-            size: 'large'
-        }
-      };
+            // ========== KUBERNETES RESOURCES ==========
+            kubernetes_pod: { icon: 'fas fa-box', color: '#000000', size: 'medium' },
+            kubernetes_deployment: { icon: 'fas fa-layer-group', color: '#000000', size: 'medium' },
+            kubernetes_service: { icon: 'fas fa-plug', color: '#000000', size: 'medium' },
+            kubernetes_config_map: { icon: 'fas fa-cog', color: '#000000', size: 'medium' },
+            kubernetes_secret: { icon: 'fas fa-user-secret', color: '#000000', size: 'medium' },
+            kubernetes_namespace: { icon: 'fas fa-folder', color: '#000000', size: 'medium' },
 
-      // Enhanced state configuration based on your graph states
+            // ========== DOCKER RESOURCES ==========
+            docker_container: { icon: 'fab fa-docker', color: '#000000', size: 'medium' },
+            docker_image: { icon: 'fas fa-box', color: '#000000', size: 'medium' },
+            docker_volume: { icon: 'fas fa-hdd', color: '#000000', size: 'medium' },
+
+            // ========== GITHUB RESOURCES ==========
+            github_repository: { icon: 'fab fa-github', color: '#000000', size: 'medium' },
+            github_branch: { icon: 'fas fa-code-branch', color: '#000000', size: 'medium' },
+
+            // ========== RANDOM PROVIDER ==========
+            random_password: { icon: 'fas fa-key', color: '#000000', size: 'medium' },
+            random_id: { icon: 'fas fa-fingerprint', color: '#000000', size: 'medium' },
+            random_pet: { icon: 'fas fa-paw', color: '#000000', size: 'medium' },
+            random_integer: { icon: 'fas fa-hashtag', color: '#000000', size: 'medium' },
+            random_string: { icon: 'fas fa-font', color: '#000000', size: 'medium' },
+            random_shuffle: { icon: 'fas fa-random', color: '#000000', size: 'medium' },
+
+            // ========== NULL PROVIDER ==========
+            null_resource: { icon: 'fas fa-cogs', color: '#000000', size: 'medium' },
+
+            // ========== VAULT PROVIDER ==========
+            vault_auth_backend: { icon: 'fas fa-lock', color: '#000000', size: 'medium' },
+            vault_secret: { icon: 'fas fa-user-secret', color: '#000000', size: 'medium' },
+
+            // ========== CONSUL PROVIDER ==========
+            consul_key: { icon: 'fas fa-key', color: '#000000', size: 'medium' },
+            consul_service: { icon: 'fas fa-cogs', color: '#000000', size: 'medium' },
+
+            // ========== MODULE TYPES ==========
+            cloudfront: { icon: 'fas fa-bolt', color: '#000000', size: 'large' },
+            'metric-alarm': { icon: 'fas fa-exclamation-triangle', color: '#000000', size: 'large' },
+            'cloudwatch-alarm': { icon: 'fas fa-chart-bar', color: '#000000', size: 'large' },
+            networking: { icon: 'fas fa-network-wired', color: '#000000', size: 'large' },
+            database: { icon: 'fas fa-database', color: '#000000', size: 'large' },
+            security: { icon: 'fas fa-shield-alt', color: '#000000', size: 'large' },
+            storage: { icon: 'fas fa-archive', color: '#000000', size: 'large' },
+            compute: { icon: 'fas fa-server', color: '#000000', size: 'large' },
+            monitoring: { icon: 'fas fa-chart-line', color: '#000000', size: 'large' }
+        };
+
       const stateConfig = {
         // Healthy states
         active: {
@@ -1990,20 +1994,74 @@
         }
       };
 
-      function getNodeConfig(node) {
-        if (node.subtype && nodeConfig[node.subtype]) {
-            return nodeConfig[node.subtype];
+        function getNodeConfig(node) {
+            // 1. First priority: Exact resource subtype match (most specific)
+            if (node.subtype && nodeConfig[node.subtype]) {
+                return nodeConfig[node.subtype];
+            }
+            
+            // 2. For provider nodes, use provider-specific icons
+            if (node.type === 'provider' && node.subtype) {
+                // Try exact provider match first
+                if (nodeConfig[node.subtype]) {
+                    return nodeConfig[node.subtype];
+                }
+                // Fallback to generic provider icon
+                return nodeConfig.provider;
+            }
+            
+            // 3. Check for provider-specific resources based on provider in details
+            if (node.details?.provider) {
+                // Try provider_resource format (e.g., aws_instance)
+                const providerResource = `${node.details.provider}_${node.subtype}`;
+                if (nodeConfig[providerResource]) {
+                    return nodeConfig[providerResource];
+                }
+                
+                // Try provider-specific icon
+                if (nodeConfig[node.details.provider]) {
+                    return nodeConfig[node.details.provider];
+                }
+            }
+            
+            // 4. Check for resource category based on common patterns
+            if (node.subtype) {
+                const resourceType = node.subtype.toLowerCase();
+                
+                // Compute resources
+                if (resourceType.includes('instance') || resourceType.includes('vm') || resourceType.includes('server')) {
+                    return { ...nodeConfig.resource, icon: 'fas fa-server' };
+                }
+                
+                // Database resources
+                if (resourceType.includes('db') || resourceType.includes('database') || resourceType.includes('sql')) {
+                    return { ...nodeConfig.resource, icon: 'fas fa-database' };
+                }
+                
+                // Storage resources
+                if (resourceType.includes('bucket') || resourceType.includes('storage') || resourceType.includes('volume')) {
+                    return { ...nodeConfig.resource, icon: 'fas fa-archive' };
+                }
+                
+                // Network resources
+                if (resourceType.includes('vpc') || resourceType.includes('subnet') || resourceType.includes('network')) {
+                    return { ...nodeConfig.resource, icon: 'fas fa-network-wired' };
+                }
+                
+                // Security resources
+                if (resourceType.includes('security') || resourceType.includes('firewall') || resourceType.includes('acl')) {
+                    return { ...nodeConfig.resource, icon: 'fas fa-shield-alt' };
+                }
+                
+                // IAM/Identity resources
+                if (resourceType.includes('iam') || resourceType.includes('role') || resourceType.includes('policy')) {
+                    return { ...nodeConfig.resource, icon: 'fas fa-user-lock' };
+                }
+            }
+            
+            // 5. Fall back to type-based config
+            return nodeConfig[node.type] || nodeConfig.resource;
         }
-
-        if (node.details?.provider && nodeConfig[node.details.provider]) {
-            return {
-                ...nodeConfig[node.type] || nodeConfig.resource,
-                ...nodeConfig[node.details.provider]
-            };
-        }
-
-        return nodeConfig[node.type] || nodeConfig.resource;
-      }
 
       function getStateConfig(state) {
         return stateConfig[state] || stateConfig.active;
