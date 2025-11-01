@@ -143,9 +143,7 @@ def display_scan_results(data, quiet=False):
     health_status = (
         "Needs attention"
         if health_score < 50
-        else "Good"
-        if health_score < 80
-        else "Excellent"
+        else "Good" if health_score < 80 else "Excellent"
     )
 
     health_table.add_row(

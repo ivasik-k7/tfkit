@@ -867,9 +867,11 @@ class TerraformObject:
             "state": self.state.value,
             "state_reason": self.state_reason,
             "resource_type": self.resource_type,
-            "provider": self.provider_info.full_provider_reference
-            if self.provider_info
-            else None,
+            "provider": (
+                self.provider_info.full_provider_reference
+                if self.provider_info
+                else None
+            ),
             "source": self.source,
             "variable_type": self.variable_type,
             "default_value": self.default_value,

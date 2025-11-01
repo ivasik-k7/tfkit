@@ -154,9 +154,11 @@ class TerraformGraphBuilder:
 
             details = {
                 "loc": self._get_relative_location(obj.location),  # Relative path
-                "provider": obj.provider_info.full_provider_reference
-                if obj.provider_info
-                else None,
+                "provider": (
+                    obj.provider_info.full_provider_reference
+                    if obj.provider_info
+                    else None
+                ),
             }
 
             if obj.resource_type:

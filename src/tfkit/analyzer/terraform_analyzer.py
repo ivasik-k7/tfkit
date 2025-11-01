@@ -346,7 +346,6 @@ class ObjectFactory:
             ),
         )
 
-        # Extract provider
         provider = self._extract_provider_from_type(resource_type)
         provider_info = ProviderInfo(provider_name=provider) if provider else None
 
@@ -359,7 +358,7 @@ class ObjectFactory:
             name=instance_name,
             full_name=full_name,
             location=location,
-            dependency_info=DependencyInfo(),  # Empty initially
+            dependency_info=DependencyInfo(),
             attributes=config or {},
             resource_type=resource_type,
             provider_info=provider_info,

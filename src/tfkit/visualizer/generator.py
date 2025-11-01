@@ -71,9 +71,6 @@ class ReportGenerator:
                 node_dict["x"] = positions[node_id]["x"]
                 node_dict["y"] = positions[node_id]["y"]
 
-        # --- 3. Context & Rendering Setup ---
-        template = TemplateFactory.create_template(report_layout)
-
         try:
             from tfkit import __version__
         except ImportError:
@@ -92,11 +89,13 @@ class ReportGenerator:
             "theme_colors": ThemeManager.get_theme_colors(report_theme),
         }
 
-        html_content = template.render(**report_context)
-
         output_file_path = self._determine_output_file(output_directory)
-        with open(output_file_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
+
+        TemplateFactory().render_to_file(
+            report_layout,
+            output_file_path,
+            **report_context,
+        )
 
         return output_file_path
 
