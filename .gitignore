@@ -143,7 +143,7 @@ cython_debug/
 .DS_Store
 
 # Project specific
-graph_data.json
+graph_data.*.*
 *.tfstate
 *.tfstate.*
 .terraform/

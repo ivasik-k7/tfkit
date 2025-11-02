@@ -177,6 +177,9 @@ class TerraformGraphBuilder:
             if obj.variable_type and obj.type == ResourceType.VARIABLE:
                 details["var_type"] = obj.variable_type
 
+            # if obj.tags:
+            #     details["tags"] = obj.tags
+
             # if obj.dependency_info:
             #     details["dependencies"] = self._extract_essential_dependencies(
             #         obj.dependency_info

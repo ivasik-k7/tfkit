@@ -60,8 +60,8 @@ output "google_compute_summary" {
 output "google_compute_network" {
   description = "GCP Network configuration details"
   value = {
-    network_name    = google_compute_network.main.name
-    subnetwork_name = google_compute_subnetwork.main.name
+    network_name    = google_compute_network.vpc.name
+    subnetwork_name = google_compute_subnetwork.subnet.name
     subnet_cidrs    = local.network_config.subnet_cidrs
     region          = var.gcp_region
   }

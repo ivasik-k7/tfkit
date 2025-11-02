@@ -1,0 +1,2872 @@
+{
+  "metadata": {
+    "project_path": "/home/ivan/development/tfkit",
+    "total_files": 5,
+    "analysis_timestamp": null,
+    "terraform_version": null
+  },
+  "objects": {
+    "resources": {
+      "random_id.suffix": {
+        "type": "resource",
+        "name": "suffix",
+        "full_name": "random_id.suffix",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 2,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "leaf",
+        "state_reason": "Independent infrastructure used by 1 consumer(s)",
+        "resource_type": "random_id",
+        "provider": "random",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.naming"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 1
+        },
+        "attributes": {
+          "byte_length": 4
+        }
+      },
+      "aws_vpc.main": {
+        "type": "resource",
+        "name": "main",
+        "full_name": "aws_vpc.main",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 7,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "integrated",
+        "state_reason": "Infrastructure using 3 deps, used by 2 consumer(s)",
+        "resource_type": "aws_vpc",
+        "provider": "aws",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {
+          "_expression": "${local.computed_tags}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.network_config",
+            "local.computed_tags",
+            "provider.aws"
+          ],
+          "dependents": [
+            "aws_subnet.main",
+            "aws_security_group.web"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 3,
+            "dependents": 2
+          }
+        },
+        "metrics": {
+          "complexity_score": 4.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 3,
+          "fan_out": 2
+        },
+        "attributes": {
+          "cidr_block": "${local.network_config.base_cidr}",
+          "tags": "${local.computed_tags}"
+        }
+      },
+      "aws_subnet.main": {
+        "type": "resource",
+        "name": "main",
+        "full_name": "aws_subnet.main",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 12,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Core infrastructure using 6 dependencies",
+        "resource_type": "aws_subnet",
+        "provider": "aws",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {
+          "_expression": "${merge(local.computed_tags, {\"Name\": \"${local.project_prefix}-subnet-${count.index}\", \"Type\": \"private\"})}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "aws_vpc.main",
+            "local.project_prefix",
+            "var.aws_region",
+            "local.computed_tags",
+            "local.network_config",
+            "provider.aws"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 6,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 6.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 6,
+          "fan_out": 0
+        },
+        "attributes": {
+          "count": "${local.network_config.subnet_count}",
+          "vpc_id": "${aws_vpc.main.id}",
+          "cidr_block": "${local.network_config.subnet_cidrs[count.index]}",
+          "availability_zone": "${var.aws_region}${count.index == 0 ? \"a\" : count.index == 1 ? \"b\" : \"c\"}",
+          "tags": "${merge(local.computed_tags, {\"Name\": \"${local.project_prefix}-subnet-${count.index}\", \"Type\": \"private\"})}"
+        }
+      },
+      "aws_security_group.web": {
+        "type": "resource",
+        "name": "web",
+        "full_name": "aws_security_group.web",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 25,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "integrated",
+        "state_reason": "Infrastructure using 5 deps, used by 1 consumer(s)",
+        "resource_type": "aws_security_group",
+        "provider": "aws",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "Security group for web instances",
+        "sensitive": false,
+        "tags": {
+          "_expression": "${local.computed_tags}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.security_rules",
+            "local.computed_tags",
+            "aws_vpc.main",
+            "local.naming",
+            "provider.aws"
+          ],
+          "dependents": [
+            "aws_instance.web"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 5,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 5.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 5,
+          "fan_out": 1
+        },
+        "attributes": {
+          "name": "${local.naming.aws.sg_name}",
+          "description": "Security group for web instances",
+          "vpc_id": "${aws_vpc.main.id}",
+          "dynamic": [
+            {
+              "ingress": {
+                "for_each": "${local.security_rules.all_rules}",
+                "content": [
+                  {
+                    "from_port": "${ingress.value.port}",
+                    "to_port": "${ingress.value.port}",
+                    "protocol": "${ingress.value.protocol}",
+                    "cidr_blocks": "${ingress.value.cidr_blocks}",
+                    "description": "${ingress.value.description}"
+                  }
+                ]
+              }
+            }
+          ],
+          "egress": [
+            {
+              "from_port": 0,
+              "to_port": 0,
+              "protocol": "-1",
+              "cidr_blocks": [
+                "0.0.0.0/0"
+              ]
+            }
+          ],
+          "tags": "${local.computed_tags}"
+        }
+      },
+      "aws_instance.web": {
+        "type": "resource",
+        "name": "web",
+        "full_name": "aws_instance.web",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 51,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "missing_dependency",
+        "state_reason": "References 2 undefined object(s): data.aws_ami, data.aws_ami.ubuntu",
+        "resource_type": "aws_instance",
+        "provider": "aws",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {
+          "_expression": "${merge(local.computed_tags, {\"Name\": \"${local.naming.aws.instance_name}-${count.index + 1}\", \"Role\": \"web-server\"})}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.storage_config",
+            "var.instance_count",
+            "aws_security_group.web",
+            "var.enable_monitoring",
+            "local.computed_tags",
+            "local.naming",
+            "local.network_config",
+            "var.machine_size",
+            "local.derived_config",
+            "local.instance_sizes",
+            "provider.aws"
+          ],
+          "dependents": [
+            "output.aws_instances"
+          ],
+          "circular": [],
+          "missing": [
+            "data.aws_ami",
+            "data.aws_ami.ubuntu"
+          ],
+          "counts": {
+            "dependencies": 11,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 23.0,
+          "has_circular_deps": false,
+          "has_missing_deps": true,
+          "fan_in": 11,
+          "fan_out": 1
+        },
+        "attributes": {
+          "count": "${var.instance_count}",
+          "ami": "${data.aws_ami.ubuntu.id}",
+          "instance_type": "${local.instance_sizes.aws[var.machine_size]}",
+          "subnet_id": "${aws_subnet.main[count.index % local.network_config.subnet_count].id}",
+          "monitoring": "${var.enable_monitoring}",
+          "instance_market_options": [
+            {
+              "market_type": "${local.derived_config.use_spot_instances ? \"spot\" : null}",
+              "dynamic": [
+                {
+                  "spot_options": {
+                    "for_each": "${local.derived_config.use_spot_instances ? [1] : []}",
+                    "content": [
+                      {
+                        "max_price": "0.05"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ],
+          "root_block_device": [
+            {
+              "volume_size": "${local.storage_config.disk_sizes[var.machine_size]}",
+              "volume_type": "${local.storage_config.aws_storage_class}"
+            }
+          ],
+          "vpc_security_group_ids": [
+            "${aws_security_group.web.id}"
+          ],
+          "tags": "${merge(local.computed_tags, {\"Name\": \"${local.naming.aws.instance_name}-${count.index + 1}\", \"Role\": \"web-server\"})}"
+        }
+      },
+      "google_compute_network.vpc": {
+        "type": "resource",
+        "name": "vpc",
+        "full_name": "google_compute_network.vpc",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 85,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "integrated",
+        "state_reason": "Infrastructure using 2 deps, used by 2 consumer(s)",
+        "resource_type": "google_compute_network",
+        "provider": "google",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.naming",
+            "provider.google"
+          ],
+          "dependents": [
+            "google_compute_subnetwork.subnet",
+            "output.google_compute_network"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 2,
+            "dependents": 2
+          }
+        },
+        "metrics": {
+          "complexity_score": 3.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 2,
+          "fan_out": 2
+        },
+        "attributes": {
+          "name": "${local.naming.gcp.network_name}",
+          "auto_create_subnetworks": false
+        }
+      },
+      "google_compute_subnetwork.subnet": {
+        "type": "resource",
+        "name": "subnet",
+        "full_name": "google_compute_subnetwork.subnet",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 90,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "integrated",
+        "state_reason": "Infrastructure using 5 deps, used by 1 consumer(s)",
+        "resource_type": "google_compute_subnetwork",
+        "provider": "google",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "google_compute_network.vpc",
+            "local.network_config",
+            "local.project_prefix",
+            "var.gcp_region",
+            "provider.google"
+          ],
+          "dependents": [
+            "output.google_compute_network"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 5,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 5.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 5,
+          "fan_out": 1
+        },
+        "attributes": {
+          "count": "${local.network_config.subnet_count}",
+          "name": "${local.project_prefix}-subnet-${count.index}",
+          "ip_cidr_range": "${local.network_config.subnet_cidrs[count.index]}",
+          "region": "${var.gcp_region}",
+          "network": "${google_compute_network.vpc.id}"
+        }
+      },
+      "google_compute_instance.web": {
+        "type": "resource",
+        "name": "web",
+        "full_name": "google_compute_instance.web",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 99,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Infrastructure resource using 10 dependencies",
+        "resource_type": "google_compute_instance",
+        "provider": "google",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.storage_config",
+            "var.gcp_zone",
+            "var.instance_count",
+            "local.naming",
+            "local.computed_tags",
+            "local.network_config",
+            "var.machine_size",
+            "local.derived_config",
+            "local.instance_sizes",
+            "provider.google"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 10,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 10.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 10,
+          "fan_out": 0
+        },
+        "attributes": {
+          "count": "${var.instance_count}",
+          "name": "${local.naming.gcp.instance_name}-${count.index + 1}",
+          "machine_type": "${local.instance_sizes.gcp[var.machine_size]}",
+          "zone": "${var.gcp_zone}",
+          "boot_disk": [
+            {
+              "initialize_params": [
+                {
+                  "image": "ubuntu-os-cloud/ubuntu-2004-lts",
+                  "size": "${local.storage_config.disk_sizes[var.machine_size]}",
+                  "type": "pd-standard"
+                }
+              ]
+            }
+          ],
+          "network_interface": [
+            {
+              "subnetwork": "${google_compute_subnetwork.subnet[count.index % local.network_config.subnet_count].id}",
+              "access_config": [
+                {}
+              ]
+            }
+          ],
+          "scheduling": [
+            {
+              "preemptible": "${local.derived_config.use_preemptible_vms}",
+              "automatic_restart": "${!local.derived_config.use_preemptible_vms}"
+            }
+          ],
+          "labels": "${local.computed_tags}"
+        }
+      },
+      "azurerm_resource_group.main": {
+        "type": "resource",
+        "name": "main",
+        "full_name": "azurerm_resource_group.main",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 131,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "integrated",
+        "state_reason": "Infrastructure using 4 deps, used by 4 consumer(s)",
+        "resource_type": "azurerm_resource_group",
+        "provider": "azurerm",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {
+          "_expression": "${local.computed_tags}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.azure_region",
+            "local.computed_tags",
+            "local.naming",
+            "provider.azurerm"
+          ],
+          "dependents": [
+            "azurerm_virtual_network.main",
+            "azurerm_subnet.internal",
+            "azurerm_network_interface.main",
+            "azurerm_linux_virtual_machine.main"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 4,
+            "dependents": 4
+          }
+        },
+        "metrics": {
+          "complexity_score": 6.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 4,
+          "fan_out": 4
+        },
+        "attributes": {
+          "name": "${local.naming.azure.resource_group}",
+          "location": "${var.azure_region}",
+          "tags": "${local.computed_tags}"
+        }
+      },
+      "azurerm_virtual_network.main": {
+        "type": "resource",
+        "name": "main",
+        "full_name": "azurerm_virtual_network.main",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 138,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "integrated",
+        "state_reason": "Infrastructure using 5 deps, used by 1 consumer(s)",
+        "resource_type": "azurerm_virtual_network",
+        "provider": "azurerm",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {
+          "_expression": "${local.computed_tags}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.network_config",
+            "local.computed_tags",
+            "local.naming",
+            "azurerm_resource_group.main",
+            "provider.azurerm"
+          ],
+          "dependents": [
+            "azurerm_subnet.internal"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 5,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 5.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 5,
+          "fan_out": 1
+        },
+        "attributes": {
+          "name": "${local.naming.azure.vnet_name}",
+          "address_space": [
+            "${local.network_config.base_cidr}"
+          ],
+          "location": "${azurerm_resource_group.main.location}",
+          "resource_group_name": "${azurerm_resource_group.main.name}",
+          "tags": "${local.computed_tags}"
+        }
+      },
+      "azurerm_subnet.internal": {
+        "type": "resource",
+        "name": "internal",
+        "full_name": "azurerm_subnet.internal",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 147,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Core infrastructure using 5 dependencies",
+        "resource_type": "azurerm_subnet",
+        "provider": "azurerm",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.network_config",
+            "local.project_prefix",
+            "azurerm_resource_group.main",
+            "azurerm_virtual_network.main",
+            "provider.azurerm"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 5,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 5.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 5,
+          "fan_out": 0
+        },
+        "attributes": {
+          "count": "${local.network_config.subnet_count}",
+          "name": "${local.project_prefix}-subnet-${count.index}",
+          "resource_group_name": "${azurerm_resource_group.main.name}",
+          "virtual_network_name": "${azurerm_virtual_network.main.name}",
+          "address_prefixes": [
+            "${local.network_config.subnet_cidrs[count.index]}"
+          ]
+        }
+      },
+      "azurerm_network_interface.main": {
+        "type": "resource",
+        "name": "main",
+        "full_name": "azurerm_network_interface.main",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 156,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Core infrastructure using 6 dependencies",
+        "resource_type": "azurerm_network_interface",
+        "provider": "azurerm",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {
+          "_expression": "${local.computed_tags}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.instance_count",
+            "local.computed_tags",
+            "local.naming",
+            "azurerm_resource_group.main",
+            "local.network_config",
+            "provider.azurerm"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 6,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 6.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 6,
+          "fan_out": 0
+        },
+        "attributes": {
+          "count": "${var.instance_count}",
+          "name": "${local.naming.azure.vm_name}-nic-${count.index + 1}",
+          "location": "${azurerm_resource_group.main.location}",
+          "resource_group_name": "${azurerm_resource_group.main.name}",
+          "ip_configuration": [
+            {
+              "name": "internal",
+              "subnet_id": "${azurerm_subnet.internal[count.index % local.network_config.subnet_count].id}",
+              "private_ip_address_allocation": "Dynamic"
+            }
+          ],
+          "tags": "${local.computed_tags}"
+        }
+      },
+      "azurerm_linux_virtual_machine.main": {
+        "type": "resource",
+        "name": "main",
+        "full_name": "azurerm_linux_virtual_machine.main",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/main.tf",
+          "line_number": 172,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Infrastructure resource using 8 dependencies",
+        "resource_type": "azurerm_linux_virtual_machine",
+        "provider": "azurerm",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {
+          "_expression": "${merge(local.computed_tags, {\"Name\": \"${local.naming.azure.vm_name}-${count.index + 1}\", \"Role\": \"web-server\"})}"
+        },
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.storage_config",
+            "var.instance_count",
+            "local.naming",
+            "local.computed_tags",
+            "azurerm_resource_group.main",
+            "var.machine_size",
+            "local.instance_sizes",
+            "provider.azurerm"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 8,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 8.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 8,
+          "fan_out": 0
+        },
+        "attributes": {
+          "count": "${var.instance_count}",
+          "name": "${local.naming.azure.vm_name}-${count.index + 1}",
+          "resource_group_name": "${azurerm_resource_group.main.name}",
+          "location": "${azurerm_resource_group.main.location}",
+          "size": "${local.instance_sizes.azure[var.machine_size]}",
+          "admin_username": "adminuser",
+          "network_interface_ids": [
+            "${azurerm_network_interface.main[count.index].id}"
+          ],
+          "admin_ssh_key": [
+            {
+              "username": "adminuser",
+              "public_key": "${file(\"~/.ssh/id_rsa.pub\")}"
+            }
+          ],
+          "os_disk": [
+            {
+              "caching": "ReadWrite",
+              "storage_account_type": "Standard_LRS",
+              "disk_size_gb": "${local.storage_config.disk_sizes[var.machine_size]}"
+            }
+          ],
+          "source_image_reference": [
+            {
+              "publisher": "Canonical",
+              "offer": "UbuntuServer",
+              "sku": "18.04-LTS",
+              "version": "latest"
+            }
+          ],
+          "tags": "${merge(local.computed_tags, {\"Name\": \"${local.naming.azure.vm_name}-${count.index + 1}\", \"Role\": \"web-server\"})}"
+        }
+      }
+    },
+    "data_sources": {},
+    "modules": {},
+    "variables": {
+      "var.environment": {
+        "type": "variable",
+        "name": "environment",
+        "full_name": "var.environment",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 2,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 5 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": null,
+        "description": "The deployment environment (dev, staging, prod)",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.project_prefix",
+            "local.derived_config",
+            "local.computed_tags",
+            "local.debug_info",
+            "output.cross_cloud_summary"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 5
+          }
+        },
+        "metrics": {
+          "complexity_score": 2.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 5
+        },
+        "attributes": {
+          "description": "The deployment environment (dev, staging, prod)",
+          "type": "string",
+          "validation": [
+            {
+              "condition": "${contains([dev, staging, prod], var.environment)}",
+              "error_message": "Environment must be one of: dev, staging, prod."
+            }
+          ]
+        }
+      },
+      "var.machine_size": {
+        "type": "variable",
+        "name": "machine_size",
+        "full_name": "var.machine_size",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 12,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 5 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "small",
+        "description": "The size of the compute instance",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.computed_tags",
+            "local.debug_info",
+            "aws_instance.web",
+            "google_compute_instance.web",
+            "azurerm_linux_virtual_machine.main"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 5
+          }
+        },
+        "metrics": {
+          "complexity_score": 2.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 5
+        },
+        "attributes": {
+          "description": "The size of the compute instance",
+          "type": "string",
+          "default": "small"
+        }
+      },
+      "var.instance_count": {
+        "type": "variable",
+        "name": "instance_count",
+        "full_name": "var.instance_count",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 18,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 9 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "number",
+        "default_value": 1,
+        "description": "Number of compute instances to create",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.derived_config",
+            "local.network_config",
+            "local.computed_tags",
+            "local.debug_info",
+            "aws_instance.web",
+            "google_compute_instance.web",
+            "azurerm_network_interface.main",
+            "azurerm_linux_virtual_machine.main",
+            "output.cross_cloud_summary"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 9
+          }
+        },
+        "metrics": {
+          "complexity_score": 4.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 9
+        },
+        "attributes": {
+          "description": "Number of compute instances to create",
+          "type": "number",
+          "default": 1,
+          "validation": [
+            {
+              "condition": "${var.instance_count > 0 && var.instance_count <= 5}",
+              "error_message": "Instance count must be between 1 and 5."
+            }
+          ]
+        }
+      },
+      "var.enable_monitoring": {
+        "type": "variable",
+        "name": "enable_monitoring",
+        "full_name": "var.enable_monitoring",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 29,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 7 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "bool",
+        "default_value": false,
+        "description": "Whether to enable monitoring services",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.derived_config",
+            "local.computed_tags",
+            "local.security_rules",
+            "local.debug_info",
+            "aws_instance.web",
+            "output.aws_instances",
+            "output.google_compute_summary"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 7
+          }
+        },
+        "metrics": {
+          "complexity_score": 3.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 7
+        },
+        "attributes": {
+          "description": "Whether to enable monitoring services",
+          "type": "bool",
+          "default": false
+        }
+      },
+      "var.tags": {
+        "type": "variable",
+        "name": "tags",
+        "full_name": "var.tags",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 36,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 1 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "${map(string)}",
+        "default_value": {
+          "Project": "MultiCloudApp",
+          "ManagedBy": "Terraform"
+        },
+        "description": "Common tags for all resources",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.computed_tags"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 1
+        },
+        "attributes": {
+          "description": "Common tags for all resources",
+          "type": "${map(string)}",
+          "default": {
+            "Project": "MultiCloudApp",
+            "ManagedBy": "Terraform"
+          }
+        }
+      },
+      "var.aws_region": {
+        "type": "variable",
+        "name": "aws_region",
+        "full_name": "var.aws_region",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 46,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 2 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "us-east-1",
+        "description": "AWS region",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "aws_subnet.main",
+            "provider.aws"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 2
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 2
+        },
+        "attributes": {
+          "description": "AWS region",
+          "type": "string",
+          "default": "us-east-1"
+        }
+      },
+      "var.gcp_region": {
+        "type": "variable",
+        "name": "gcp_region",
+        "full_name": "var.gcp_region",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 52,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 3 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "us-central1",
+        "description": "GCP region",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "google_compute_subnetwork.subnet",
+            "output.google_compute_network",
+            "provider.google"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 3
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 3
+        },
+        "attributes": {
+          "description": "GCP region",
+          "type": "string",
+          "default": "us-central1"
+        }
+      },
+      "var.gcp_zone": {
+        "type": "variable",
+        "name": "gcp_zone",
+        "full_name": "var.gcp_zone",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 58,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 2 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "us-central1-a",
+        "description": "GCP zone",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "google_compute_instance.web",
+            "provider.google"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 2
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 2
+        },
+        "attributes": {
+          "description": "GCP zone",
+          "type": "string",
+          "default": "us-central1-a"
+        }
+      },
+      "var.azure_region": {
+        "type": "variable",
+        "name": "azure_region",
+        "full_name": "var.azure_region",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 64,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 1 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "East US",
+        "description": "Azure region",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "azurerm_resource_group.main"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 1
+        },
+        "attributes": {
+          "description": "Azure region",
+          "type": "string",
+          "default": "East US"
+        }
+      },
+      "var.azure_subscription_id": {
+        "type": "variable",
+        "name": "azure_subscription_id",
+        "full_name": "var.azure_subscription_id",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 71,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 1 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "",
+        "description": "Azure subscription ID",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "provider.azurerm"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 1
+        },
+        "attributes": {
+          "description": "Azure subscription ID",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "var.azure_tenant_id": {
+        "type": "variable",
+        "name": "azure_tenant_id",
+        "full_name": "var.azure_tenant_id",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 77,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "input",
+        "state_reason": "Input variable used by 1 object(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "",
+        "description": "Azure tenant ID",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "provider.azurerm"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 1
+        },
+        "attributes": {
+          "description": "Azure tenant ID",
+          "type": "string",
+          "default": ""
+        }
+      },
+      "var.unused_variable": {
+        "type": "variable",
+        "name": "unused_variable",
+        "full_name": "var.unused_variable",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/variables.tf",
+          "line_number": 83,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "unused",
+        "state_reason": "Variable declared with default but never used in infrastructure",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": "string",
+        "default_value": "unused",
+        "description": "This variable is intentionally left unused to test graph behavior",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.unused_calculation"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 1
+        },
+        "attributes": {
+          "description": "This variable is intentionally left unused to test graph behavior",
+          "type": "string",
+          "default": "unused"
+        }
+      }
+    },
+    "outputs": {
+      "output.locals_debug": {
+        "type": "output",
+        "name": "locals_debug",
+        "full_name": "output.locals_debug",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 2,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "orphaned",
+        "state_reason": "Output references 1 intermediate value(s) but may not be useful externally",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "Debug information showing relationships between locals",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.debug_info"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "Debug information showing relationships between locals",
+          "value": "${local.debug_info}"
+        }
+      },
+      "output.naming_conventions": {
+        "type": "output",
+        "name": "naming_conventions",
+        "full_name": "output.naming_conventions",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 7,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "orphaned",
+        "state_reason": "Output references 1 intermediate value(s) but may not be useful externally",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "Generated naming conventions across clouds",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.naming"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "Generated naming conventions across clouds",
+          "value": "${local.naming}"
+        }
+      },
+      "output.derived_configurations": {
+        "type": "output",
+        "name": "derived_configurations",
+        "full_name": "output.derived_configurations",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 12,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "orphaned",
+        "state_reason": "Output references 1 intermediate value(s) but may not be useful externally",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "Configurations derived from input variables",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.derived_config"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "Configurations derived from input variables",
+          "value": "${local.derived_config}"
+        }
+      },
+      "output.network_configuration": {
+        "type": "output",
+        "name": "network_configuration",
+        "full_name": "output.network_configuration",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 17,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "orphaned",
+        "state_reason": "Output references 1 intermediate value(s) but may not be useful externally",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "Computed network configuration",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.network_config"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "Computed network configuration",
+          "value": "${local.network_config}"
+        }
+      },
+      "output.aws_instances": {
+        "type": "output",
+        "name": "aws_instances",
+        "full_name": "output.aws_instances",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 23,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "output_interface",
+        "state_reason": "Exports infrastructure value (external interface) from 3 source(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "AWS instances with computed properties",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.derived_config",
+            "aws_instance.web",
+            "var.enable_monitoring"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 3,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 3.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 3,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "AWS instances with computed properties",
+          "value": "${{for instance in aws_instance.web : instance.tags.Name => {\"instance_type\": \"${instance.instance_type}\", \"subnet_cidr\": \"${aws_subnet.main[index(aws_instance.web.*.subnet_id, instance.subnet_id)].cidr_block}\", \"uses_spot\": \"${local.derived_config.use_spot_instances}\", \"monitoring\": \"${var.enable_monitoring}\"}}}"
+        }
+      },
+      "output.cross_cloud_summary": {
+        "type": "output",
+        "name": "cross_cloud_summary",
+        "full_name": "output.cross_cloud_summary",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 36,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "orphaned",
+        "state_reason": "Output references 5 intermediate value(s) but may not be useful externally",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "Summary across all cloud providers",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.security_rules",
+            "var.instance_count",
+            "var.environment",
+            "local.network_config",
+            "local.derived_config"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 5,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 5.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 5,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "Summary across all cloud providers",
+          "value": {
+            "total_instances": "${var.instance_count * 3}",
+            "total_subnets": "${local.network_config.subnet_count * 3}",
+            "high_availability": "${local.derived_config.high_availability_mode}",
+            "environment": "${var.environment}",
+            "security_rules": "${length(local.security_rules.all_rules)}"
+          }
+        }
+      },
+      "output.google_compute_summary": {
+        "type": "output",
+        "name": "google_compute_summary",
+        "full_name": "output.google_compute_summary",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 47,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "orphaned",
+        "state_reason": "Output references 1 intermediate value(s) but may not be useful externally",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "Summary of GCP compute instances",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.enable_monitoring"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "Summary of GCP compute instances",
+          "value": "${{for instance in google_compute_instance.web : instance.name => {\"machine_type\": \"${instance.machine_type}\", \"zone\": \"${instance.zone}\", \"tags\": \"${instance.tags}\", \"monitoring\": \"${var.enable_monitoring}\"}}}"
+        }
+      },
+      "output.google_compute_network": {
+        "type": "output",
+        "name": "google_compute_network",
+        "full_name": "output.google_compute_network",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/outputs.tf",
+          "line_number": 60,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "output_interface",
+        "state_reason": "Exports infrastructure value (external interface) from 4 source(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": "GCP Network configuration details",
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "google_compute_network.vpc",
+            "local.network_config",
+            "google_compute_subnetwork.subnet",
+            "var.gcp_region"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 4,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 4.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 4,
+          "fan_out": 0
+        },
+        "attributes": {
+          "description": "GCP Network configuration details",
+          "value": {
+            "network_name": "${google_compute_network.vpc.name}",
+            "subnetwork_name": "${google_compute_subnetwork.subnet.name}",
+            "subnet_cidrs": "${local.network_config.subnet_cidrs}",
+            "region": "${var.gcp_region}"
+          }
+        }
+      }
+    },
+    "providers": {
+      "provider.aws": {
+        "type": "provider",
+        "name": "aws",
+        "full_name": "provider.aws",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/providers.tf",
+          "line_number": 23,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "configuration",
+        "state_reason": "Provider used by 4 resource(s)",
+        "resource_type": null,
+        "provider": "aws",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.aws_region"
+          ],
+          "dependents": [
+            "aws_vpc.main",
+            "aws_subnet.main",
+            "aws_security_group.web",
+            "aws_instance.web"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 4
+          }
+        },
+        "metrics": {
+          "complexity_score": 3.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 4
+        },
+        "attributes": {
+          "region": "${var.aws_region}"
+        }
+      },
+      "provider.google": {
+        "type": "provider",
+        "name": "google",
+        "full_name": "provider.google",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/providers.tf",
+          "line_number": 27,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "configuration",
+        "state_reason": "Provider used by 3 resource(s)",
+        "resource_type": null,
+        "provider": "google",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.gcp_zone",
+            "var.gcp_region"
+          ],
+          "dependents": [
+            "google_compute_network.vpc",
+            "google_compute_subnetwork.subnet",
+            "google_compute_instance.web"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 2,
+            "dependents": 3
+          }
+        },
+        "metrics": {
+          "complexity_score": 3.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 2,
+          "fan_out": 3
+        },
+        "attributes": {
+          "project": "your-gcp-project-id",
+          "region": "${var.gcp_region}",
+          "zone": "${var.gcp_zone}"
+        }
+      },
+      "provider.azurerm": {
+        "type": "provider",
+        "name": "azurerm",
+        "full_name": "provider.azurerm",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/providers.tf",
+          "line_number": 33,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "configuration",
+        "state_reason": "Provider used by 5 resource(s)",
+        "resource_type": null,
+        "provider": "azurerm",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.azure_tenant_id",
+            "var.azure_subscription_id"
+          ],
+          "dependents": [
+            "azurerm_resource_group.main",
+            "azurerm_virtual_network.main",
+            "azurerm_subnet.internal",
+            "azurerm_network_interface.main",
+            "azurerm_linux_virtual_machine.main"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 2,
+            "dependents": 5
+          }
+        },
+        "metrics": {
+          "complexity_score": 4.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 2,
+          "fan_out": 5
+        },
+        "attributes": {
+          "features": [
+            {}
+          ],
+          "subscription_id": "${var.azure_subscription_id}",
+          "tenant_id": "${var.azure_tenant_id}"
+        }
+      },
+      "provider.tfe": {
+        "type": "provider",
+        "name": "tfe",
+        "full_name": "provider.tfe",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/providers.tf",
+          "line_number": 39,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "unused",
+        "state_reason": "Provider configured but no resources use it",
+        "resource_type": null,
+        "provider": "tfe",
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        "attributes": {
+          "hostname": "app.terraform.io"
+        }
+      }
+    },
+    "locals": {
+      "local.project_prefix": {
+        "type": "local",
+        "name": "project_prefix",
+        "full_name": "local.project_prefix",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Computed local using 1 input(s), used by 5 component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.environment"
+          ],
+          "dependents": [
+            "local.naming",
+            "local.debug_info",
+            "aws_subnet.main",
+            "google_compute_subnetwork.subnet",
+            "azurerm_subnet.internal"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 5
+          }
+        },
+        "metrics": {
+          "complexity_score": 3.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 5
+        },
+        "attributes": {
+          "value": "mc-${var.environment}"
+        }
+      },
+      "local.naming": {
+        "type": "local",
+        "name": "naming",
+        "full_name": "local.naming",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Computed local using 2 input(s), used by 10 component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "random_id.suffix",
+            "local.project_prefix"
+          ],
+          "dependents": [
+            "local.debug_info",
+            "aws_security_group.web",
+            "aws_instance.web",
+            "google_compute_network.vpc",
+            "google_compute_instance.web",
+            "azurerm_resource_group.main",
+            "azurerm_virtual_network.main",
+            "azurerm_network_interface.main",
+            "azurerm_linux_virtual_machine.main",
+            "output.naming_conventions"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 2,
+            "dependents": 10
+          }
+        },
+        "metrics": {
+          "complexity_score": 7.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 2,
+          "fan_out": 10
+        },
+        "attributes": {
+          "value": {
+            "aws": {
+              "instance_name": "${local.project_prefix}-aws-vm",
+              "sg_name": "${local.project_prefix}-aws-sg",
+              "bucket_name": "${local.project_prefix}-aws-bucket-${random_id.suffix.hex}"
+            },
+            "gcp": {
+              "instance_name": "${local.project_prefix}-gcp-vm",
+              "bucket_name": "${local.project_prefix}-gcp-bucket-${random_id.suffix.hex}",
+              "network_name": "${local.project_prefix}-gcp-network"
+            },
+            "azure": {
+              "vm_name": "${local.project_prefix}-azure-vm",
+              "vnet_name": "${local.project_prefix}-azure-vnet",
+              "resource_group": "${local.project_prefix}-azure-rg",
+              "storage_account": "${lower(local.project_prefix)}azurest${random_id.suffix.hex}"
+            }
+          }
+        }
+      },
+      "local.instance_sizes": {
+        "type": "local",
+        "name": "instance_sizes",
+        "full_name": "local.instance_sizes",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Local value used by 4 infrastructure component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "local.debug_info",
+            "aws_instance.web",
+            "google_compute_instance.web",
+            "azurerm_linux_virtual_machine.main"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 4
+          }
+        },
+        "metrics": {
+          "complexity_score": 2.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 4
+        },
+        "attributes": {
+          "value": {
+            "aws": {
+              "small": "t3.micro",
+              "medium": "t3.small",
+              "large": "t3.medium"
+            },
+            "gcp": {
+              "small": "e2-small",
+              "medium": "e2-medium",
+              "large": "e2-large"
+            },
+            "azure": {
+              "small": "Standard_B1s",
+              "medium": "Standard_B2s",
+              "large": "Standard_B4ms"
+            }
+          }
+        }
+      },
+      "local.derived_config": {
+        "type": "local",
+        "name": "derived_config",
+        "full_name": "local.derived_config",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Computed local using 3 input(s), used by 7 component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.enable_monitoring",
+            "var.environment",
+            "var.instance_count"
+          ],
+          "dependents": [
+            "local.computed_tags",
+            "local.debug_info",
+            "aws_instance.web",
+            "google_compute_instance.web",
+            "output.derived_configurations",
+            "output.aws_instances",
+            "output.cross_cloud_summary"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 3,
+            "dependents": 7
+          }
+        },
+        "metrics": {
+          "complexity_score": 6.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 3,
+          "fan_out": 7
+        },
+        "attributes": {
+          "value": {
+            "is_production": "${var.environment == \"prod\"}",
+            "is_development": "${var.environment == \"dev\"}",
+            "monitoring_email": "${var.enable_monitoring ? \"alerts@company.com\" : null}",
+            "high_availability_mode": "${var.instance_count > 1}",
+            "load_balancing_enabled": "${var.instance_count > 1}"
+          }
+        }
+      },
+      "local.network_config": {
+        "type": "local",
+        "name": "network_config",
+        "full_name": "local.network_config",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Computed local using 1 input(s), used by 12 component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.instance_count"
+          ],
+          "dependents": [
+            "local.debug_info",
+            "aws_vpc.main",
+            "aws_subnet.main",
+            "aws_instance.web",
+            "google_compute_subnetwork.subnet",
+            "google_compute_instance.web",
+            "azurerm_virtual_network.main",
+            "azurerm_subnet.internal",
+            "azurerm_network_interface.main",
+            "output.network_configuration",
+            "output.cross_cloud_summary",
+            "output.google_compute_network"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 12
+          }
+        },
+        "metrics": {
+          "complexity_score": 7.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 12
+        },
+        "attributes": {
+          "value": {
+            "subnet_count": "${min(var.instance_count, 3)}",
+            "subnet_cidrs": "${[for i in range(local.network_config.subnet_count) : cidrsubnet(local.network_config.base_cidr, 8, i)]}"
+          }
+        }
+      },
+      "local.storage_config": {
+        "type": "local",
+        "name": "storage_config",
+        "full_name": "local.storage_config",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Local value used by 3 infrastructure component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [
+            "aws_instance.web",
+            "google_compute_instance.web",
+            "azurerm_linux_virtual_machine.main"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 3
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 3
+        },
+        "attributes": {
+          "value": {
+            "disk_sizes": {
+              "small": 20,
+              "medium": 50,
+              "large": 100
+            }
+          }
+        }
+      },
+      "local.computed_tags": {
+        "type": "local",
+        "name": "computed_tags",
+        "full_name": "local.computed_tags",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Computed local using 6 input(s), used by 9 component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.instance_count",
+            "var.environment",
+            "var.tags",
+            "var.enable_monitoring",
+            "var.machine_size",
+            "local.derived_config"
+          ],
+          "dependents": [
+            "aws_vpc.main",
+            "aws_subnet.main",
+            "aws_security_group.web",
+            "aws_instance.web",
+            "google_compute_instance.web",
+            "azurerm_resource_group.main",
+            "azurerm_virtual_network.main",
+            "azurerm_network_interface.main",
+            "azurerm_linux_virtual_machine.main"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 6,
+            "dependents": 9
+          }
+        },
+        "metrics": {
+          "complexity_score": 10.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 6,
+          "fan_out": 9
+        },
+        "attributes": {
+          "value": "${merge(var.tags, {\"Environment\": \"${var.environment}\", \"ManagedBy\": \"Terraform\", \"HighAvailability\": \"${local.derived_config.high_availability_mode}\", \"Monitoring\": \"${var.enable_monitoring}\", \"CostOptimized\": \"${local.derived_config.is_development}\", \"InstanceCount\": \"${var.instance_count}\", \"MachineSize\": \"${var.machine_size}\", \"DeployedAt\": \"${timestamp()}\", \"TFWorkspace\": \"${terraform.workspace}\"})}"
+        }
+      },
+      "local.security_rules": {
+        "type": "local",
+        "name": "security_rules",
+        "full_name": "local.security_rules",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Computed local using 1 input(s), used by 3 component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.enable_monitoring"
+          ],
+          "dependents": [
+            "local.debug_info",
+            "aws_security_group.web",
+            "output.cross_cloud_summary"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 3
+          }
+        },
+        "metrics": {
+          "complexity_score": 2.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 3
+        },
+        "attributes": {
+          "value": {
+            "base_rules": [
+              {
+                "protocol": "tcp",
+                "port": 22,
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "SSH access"
+              },
+              {
+                "protocol": "tcp",
+                "port": 80,
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "HTTP access"
+              },
+              {
+                "protocol": "tcp",
+                "port": 443,
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "HTTPS access"
+              }
+            ],
+            "monitoring_rules": "${var.enable_monitoring ? [{'protocol': 'tcp', 'port': 9100, 'cidr_blocks': ['10.0.0.0/8'], 'description': 'Node exporter'}] : []}",
+            "all_rules": "${concat(local.security_rules.base_rules, local.security_rules.monitoring_rules)}"
+          }
+        }
+      },
+      "local.debug_info": {
+        "type": "local",
+        "name": "debug_info",
+        "full_name": "local.debug_info",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "active",
+        "state_reason": "Computed local using 10 input(s), used by 1 component(s)",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.security_rules",
+            "var.instance_count",
+            "var.environment",
+            "local.project_prefix",
+            "var.enable_monitoring",
+            "local.naming",
+            "local.network_config",
+            "var.machine_size",
+            "local.derived_config",
+            "local.instance_sizes"
+          ],
+          "dependents": [
+            "output.locals_debug"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 10,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 10.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 10,
+          "fan_out": 1
+        },
+        "attributes": {
+          "value": {
+            "variables_used": {
+              "environment": "${var.environment}",
+              "machine_size": "${var.machine_size}",
+              "instance_count": "${var.instance_count}",
+              "enable_monitoring": "${var.enable_monitoring}"
+            },
+            "computed_values": {
+              "project_prefix": "${local.project_prefix}",
+              "is_production": "${local.derived_config.is_production}",
+              "high_availability": "${local.derived_config.high_availability_mode}",
+              "subnet_count": "${local.network_config.subnet_count}",
+              "subnet_cidrs": "${local.network_config.subnet_cidrs}",
+              "all_security_rules": "${length(local.security_rules.all_rules)}"
+            },
+            "cloud_specific": {
+              "aws_instance_type": "${local.instance_sizes.aws[var.machine_size]}",
+              "gcp_machine_type": "${local.instance_sizes.gcp[var.machine_size]}",
+              "azure_vm_size": "${local.instance_sizes.azure[var.machine_size]}",
+              "aws_bucket_name": "${local.naming.aws.bucket_name}",
+              "gcp_bucket_name": "${local.naming.gcp.bucket_name}",
+              "azure_storage_account": "${local.naming.azure.storage_account}"
+            }
+          }
+        }
+      },
+      "local.unused_calculation": {
+        "type": "local",
+        "name": "unused_calculation",
+        "full_name": "local.unused_calculation",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "unused",
+        "state_reason": "Local value with 1 input(s) but not used in infrastructure",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "var.unused_variable"
+          ],
+          "dependents": [
+            "local.unused_circular_reference"
+          ],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 1
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.5,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 1
+        },
+        "attributes": {
+          "value": "${var.unused_variable != \"\" ? \"This is unused\" : \"Also unused\"}"
+        }
+      },
+      "local.unused_circular_reference": {
+        "type": "local",
+        "name": "unused_circular_reference",
+        "full_name": "local.unused_circular_reference",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/locals.tf",
+          "line_number": 1,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "unused",
+        "state_reason": "Local value with 1 input(s) but not used in infrastructure",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [
+            "local.unused_calculation"
+          ],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 1,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 1.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 1,
+          "fan_out": 0
+        },
+        "attributes": {
+          "value": "${local.unused_calculation == \"This is unused\" ? local.unused_calculation : \"Still unused\"}"
+        }
+      }
+    },
+    "terraform_blocks": {
+      "terraform.block_0": {
+        "type": "terraform",
+        "name": "block_0",
+        "full_name": "terraform.block_0",
+        "location": {
+          "file_path": "/home/ivan/development/tfkit/examples/providers.tf",
+          "line_number": 2,
+          "relative_path": null,
+          "module_depth": 0
+        },
+        "state": "configuration",
+        "state_reason": "Terraform configuration block",
+        "resource_type": null,
+        "provider": null,
+        "source": null,
+        "variable_type": null,
+        "default_value": null,
+        "description": null,
+        "sensitive": false,
+        "tags": {},
+        "dependencies": {
+          "explicit": [],
+          "implicit": [],
+          "dependents": [],
+          "circular": [],
+          "missing": [],
+          "counts": {
+            "dependencies": 0,
+            "dependents": 0
+          }
+        },
+        "metrics": {
+          "complexity_score": 0.0,
+          "has_circular_deps": false,
+          "has_missing_deps": false,
+          "fan_in": 0,
+          "fan_out": 0
+        },
+        "attributes": {
+          "required_providers": [
+            {
+              "aws": {
+                "source": "hashicorp/aws",
+                "version": "~> 5.0"
+              },
+              "google": {
+                "source": "hashicorp/google",
+                "version": "~> 5.0"
+              },
+              "azurerm": {
+                "source": "hashicorp/azurerm",
+                "version": "~> 3.0"
+              },
+              "tfe": {
+                "source": "hashicorp/tfe",
+                "version": "~> 0.35"
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "tfvars_files": {
+    "/home/ivan/development/tfkit/examples/dev.tfvars": {
+      "environment": "dev",
+      "machine_size": "small",
+      "instance_count": 1,
+      "enable_monitoring": false,
+      "aws_region": "us-east-1",
+      "gcp_region": "us-central1",
+      "gcp_zone": "us-central1-a",
+      "azure_region": "East US",
+      "azure_subscription_id": "11111111-1111-1111-1111-111111111111",
+      "azure_tenant_id": "aaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "tags": {
+        "Project": "MultiCloudApp",
+        "ManagedBy": "Terraform",
+        "Environment": "dev",
+        "CostCenter": "dev-123"
+      }
+    },
+    "/home/ivan/development/tfkit/examples/stage.tfvars": {
+      "environment": "staging",
+      "machine_size": "medium",
+      "instance_count": 2,
+      "enable_monitoring": true,
+      "aws_region": "us-east-1",
+      "gcp_region": "us-central1",
+      "gcp_zone": "us-central1-b",
+      "azure_region": "East US 2",
+      "azure_subscription_id": "22222222-2222-2222-2222-222222222222",
+      "azure_tenant_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "tags": {
+        "Project": "MultiCloudApp",
+        "ManagedBy": "Terraform",
+        "Environment": "staging",
+        "CostCenter": "staging-456"
+      }
+    },
+    "/home/ivan/development/tfkit/examples/prod.tfvars": {
+      "environment": "prod",
+      "machine_size": "large",
+      "instance_count": 3,
+      "enable_monitoring": true,
+      "aws_region": "us-east-1",
+      "gcp_region": "us-west1",
+      "gcp_zone": "us-west1-a",
+      "azure_region": "West US 2",
+      "azure_subscription_id": "33333333-3333-3333-3333-333333333333",
+      "azure_tenant_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+      "tags": {
+        "Project": "MultiCloudApp",
+        "ManagedBy": "Terraform",
+        "Environment": "prod",
+        "CostCenter": "prod-789",
+        "Critical": "true"
+      }
+    }
+  },
+  "backend_config": null,
+  "statistics": {
+    "counts": {
+      "resources": 13,
+      "data_sources": 0,
+      "modules": 0,
+      "variables": 12,
+      "outputs": 8,
+      "providers": 4,
+      "locals": 11,
+      "total": 48
+    },
+    "state_distribution": {
+      "active": 14,
+      "unused": 4,
+      "leaf": 1,
+      "integrated": 6,
+      "missing_dependency": 1,
+      "orphaned": 6,
+      "output_interface": 2,
+      "configuration": 4,
+      "input": 11
+    },
+    "providers": {
+      "used": [
+        "aws",
+        "azurerm",
+        "google",
+        "random"
+      ],
+      "count": 4
+    },
+    "resource_types": {
+      "random_id": 1,
+      "aws_vpc": 1,
+      "aws_subnet": 1,
+      "aws_security_group": 1,
+      "aws_instance": 1,
+      "google_compute_network": 1,
+      "google_compute_subnetwork": 1,
+      "google_compute_instance": 1,
+      "azurerm_resource_group": 1,
+      "azurerm_virtual_network": 1,
+      "azurerm_subnet": 1,
+      "azurerm_network_interface": 1,
+      "azurerm_linux_virtual_machine": 1
+    },
+    "health": {
+      "score": 62.08,
+      "unused_count": 4,
+      "orphaned_count": 6,
+      "isolated_count": 0,
+      "incomplete_count": 0
+    },
+    "issues": {
+      "unused": [
+        "local.unused_calculation",
+        "local.unused_circular_reference",
+        "provider.tfe",
+        "var.unused_variable"
+      ],
+      "orphaned": [
+        "output.locals_debug",
+        "output.naming_conventions",
+        "output.derived_configurations",
+        "output.network_configuration",
+        "output.cross_cloud_summary",
+        "output.google_compute_summary"
+      ],
+      "isolated": [],
+      "incomplete": []
+    }
+  },
+  "validation": []
+}

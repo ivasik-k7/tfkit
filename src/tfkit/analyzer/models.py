@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 
 class ResourceType(Enum):
@@ -321,17 +321,109 @@ class TerraformObject:
             reason = self._get_incompleteness_reason()
             return ObjectState.INCOMPLETE, reason
 
-        # ==================== DEPENDENCY CHAIN ANALYSIS ====================
+        # ==================== TYPE-SPECIFIC LOGIC ====================
 
-        # Check if this object is part of an unused dependency chain
-        if self._is_in_unused_chain():
-            chain_type = "local" if self.type == ResourceType.LOCAL else "computation"
+        # VARIABLES - Input parameters
+        if self.type == ResourceType.VARIABLE:
+            # Check if variable is actually used (has real consumers down the chain)
+            if not self._has_downstream_infrastructure_usage():
+                if self.default_value is not None:
+                    return (
+                        ObjectState.UNUSED,
+                        "Variable declared with default but never used in infrastructure",
+                    )
+                return (
+                    ObjectState.UNUSED,
+                    "Variable declared but never used in infrastructure",
+                )
+
             return (
-                ObjectState.UNUSED,
-                f"{chain_type} value computed as part of unused dependency chain",
+                ObjectState.INPUT,
+                f"Input variable used by {dependent_count} object(s)",
             )
 
-        # ==================== TYPE-SPECIFIC LOGIC ====================
+        # PROVIDERS - Infrastructure configuration
+        if self.type == ResourceType.PROVIDER:
+            # Count only actual resources/data sources that use this provider
+            resource_dependents = self._count_resource_dependents()
+
+            if resource_dependents == 0:
+                # Check if provider is used indirectly (variables feeding into it)
+                if dependent_count > 0:
+                    return (
+                        ObjectState.CONFIGURATION,
+                        f"Provider configured with {dependent_count} input(s), awaiting resources",
+                    )
+                return (
+                    ObjectState.UNUSED,
+                    "Provider configured but no resources use it",
+                )
+
+            return (
+                ObjectState.CONFIGURATION,
+                f"Provider used by {resource_dependents} resource(s)",
+            )
+
+        # OUTPUTS - External interfaces
+        if self.type == ResourceType.OUTPUT:
+            if dep_count == 0:
+                return (
+                    ObjectState.INCOMPLETE,
+                    "Output declared but has no value source",
+                )
+
+            # Outputs are MEANT to be external interfaces - they don't need internal consumers
+            # Check if output references real infrastructure
+            if self._references_infrastructure():
+                if dependent_count == 0:
+                    # This is NORMAL and GOOD for outputs!
+                    return (
+                        ObjectState.OUTPUT_INTERFACE,
+                        f"Exports infrastructure value (external interface) from {dep_count} source(s)",
+                    )
+                else:
+                    # Output used both externally and internally
+                    return (
+                        ObjectState.OUTPUT_INTERFACE,
+                        f"Exports value from {dep_count} source(s), also used by {dependent_count} internal consumer(s)",
+                    )
+
+            # Output references only intermediate values (locals, other outputs)
+            if dependent_count == 0:
+                return (
+                    ObjectState.ORPHANED,
+                    f"Output references {dep_count} intermediate value(s) but may not be useful externally",
+                )
+
+            return (
+                ObjectState.OUTPUT_INTERFACE,
+                f"Transforms {dep_count} value(s), used by {dependent_count} consumer(s)",
+            )
+
+        # LOCALS - Computed values
+        if self.type == ResourceType.LOCAL:
+            # Check if this local contributes to real infrastructure
+            if not self._has_downstream_infrastructure_usage():
+                if dep_count > 0:
+                    return (
+                        ObjectState.UNUSED,
+                        f"Local value with {dep_count} input(s) but not used in infrastructure",
+                    )
+                return (
+                    ObjectState.UNUSED,
+                    "Local value computed but not used in infrastructure",
+                )
+
+            # This local is actually used by infrastructure (directly or indirectly)
+            if dep_count == 0:
+                return (
+                    ObjectState.ACTIVE,
+                    f"Local value used by {dependent_count} infrastructure component(s)",
+                )
+            return (
+                ObjectState.ACTIVE,
+                f"Computed local using {dep_count} input(s), used by {dependent_count} component(s)",
+            )
 
         # RESOURCES (aws_instance, aws_security_group, etc.)
         if self.type == ResourceType.RESOURCE:
@@ -364,67 +456,6 @@ class TerraformObject:
             return (
                 ObjectState.INTEGRATED,
                 f"Infrastructure using {dep_count} deps, used by {dependent_count} consumer(s)",
-            )
-
-        # VARIABLES
-        if self.type == ResourceType.VARIABLE:
-            if dependent_count == 0:
-                if self.default_value is not None:
-                    return (
-                        ObjectState.UNUSED,
-                        "Variable declared with default but never referenced",
-                    )
-                return (ObjectState.UNUSED, "Required variable declared but never used")
-            return (
-                ObjectState.INPUT,
-                f"Input variable used by {dependent_count} object(s)",
-            )
-
-        # OUTPUTS
-        if self.type == ResourceType.OUTPUT:
-            if dep_count == 0:
-                return (
-                    ObjectState.INCOMPLETE,
-                    "Output declared but has no value source",
-                )
-            if dependent_count == 0:
-                # Check if it references core infrastructure
-                if self._references_core_infrastructure():
-                    return (
-                        ObjectState.OUTPUT_INTERFACE,
-                        "Exports core infrastructure value (external interface)",
-                    )
-                return (ObjectState.ORPHANED, "Output computed but never consumed")
-            return (
-                ObjectState.OUTPUT_INTERFACE,
-                f"Exports value used by {dependent_count} consumer(s)",
-            )
-
-        # LOCALS - Special handling for dependency chains
-        if self.type == ResourceType.LOCAL:
-            # Check if this local has any "real" consumers (not just other unused locals)
-            has_real_consumers = self._has_real_consumers()
-
-            if not has_real_consumers:
-                if dep_count > 0:
-                    return (
-                        ObjectState.UNUSED,
-                        f"Local value with {dep_count} deps but no real consumers",
-                    )
-                return (
-                    ObjectState.UNUSED,
-                    "Local value computed but never used in actual infrastructure",
-                )
-
-            # This local is actually used by real infrastructure
-            if dep_count == 0:
-                return (
-                    ObjectState.ACTIVE,
-                    f"Local value used by {dependent_count} infrastructure component(s)",
-                )
-            return (
-                ObjectState.ACTIVE,
-                f"Computed local using {dep_count} deps, used by {dependent_count} component(s)",
             )
 
         # MODULES
@@ -464,31 +495,6 @@ class TerraformObject:
                 f"External data used by {dependent_count} object(s)",
             )
 
-        # PROVIDERS
-        if self.type == ResourceType.PROVIDER:
-            # For providers, count only actual resources/data sources that use it
-            if dependent_count == 0:
-                return (
-                    ObjectState.UNUSED,
-                    "Provider configured but no resources use it",
-                )
-
-            # Filter to count only resources/data sources (not variables, outputs, etc.)
-            resource_dependents = 0
-            if self._all_objects_cache:
-                for dep_name in self.dependency_info.dependent_objects:
-                    if dep_name in self._all_objects_cache:
-                        dep_obj = self._all_objects_cache[dep_name]
-                        if dep_obj.type in [ResourceType.RESOURCE, ResourceType.DATA]:
-                            resource_dependents += 1
-            else:
-                resource_dependents = dependent_count
-
-            return (
-                ObjectState.CONFIGURATION,
-                f"Provider used by {resource_dependents} resource(s)",
-            )
-
         # TERRAFORM BLOCKS
         if self.type == ResourceType.TERRAFORM:
             return (ObjectState.CONFIGURATION, "Terraform configuration block")
@@ -512,14 +518,6 @@ class TerraformObject:
             return (
                 ObjectState.LEAF,
                 f"Independent resource used by {dependent_count} object(s)",
-            )
-
-        # ORPHANED (has deps but nothing uses it) - ONLY for non-resource types
-        if dep_count > 0 and dependent_count == 0:
-            # For other non-resource types that truly create outputs
-            return (
-                ObjectState.UNUSED,
-                f"Creates output from {dep_count} deps but result unused",
             )
 
         # HUB (highly connected center point)
@@ -588,41 +586,87 @@ class TerraformObject:
         # Fallback
         return (ObjectState.ACTIVE, "Active infrastructure component")
 
-    def _is_in_unused_chain(self) -> bool:
-        """Check if this object is part of an unused dependency chain."""
-        if self.type not in [ResourceType.LOCAL, ResourceType.VARIABLE]:
-            return False
+    def _has_downstream_infrastructure_usage(
+        self, visited: Optional[Set[str]] = None
+    ) -> bool:
+        """
+        Check if this object (or its dependents) eventually feed into real infrastructure.
+        Uses recursive traversal to check the entire dependency chain.
 
-        # If this object has no real consumers, check if it's part of a chain
-        if not self._has_real_consumers():
-            return True
+        Args:
+            visited: Set of already-visited objects to prevent infinite loops
+
+        Returns:
+            True if this object contributes to real infrastructure
+        """
+        if visited is None:
+            visited = set()
+
+        # Prevent infinite loops
+        if self.full_name in visited:
+            return False
+        visited.add(self.full_name)
+
+        # Check if any direct dependent is infrastructure
+        infrastructure_types = {
+            ResourceType.RESOURCE,
+            ResourceType.MODULE,
+            ResourceType.DATA,
+            ResourceType.PROVIDER,
+            ResourceType.OUTPUT,
+        }
+
+        if not self._all_objects_cache:
+            # Fallback: just check if we have dependents
+            return len(self.dependency_info.dependent_objects) > 0
+
+        for dep_name in self.dependency_info.dependent_objects:
+            if dep_name not in self._all_objects_cache:
+                continue
+
+            dep_obj = self._all_objects_cache[dep_name]
+
+            # Direct infrastructure usage
+            if dep_obj.type in infrastructure_types:
+                return True
+
+            # Indirect usage: check if the dependent eventually reaches infrastructure
+            if dep_obj.type in [ResourceType.LOCAL, ResourceType.VARIABLE]:
+                if dep_obj._has_downstream_infrastructure_usage(visited):
+                    return True
 
         return False
 
-    def _has_real_consumers(self) -> bool:
-        """Check if this object has consumers that represent actual infrastructure."""
-        if not self.dependency_info.dependent_objects:
-            return False
+    def _count_resource_dependents(self) -> int:
+        """Count how many actual resources/data sources depend on this provider."""
+        if not self._all_objects_cache:
+            return self.dependency_info.dependent_count
 
-        # Check if any dependent is a "real" infrastructure component
-        real_consumer_types = [
-            ResourceType.RESOURCE,
-            ResourceType.MODULE,
-            ResourceType.OUTPUT,
-            ResourceType.DATA,
-            ResourceType.PROVIDER,
-        ]
-
+        count = 0
         for dep_name in self.dependency_info.dependent_objects:
             if dep_name in self._all_objects_cache:
                 dep_obj = self._all_objects_cache[dep_name]
-                # If the dependent is a real infrastructure type, we're used
-                if dep_obj.type in real_consumer_types:
+                if dep_obj.type in [ResourceType.RESOURCE, ResourceType.DATA]:
+                    count += 1
+
+        return count
+
+    def _references_infrastructure(self) -> bool:
+        """Check if this output references actual infrastructure (not just intermediate values)."""
+        if not self._all_objects_cache:
+            return self.dependency_info.dependency_count > 0
+
+        infrastructure_types = {
+            ResourceType.RESOURCE,
+            ResourceType.MODULE,
+            ResourceType.DATA,
+        }
+
+        for dep_name in self.dependency_info.all_dependencies:
+            if dep_name in self._all_objects_cache:
+                dep_obj = self._all_objects_cache[dep_name]
+                if dep_obj.type in infrastructure_types:
                     return True
-                # If the dependent is a local/variable, check if IT has real consumers
-                if dep_obj.type in [ResourceType.LOCAL, ResourceType.VARIABLE]:
-                    if dep_obj._has_real_consumers():
-                        return True
 
         return False
 
@@ -752,21 +796,6 @@ class TerraformObject:
         resource_lower = self.resource_type.lower()
         return any(pattern in resource_lower for pattern in core_patterns)
 
-    def _is_infrastructure_provisioning(self) -> bool:
-        """
-        Check if this object provisions real infrastructure.
-        Resources and modules with dependencies are actively provisioning.
-        """
-        if self.type == ResourceType.RESOURCE:
-            # Resources always provision infrastructure
-            return True
-
-        if self.type == ResourceType.MODULE:
-            # Modules with source provision infrastructure
-            return bool(self.source)
-
-        return False
-
     def _is_external_facing(self) -> bool:
         """Check if this is an external-facing resource."""
         if not self.resource_type:
@@ -794,22 +823,6 @@ class TerraformObject:
 
         resource_lower = self.resource_type.lower()
         return any(pattern in resource_lower for pattern in external_patterns)
-
-    def _references_core_infrastructure(self) -> bool:
-        """Check if output references core infrastructure."""
-        if not self.dependency_info.all_dependencies:
-            return False
-
-        # Check if any dependency looks like core infrastructure
-        for dep in self.dependency_info.all_dependencies:
-            dep_lower = dep.lower()
-            if any(
-                pattern in dep_lower
-                for pattern in ["vpc", "subnet", "network", "cluster", "database"]
-            ):
-                return True
-
-        return False
 
     def _has_good_practices(self) -> bool:
         """Check if object follows Terraform best practices."""

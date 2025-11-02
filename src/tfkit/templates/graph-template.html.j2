@@ -254,16 +254,172 @@
       fill: url(#grid);
       }
       /* --- WATERMARK --- */
-      #watermark {
-      position: absolute;
-      bottom: 10px;
-      left: 20px;
-      font-size: 0.7em;
-      color: {{ colors.text_secondary }}80;
-      user-select: none;
-      z-index: 1000;
-      font-family: 'Exo 2', sans-serif;
-      }
+        #watermark {
+        position: absolute;
+        bottom: 16px;
+        left: 20px;
+        font-size: 0.75em;
+        color: {{ colors.text_secondary }}80;
+        user-select: none;
+        z-index: 1000;
+        font-family: 'Exo 2', sans-serif;
+        }
+
+        .watermark-content {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        background: {{ colors.bg_secondary }}60;
+        backdrop-filter: blur(8px);
+        border: 1px solid {{ colors.border }}20;
+        border-radius: 12px;
+        padding: 12px 16px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .watermark-content:hover {
+        background: {{ colors.bg_secondary }}80;
+        border-color: {{ colors.accent }}30;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        }
+
+        .watermark-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+        color: {{ colors.text_primary }};
+        }
+
+        .watermark-brand i {
+        color: {{ colors.accent }};
+        font-size: 1.1em;
+        filter: drop-shadow(0 2px 4px {{ colors.accent }}30);
+        }
+
+        .brand-text {
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: 0.5px;
+        background: linear-gradient(135deg, {{ colors.text_primary }} 0%, {{ colors.accent }} 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        }
+
+        .version {
+        font-size: 0.85em;
+        color: {{ colors.text_secondary }};
+        background: {{ colors.bg_primary }}30;
+        padding: 2px 8px;
+        border-radius: 8px;
+        border: 1px solid {{ colors.border }}20;
+        font-family: 'Exo 2', monospace;
+        }
+
+        .watermark-links {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        }
+
+        .watermark-link {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: {{ colors.text_secondary }} !important;
+        text-decoration: none;
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        border: 1px solid transparent;
+        }
+
+        .watermark-link:hover {
+        color: {{ colors.accent }} !important;
+        background: {{ colors.accent }}15;
+        border-color: {{ colors.accent }}20;
+        transform: translateY(-1px);
+        text-decoration: none !important;
+        }
+
+        .watermark-link i {
+        font-size: 0.9em;
+        transition: all 0.3s ease;
+        }
+
+        .watermark-link:hover i {
+        transform: scale(1.1);
+        filter: drop-shadow(0 2px 4px {{ colors.accent }}30);
+        }
+
+        /* Pulse animation for brand icon */
+        @keyframes pulse-glow {
+        0%, 100% { 
+            opacity: 1;
+            filter: drop-shadow(0 2px 4px {{ colors.accent }}30);
+        }
+        50% { 
+            opacity: 0.8;
+            filter: drop-shadow(0 2px 8px {{ colors.accent }}50);
+        }
+        }
+
+        .watermark-brand i {
+        animation: pulse-glow 3s ease-in-out infinite;
+        }
+
+        .watermark-content:hover .watermark-brand i {
+        animation: pulse-glow 1s ease-in-out infinite;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+        .watermark-content {
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+        }
+        
+        .watermark-links {
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+        
+        .watermark-link {
+            justify-content: center;
+            padding: 8px 12px;
+        }
+        
+        #watermark {
+            left: 50%;
+            transform: translateX(-50%);
+            width: calc(100% - 40px);
+            max-width: 300px;
+        }
+        }
+
+        /* Optional: Add a subtle background pattern */
+        .watermark-content::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 12px;
+        background: linear-gradient(135deg, transparent 0%, {{ colors.accent }}02 100%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: -1;
+        }
+
+        .watermark-content:hover::before {
+        opacity: 1;
+        }
       /* --- MODERN DASHBOARD HUD --- */
       .dashboard-hud {
       position: absolute;
@@ -534,6 +690,402 @@
       .control-btn:active {
       transform: translateY(0);
       }
+        /* Configuration Viewer - Updated to match Dashboard HUD */
+        .config-viewer {
+        position: absolute;
+        top: 20px;
+        left: 360px;
+        background: {{ colors.bg_secondary }}d0;
+        backdrop-filter: blur(8px);
+        border: 1px solid {{ colors.border }}20;
+        border-radius: 12px;
+        z-index: 1000;
+        width: 300px;
+        max-height: calc(100vh - 40px);
+        overflow: hidden;
+        transition: all 0.2s ease;
+        font-family: 'Exo 2', sans-serif;
+        opacity: 0.95;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .config-viewer:hover {
+        opacity: 1;
+        background: {{ colors.bg_secondary }};
+        border-color: {{ colors.accent }}30;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+        }
+
+        .config-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 15px;
+        cursor: pointer;
+        user-select: none;
+        border-bottom: 1px solid {{ colors.border }}20;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+        }
+
+        .config-header:hover {
+        background: {{ colors.bg_primary }}08;
+        }
+
+        .config-icon-wrapper {
+        width: 48px;
+        height: 48px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, {{ colors.accent }}20 0%, {{ colors.accent }}10 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+        }
+
+        .config-header:hover .config-icon-wrapper {
+        transform: scale(1.05);
+        box-shadow: 0 4px 16px {{ colors.accent }}20;
+        }
+
+        .config-icon-wrapper i {
+        color: {{ colors.accent }};
+        font-size: 1.4em;
+        }
+
+        .config-header-content {
+        flex: 1;
+        min-width: 0;
+        }
+
+        .config-title {
+        color: {{ colors.text_primary }};
+        font-size: 1.1em;
+        font-weight: 700;
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: 0.5px;
+        margin-bottom: 4px;
+        }
+
+        .config-subtitle {
+        font-size: 0.8em;
+        color: {{ colors.text_secondary }};
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        }
+
+        .config-subtitle span {
+        color: {{ colors.accent }};
+        font-weight: 700;
+        font-family: 'Orbitron', sans-serif;
+        }
+
+        .config-toggle {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: {{ colors.bg_primary }}20;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+        }
+
+        .config-header:hover .config-toggle {
+        background: {{ colors.accent }}15;
+        transform: scale(1.1);
+        }
+
+        .config-chevron {
+        color: {{ colors.text_secondary }};
+        transition: all 0.2s ease;
+        font-size: 0.9em;
+        }
+
+        .config-toggle:hover .config-chevron {
+        color: {{ colors.accent }};
+        }
+
+        .config-chevron.rotated {
+        transform: rotate(180deg);
+        color: {{ colors.accent }};
+        }
+
+        .config-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+        }
+
+        .config-content.expanded {
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+        }
+
+        /* Config File Item */
+        .config-file {
+        border-bottom: 1px solid {{ colors.border }}10;
+        transition: all 0.2s ease;
+        }
+
+        .config-file:last-child {
+        border-bottom: none;
+        }
+
+        .config-file-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.2s ease;
+        position: relative;
+        }
+
+        .config-file-header:hover {
+        background: {{ colors.bg_primary }}08;
+        transform: translateX(4px);
+        }
+
+        .config-file-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, {{ colors.info }}20 0%, {{ colors.info }}10 100%);
+        color: {{ colors.info }};
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1em;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+        }
+
+        .config-file-header:hover .config-file-icon {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px {{ colors.info }}20;
+        }
+
+        .config-file-info {
+        flex: 1;
+        min-width: 0;
+        }
+
+        .config-file-name {
+        font-weight: 700;
+        color: {{ colors.text_primary }};
+        font-size: 0.9em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 4px;
+        font-family: 'Exo 2', monospace;
+        }
+
+        .config-file-path {
+        font-size: 0.75em;
+        color: {{ colors.text_secondary }};
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        }
+
+        .config-file-path i {
+        font-size: 0.9em;
+        color: {{ colors.accent }};
+        }
+
+        .config-file-chevron {
+        color: {{ colors.text_secondary }};
+        transition: all 0.2s ease;
+        font-size: 0.85em;
+        flex-shrink: 0;
+        }
+
+        .config-file-header:hover .config-file-chevron {
+        color: {{ colors.accent }};
+        }
+
+        .config-file-chevron.rotated {
+        transform: rotate(90deg);
+        color: {{ colors.accent }};
+        }
+
+        .config-file-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+        background: {{ colors.bg_primary }}05;
+        }
+
+        .config-file-body.expanded {
+        max-height: 500px;
+        overflow-y: auto;
+        }
+
+        .config-variables {
+        padding: 16px 20px;
+        display: grid;
+        gap: 12px;
+        }
+
+        /* Variable Card */
+        .config-var {
+        background: {{ colors.bg_secondary }}60;
+        border: 1px solid {{ colors.border }}20;
+        border-left: 3px solid {{ colors.accent }}50;
+        border-radius: 8px;
+        padding: 12px 16px;
+        transition: all 0.2s ease;
+        position: relative;
+        overflow: hidden;
+        }
+
+        .config-var:hover {
+        background: {{ colors.bg_secondary }}80;
+        border-left-color: {{ colors.accent }};
+        border-color: {{ colors.accent }}30;
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px {{ colors.accent }}10;
+        }
+
+        .config-var-key {
+        font-family: 'Exo 2', monospace;
+        font-size: 0.85em;
+        font-weight: 700;
+        color: {{ colors.text_primary }};
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        }
+
+        .config-var-key i {
+        font-size: 0.85em;
+        color: {{ colors.accent }};
+        }
+
+        .config-var-value {
+        font-family: 'Exo 2', monospace;
+        font-size: 0.8em;
+        color: {{ colors.text_secondary }};
+        padding: 8px 12px;
+        background: {{ colors.bg_primary }}30;
+        border-radius: 6px;
+        word-break: break-word;
+        white-space: pre-wrap;
+        border: 1px solid {{ colors.border }}10;
+        line-height: 1.6;
+        }
+
+        .config-var-type {
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7em;
+        padding: 3px 8px;
+        border-radius: 6px;
+        background: {{ colors.accent }}15;
+        color: {{ colors.accent }};
+        margin-left: auto;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border: 1px solid {{ colors.accent }}20;
+        }
+
+        /* Type-specific colors */
+        .config-var-type.type-string {
+        background: {{ colors.success }}15;
+        color: {{ colors.success }};
+        border-color: {{ colors.success }}20;
+        }
+
+        .config-var-type.type-number {
+        background: {{ colors.info }}15;
+        color: {{ colors.info }};
+        border-color: {{ colors.info }}20;
+        }
+
+        .config-var-type.type-boolean {
+        background: {{ colors.warning }}15;
+        color: {{ colors.warning }};
+        border-color: {{ colors.warning }}20;
+        }
+
+        .config-var-type.type-object {
+        background: {{ colors.accent }}15;
+        color: {{ colors.accent }};
+        border-color: {{ colors.accent }}20;
+        }
+
+        .config-var-type.type-array {
+        background: #8b5cf615;
+        color: #8b5cf6;
+        border-color: #8b5cf620;
+        }
+
+        /* Empty State */
+        .config-empty {
+        padding: 60px 30px;
+        text-align: center;
+        color: {{ colors.text_secondary }};
+        }
+
+        .config-empty i {
+        font-size: 3em;
+        color: {{ colors.text_secondary }}30;
+        margin-bottom: 16px;
+        display: block;
+        opacity: 0.5;
+        }
+
+        .config-empty div {
+        font-size: 0.9em;
+        font-weight: 500;
+        }
+
+        /* Custom scrollbar */
+        .config-content::-webkit-scrollbar,
+        .config-file-body::-webkit-scrollbar {
+        width: 6px;
+        }
+
+        .config-content::-webkit-scrollbar-track,
+        .config-file-body::-webkit-scrollbar-track {
+        background: {{ colors.bg_primary }}15;
+        border-radius: 3px;
+        }
+
+        .config-content::-webkit-scrollbar-thumb,
+        .config-file-body::-webkit-scrollbar-thumb {
+        background: {{ colors.accent }}30;
+        border-radius: 3px;
+        transition: background 0.2s ease;
+        }
+
+        .config-content::-webkit-scrollbar-thumb:hover,
+        .config-file-body::-webkit-scrollbar-thumb:hover {
+        background: {{ colors.accent }}50;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+        .config-viewer {
+            left: 20px;
+            top: auto;
+            bottom: 100px;
+            width: calc(100% - 40px);
+            max-width: 420px;
+        }
+        }
       .scale-controls {
       position: absolute;
       bottom: 20px;
@@ -1037,13 +1589,23 @@
       </div>
     </div>
     <div id="watermark">
-      tfkit (v{{ tfkit_version | default('0.0.0') }}) |
-      <a
-        href="https://github.com/ivasik-k7/tfkit"
-        target="_blank"
-        style="color: {{ colors.text_secondary }};"
-        >tfkit.com</a
-      >
+    <div class="watermark-content">
+        <div class="watermark-brand">
+        <i class="fas fa-cube"></i>
+        <span class="brand-text">tfkit</span>
+        <span class="version">v{{ tfkit_version | default('0.0.0') }}</span>
+        </div>
+        <div class="watermark-links">
+        <a href="https://tfkit.netlify.app" target="_blank" class="watermark-link">
+            <i class="fas fa-globe"></i>
+            <span>tfkit</span>
+        </a>
+        <a href="https://github.com/ivasik-k7/tfkit" target="_blank" class="watermark-link">
+            <i class="fab fa-github"></i>
+            <span>ivasik-k7/tfkit</span>
+        </a>
+        </div>
+    </div>
     </div>
     <!-- Modern Dashboard HUD -->
     <div class="dashboard-hud">
@@ -1070,6 +1632,25 @@
           <!-- State indicators will be populated dynamically -->
         </div>
       </div>
+    </div>
+    <div class="config-viewer" id="configViewer">
+        <div class="config-header" onclick="toggleConfigViewer()">
+            <div class="config-icon-wrapper">
+            <i class="fas fa-cog fa-spin-slow"></i>
+            </div>
+            <div class="config-header-content">
+            <div class="config-title">Configuration</div>
+            <div class="config-subtitle">
+                <span id="configCount">0</span> files
+            </div>
+            </div>
+            <div class="config-toggle">
+            <i class="fas fa-chevron-down config-chevron" id="configChevron"></i>
+            </div>
+        </div>
+        <div class="config-content" id="configContent">
+            <!-- Config files will be populated here -->
+        </div>
     </div>
     <!-- Enhanced Legend with Analytical Insights -->
     <div class="legend">
@@ -2196,22 +2777,6 @@
               .attr('height', '100%')
               .attr('fill', 'url(#grid)');
 
-          // Create arrow markers
-          Object.keys(nodeConfig).forEach(type => {
-              defs.append('marker')
-                  .attr('id', `arrow-${type}`)
-                  .attr('viewBox', '0 -5 10 10')
-                  .attr('refX', 18)
-                  .attr('refY', 0)
-                  .attr('markerWidth', 8)
-                  .attr('markerHeight', 8)
-                  .attr('orient', 'auto')
-                  .append('path')
-                  .attr('d', 'M0,-5L10,0L0,5')
-                  .attr('class', 'link-arrow')
-                  .style('fill', nodeConfig[type].color)
-                  .style('opacity', '0.7');
-          });
 
           const g = svg.append('g');
           graphG = g.append('g').classed('performance-optimized', true);
@@ -2282,7 +2847,7 @@
                   return target ? `url(#arrow-${target.type})` : '';
               })
               .style('stroke-width', 1.5)
-              .style('opacity', 0.4);
+              .style('opacity', 0.75);
 
           // Create nodes with hexagonal shapes
           const node = graphG.append('g')
@@ -2572,6 +3137,8 @@
           if (hoveredNode) hideTooltip(null, hoveredNode);
           hoveredNode = d;
 
+          console.log(hoveredNode);
+
           const tooltip = document.getElementById('node-tooltip');
           let content = `<div class="node-info-title">${d.label}</div>`;
           content += `<div class="node-state state-${d.state}">${d.state.charAt(0).toUpperCase() + d.state.slice(1).replace('_', ' ')}</div>`;
@@ -2653,18 +3220,7 @@
           }
 
           // Tags or metadata
-          if (details.tags && details.tags.length > 0) {
-              content += `<div class="tooltip-section">`;
-              content += `<div class="tooltip-label">
-                  <i class="fas fa-tags"></i> Tags
-              </div>`;
-              content += `<div class="tags-container">`;
-              details.tags.forEach(tag => {
-                  content += `<span class="node-tag">${tag}</span>`;
-              });
-              content += `</div>`;
-              content += `</div>`;
-          }
+
 
           tooltip.innerHTML = content;
           tooltip.style.left = (event.pageX + 15) + 'px';
@@ -3261,6 +3817,127 @@
               }, config.performance.debounceDelay);
           });
       }
+      // Configuration Viewer Functions
+        function toggleConfigViewer() {
+            const content = document.getElementById('configContent');
+            const chevron = document.getElementById('configChevron');
+            
+            content.classList.toggle('expanded');
+            chevron.classList.toggle('rotated');
+        }
+
+        function toggleConfigFile(fileIndex) {
+            const body = document.getElementById(`configFileBody-${fileIndex}`);
+            const chevron = document.getElementById(`configFileChevron-${fileIndex}`);
+            
+            body.classList.toggle('expanded');
+            chevron.classList.toggle('rotated');
+        }
+
+        function getValueType(value) {
+            if (Array.isArray(value)) return 'array';
+            if (typeof value === 'object' && value !== null) return 'object';
+            if (typeof value === 'boolean') return 'boolean';
+            if (typeof value === 'number') return 'number';
+            return 'string';
+        }
+
+        function formatConfigValue(value, indent = 0) {
+            const type = getValueType(value);
+            const indentStr = '  '.repeat(indent);
+            
+            if (type === 'object') {
+                const entries = Object.entries(value)
+                    .map(([k, v]) => `${indentStr}  ${k}: ${formatConfigValue(v, indent + 1)}`)
+                    .join('\n');
+                return `{\n${entries}\n${indentStr}}`;
+            }
+            
+            if (type === 'array') {
+                const items = value
+                    .map(v => `${indentStr}  - ${formatConfigValue(v, indent + 1)}`)
+                    .join('\n');
+                return `[\n${items}\n${indentStr}]`;
+            }
+            
+            if (type === 'boolean') {
+                return value ? 'true' : 'false';
+            }
+            
+            if (type === 'string') {
+                return `"${value}"`;
+            }
+            
+            return String(value);
+        }
+
+        function initializeConfigViewer() {
+            const configData = {{ config_data|safe }};
+            const configContent = document.getElementById('configContent');
+            const configCount = document.getElementById('configCount');
+            
+            const files = Object.entries(configData);
+            configCount.textContent = files.length;
+            
+            if (files.length === 0) {
+                configContent.innerHTML = `
+                    <div class="config-empty">
+                        <i class="fas fa-inbox"></i>
+                        <div>No configuration files found</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            configContent.innerHTML = files.map(([filePath, variables], index) => {
+                const fileName = filePath.split('/').pop();
+                const varCount = Object.keys(variables).length;
+                
+                const varsHtml = Object.entries(variables).map(([key, value]) => {
+                    const type = getValueType(value);
+                    const formattedValue = formatConfigValue(value);
+                    
+                    return `
+                        <div class="config-var">
+                            <div class="config-var-key">
+                                <i class="fas fa-terminal"></i>
+                                ${key}
+                                <span class="config-var-type type-${type}">${type}</span>
+                            </div>
+                            <div class="config-var-value">${formattedValue}</div>
+                        </div>
+                    `;
+                }).join('');
+                
+                return `
+                    <div class="config-file">
+                        <div class="config-file-header" onclick="toggleConfigFile(${index})">
+                            <div class="config-file-icon">
+                                <i class="fas fa-file-code"></i>
+                            </div>
+                            <div class="config-file-info">
+                                <div class="config-file-name" title="${fileName}">${fileName}</div>
+                                <div class="config-file-path">
+                                    <i class="fas fa-layer-group"></i>
+                                    ${varCount} variable${varCount !== 1 ? 's' : ''}
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-right config-file-chevron" id="configFileChevron-${index}"></i>
+                        </div>
+                        <div class="config-file-body" id="configFileBody-${index}">
+                            <div class="config-variables">
+                                ${varsHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Initialize config viewer when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeConfigViewer();
+        });
 
       // Ensure initialization happens after DOM is ready
       if (document.readyState === 'loading') {

@@ -52,24 +52,13 @@ class ReportGenerator:
         # --- 2. Data Transformation ---
         graph_data = self._graph_builder.build_graph(project)
 
-        graph_file = "graph_data.json"
-        with open(graph_file, "w") as file:
-            json.dump(graph_data, file, indent=2, default=str)
+        # graph_file = "graph_data"
 
-        calculator = GraphLayoutCalculator()
-        positions = calculator.calculate_force_layout(
-            self._graph_builder.nodes,
-            self._graph_builder.edges,
-            width=1600,
-            height=600,
-        )
+        # with open(f"{graph_file}.set.json", "w") as file:
+        #     json.dump(graph_data, file, indent=2, default=str)
 
-        # Add positions to nodes
-        for node_dict in graph_data["nodes"]:
-            node_id = node_dict["id"]
-            if node_id in positions:
-                node_dict["x"] = positions[node_id]["x"]
-                node_dict["y"] = positions[node_id]["y"]
+        # with open(f"{graph_file}.config.json", "w") as file:
+        #     json.dump(project.tfvars_files, file, indent=2, default=str)
 
         try:
             from tfkit import __version__
@@ -84,6 +73,7 @@ class ReportGenerator:
                 "project_path",
                 str(project.source_path) if hasattr(project, "source_path") else ".",
             ),
+            "config_data": json.dumps(project.tfvars_files),
             "graph_data": json.dumps(graph_data),
             "theme_name": report_theme,
             "theme_colors": ThemeManager.get_theme_colors(report_theme),
