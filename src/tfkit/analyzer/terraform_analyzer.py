@@ -688,17 +688,17 @@ class TerraformAnalyzer:
         # Create dependency extractor with all objects
         extractor = DependencyExtractor(self.project.all_objects)
 
+        # Extract dependencies for ALL object types
+        # Variables don't have dependencies, but providers, outputs, locals, and modules do
         for obj_name, obj in self.project.all_objects.items():
-            if obj.type in [
-                ResourceType.VARIABLE,
-                ResourceType.PROVIDER,
-                ResourceType.TERRAFORM,
-            ]:
+            # Skip only variables and terraform blocks (they don't reference other objects)
+            if obj.type in [ResourceType.VARIABLE, ResourceType.TERRAFORM]:
                 continue
 
             dep_info = extractor.extract(obj.attributes, obj_name)
             obj.dependency_info = dep_info
 
+        # Build reverse dependencies (who depends on me)
         for obj_name, obj in self.project.all_objects.items():
             for dep in obj.dependency_info.all_dependencies:
                 if dep in self.project.all_objects:
@@ -706,6 +706,7 @@ class TerraformAnalyzer:
                     if obj_name not in dep_obj.dependency_info.dependent_objects:
                         dep_obj.dependency_info.dependent_objects.append(obj_name)
 
+        # Build provider relationships
         self._build_provider_relationships()
 
     def _detect_all_circular_dependencies(self) -> None:
