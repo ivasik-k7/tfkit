@@ -1,4 +1,4 @@
-name: Build Multi-Format Release
+name: Build Multi-Architecture Release
 
 on:
   release:
@@ -15,17 +15,31 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            name: tfkit-linux
+            name: tfkit-linux-amd64
             binary_name: tfkit
             platform: linux
-          - os: macos-latest
-            name: tfkit-macos
-            binary_name: tfkit
-            platform: macos
+            arch: amd64
           - os: windows-latest
-            name: tfkit-windows.exe
+            name: tfkit-windows-amd64.exe
             binary_name: tfkit.exe
             platform: windows
+            arch: amd64
+          - os: macos-latest
+            name: tfkit-macos-arm64
+            binary_name: tfkit
+            platform: macos
+            arch: arm64
+          - os: macos-13
+            name: tfkit-macos-amd64
+            binary_name: tfkit
+            platform: macos
+            arch: amd64
+          - os: ubuntu-latest
+            name: tfkit-linux-arm64
+            binary_name: tfkit
+            platform: linux
+            arch: arm64
+            runs-on: [arm64]
 
     runs-on: ${{ matrix.os }}
 
@@ -79,16 +93,14 @@ jobs:
             --hidden-import=lark \
             --hidden-import=lark.lark \
             src/tfkit/cli.py
-          echo "✅ Binary built successfully for ${{ matrix.platform }}!"
-          ls -lh dist/
+          echo "✅ Binary built successfully for ${{ matrix.platform }} (${{ matrix.arch }})!"
 
       - name: Build binary with PyInstaller (Windows)
         if: runner.os == 'Windows'
         run: |
           .venv\Scripts\activate
           pyinstaller --onefile --name ${{ matrix.binary_name }} --collect-data hcl2 --collect-all hcl2 --hidden-import=hcl2 --hidden-import=lark --hidden-import=lark.lark src/tfkit/cli.py
-          echo "✅ Binary built successfully for ${{ matrix.platform }}!"
-          dir dist
+          echo "✅ Binary built successfully for ${{ matrix.platform }} (${{ matrix.arch }})!"
 
       - name: Test binary (Unix)
         if: runner.os != 'Windows'
@@ -110,7 +122,12 @@ jobs:
           if-no-files-found: error
 
   build-python-packages:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.10", "3.11"]
+
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout code
@@ -125,7 +142,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
 
       - name: Verify pyproject.toml
         run: |
@@ -138,11 +155,6 @@ jobs:
           uv build --verbose
           echo "✅ Python packages built successfully!"
 
-      - name: List built packages
-        run: |
-          echo "Built packages:"
-          ls -lh dist/
-
       - name: Verify package contents
         run: |
           uv tool install twine
@@ -152,7 +164,7 @@ jobs:
       - name: Upload Python packages
         uses: actions/upload-artifact@v4
         with:
-          name: python-packages
+          name: python-packages-${{ matrix.platform }}-py${{ matrix.python-version }}
           path: dist/*
           if-no-files-found: error
 
@@ -167,22 +179,18 @@ jobs:
       - name: Download Python packages artifact
         uses: actions/download-artifact@v4
         with:
-          name: python-packages
+          pattern: python-packages-*
+          merge-multiple: true
           path: dist
 
-      - name: List downloaded packages for verification
-        run: |
-          echo "Downloaded packages ready for upload:"
-          ls -lh dist/
-
-      - name: Publish package to PyPI 🚀
+      - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
 
   create-release:
     runs-on: ubuntu-latest
-    needs: [build-binaries, build-python-packages, publish-to-pypi]
+    needs: [build-binaries, build-python-packages]
 
     steps:
       - name: Download all artifacts
@@ -199,23 +207,43 @@ jobs:
           echo ""
           echo "Moving and renaming files to release-assets..."
 
-          if [ -d "release-assets-temp/tfkit-linux" ]; then
-            mv release-assets-temp/tfkit-linux/tfkit release-assets/tfkit-linux
-            chmod +x release-assets/tfkit-linux
-          fi
-
-          if [ -d "release-assets-temp/tfkit-macos" ]; then
-            mv release-assets-temp/tfkit-macos/tfkit release-assets/tfkit-macos
-            chmod +x release-assets/tfkit-macos
-          fi
-
-          if [ -d "release-assets-temp/tfkit-windows.exe" ]; then
-            mv release-assets-temp/tfkit-windows.exe/tfkit.exe release-assets/tfkit-windows.exe
-          fi
-
-          if [ -d "release-assets-temp/python-packages" ]; then
-            cp release-assets-temp/python-packages/* release-assets/
-          fi
+          for artifact_dir in release-assets-temp/*/; do
+            if [ -d "$artifact_dir" ]; then
+              artifact_name=$(basename "$artifact_dir")
+              echo "Processing artifact: $artifact_name"
+              
+              binary_file=$(find "$artifact_dir" -type f -name "*" | head -1)
+              if [ -n "$binary_file" ]; then
+                # Extract just the filename without path
+                filename=$(basename "$binary_file")
+                
+                case "$artifact_name" in
+                  tfkit-linux-amd64)
+                    cp "$binary_file" "release-assets/tfkit-linux-amd64"
+                    chmod +x "release-assets/tfkit-linux-amd64"
+                    ;;
+                  tfkit-macos-arm64)
+                    cp "$binary_file" "release-assets/tfkit-macos-arm64"
+                    chmod +x "release-assets/tfkit-macos-arm64"
+                    ;;
+                  tfkit-macos-amd64)
+                    cp "$binary_file" "release-assets/tfkit-macos-amd64"
+                    chmod +x "release-assets/tfkit-macos-amd64"
+                    ;;
+                  tfkit-linux-arm64)
+                    cp "$binary_file" "release-assets/tfkit-linux-arm64"
+                    chmod +x "release-assets/tfkit-linux-arm64"
+                    ;;
+                  tfkit-windows-amd64.exe)
+                    cp "$binary_file" "release-assets/tfkit-windows-amd64.exe"
+                    ;;
+                  python-packages-*)
+                    cp "$artifact_dir"/* release-assets/ 2>/dev/null || true
+                    ;;
+                esac
+              fi
+            fi
+          done
 
           echo ""
           echo "Cleaning up temp directory..."
@@ -232,25 +260,39 @@ jobs:
         run: |
           error=0
 
-          if [ ! -f "release-assets/tfkit-linux" ]; then
-            echo "❌ Missing Linux binary"
+          if [ ! -f "release-assets/tfkit-linux-amd64" ]; then
+            echo "❌ Missing Linux AMD64 binary"
             error=1
           else
-            echo "✅ Linux binary present"
+            echo "✅ Linux AMD64 binary present"
           fi
 
-          if [ ! -f "release-assets/tfkit-macos" ]; then
-            echo "❌ Missing macOS binary"
+          if [ ! -f "release-assets/tfkit-linux-arm64" ]; then
+            echo "❌ Missing Linux ARM64 binary"
             error=1
           else
-            echo "✅ macOS binary present"
+            echo "✅ Linux ARM64 binary present"
           fi
 
-          if [ ! -f "release-assets/tfkit-windows.exe" ]; then
-            echo "❌ Missing Windows binary"
+          if [ ! -f "release-assets/tfkit-macos-amd64" ]; then
+            echo "❌ Missing macOS AMD64 binary"
             error=1
           else
-            echo "✅ Windows binary present"
+            echo "✅ macOS AMD64 binary present"
+          fi
+
+          if [ ! -f "release-assets/tfkit-macos-arm64" ]; then
+            echo "❌ Missing macOS ARM64 binary"
+            error=1
+          else
+            echo "✅ macOS ARM64 binary present"
+          fi
+
+          if [ ! -f "release-assets/tfkit-windows-amd64.exe" ]; then
+            echo "❌ Missing Windows AMD64 binary"
+            error=1
+          else
+            echo "✅ Windows AMD64 binary present"
           fi
 
           if [ $error -eq 0 ]; then

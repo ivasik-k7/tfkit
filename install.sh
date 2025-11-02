@@ -69,19 +69,40 @@ detect_platform() {
     case "$os" in
         linux*)
             PLATFORM="linux"
-            BINARY_FILE="tfkit-linux"
+            if [ "$arch" = "x86_64" ]; then
+                BINARY_FILE="tfkit-linux-amd64"
+                ARCH_NAME="AMD64"
+            elif [ "$arch" = "aarch64" ] || [ "$arch" = "arm64" ]; then
+                BINARY_FILE="tfkit-linux-arm64"
+                ARCH_NAME="ARM64"
+            else
+                error "Unsupported Linux architecture: $arch"
+            fi
             BINARY_NAME="tfkit"
             INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
             ;;
         darwin*)
             PLATFORM="macos"
-            BINARY_FILE="tfkit-macos"
+            if [ "$arch" = "x86_64" ]; then
+                BINARY_FILE="tfkit-macos-amd64"
+                ARCH_NAME="Intel"
+            elif [ "$arch" = "arm64" ]; then
+                BINARY_FILE="tfkit-macos-arm64"
+                ARCH_NAME="Apple Silicon"
+            else
+                error "Unsupported macOS architecture: $arch"
+            fi
             BINARY_NAME="tfkit"
             INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
             ;;
         mingw* | msys* | cygwin*)
             PLATFORM="windows"
-            BINARY_FILE="tfkit-windows.exe"
+            if [ "$arch" = "x86_64" ]; then
+                BINARY_FILE="tfkit-windows-amd64.exe"
+                ARCH_NAME="AMD64"
+            else
+                error "Unsupported Windows architecture: $arch"
+            fi
             BINARY_NAME="tfkit.exe"
             if [ -n "$LOCALAPPDATA" ]; then
                 INSTALL_DIR="${INSTALL_DIR:-$(cygpath -u "$LOCALAPPDATA/Programs/tfkit" 2>/dev/null || echo "$LOCALAPPDATA/Programs/tfkit")}"
@@ -94,7 +115,7 @@ detect_platform() {
             ;;
     esac
 
-    success "Platform identified: ${BOLD}$PLATFORM${NC} ${GRAY}($arch)${NC}"
+    success "Platform identified: ${BOLD}$PLATFORM${NC} ${GRAY}($ARCH_NAME)${NC}"
     info "Installation target: ${BOLD}$INSTALL_DIR${NC}"
 }
 
