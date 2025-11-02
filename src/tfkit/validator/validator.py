@@ -472,147 +472,6 @@ class UnusedVariableRule(TerraformRule):
         return issues
 
 
-#
-# === BEST PRACTICE RULES ===
-#
-class MissingVariableDescriptionRule(TerraformRule):
-    rule_id = "TF021"
-    description = "Variable is missing a 'description' attribute"
-    category = ValidationCategory.BEST_PRACTICE
-    severity = ValidationSeverity.INFO
-    suggestion = "Add a 'description' to the variable to document its purpose."
-
-    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
-        issues = []
-        for _, var in project.variables.items():
-            # --- Updated Field ---
-            if not var.description:
-                issues.append(self._create_issue(var))
-        return issues
-
-
-class MissingVariableTypeRule(TerraformRule):
-    rule_id = "TF022"
-    description = "Variable is missing a 'type' constraint"
-    category = ValidationCategory.BEST_PRACTICE
-    severity = ValidationSeverity.WARNING
-    suggestion = "Add a 'type' constraint for better validation and clarity (e.g., type = string)."
-
-    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
-        issues = []
-        for _, var in project.variables.items():
-            # --- Updated Field ---
-            if not var.variable_type:
-                issues.append(self._create_issue(var))
-        return issues
-
-
-class MissingOutputDescriptionRule(TerraformRule):
-    rule_id = "TF023"
-    description = "Output is missing a 'description' attribute"
-    category = ValidationCategory.BEST_PRACTICE
-    severity = ValidationSeverity.INFO
-    suggestion = "Add a 'description' to the output to document its purpose."
-
-    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
-        issues = []
-        for _, output in project.outputs.items():
-            # --- Updated Field ---
-            if not output.description:
-                issues.append(self._create_issue(output))
-        return issues
-
-
-class TerraformVersionPinningRule(TerraformRule):
-    rule_id = "TF100"
-    description = (
-        "Terraform block missing 'required_version' or uses a permissive version"
-    )
-    category = ValidationCategory.BEST_PRACTICE
-    severity = ValidationSeverity.WARNING
-    suggestion = "Pin the Terraform version (e.g., 'required_version = \"~> 1.5\"')."
-
-    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
-        issues = []
-        # --- Updated Field ---
-        # Use 'terraform_blocks' dict
-        if not project.terraform_blocks:
-            # This could be an issue itself, but for this rule, we just exit.
-            return []
-
-        # Check all terraform blocks, though usually there's one
-        for tf_block in project.terraform_blocks.values():
-            req_version = tf_block.attributes.get("required_version")
-            if not req_version:
-                issues.append(
-                    self._create_issue(
-                        tf_block, message="Terraform block missing 'required_version'"
-                    )
-                )
-            elif str(req_version) in ["> 0", "latest", "*", ">= 0"]:
-                issues.append(
-                    self._create_issue(
-                        tf_block,
-                        message=f"Terraform 'required_version' ({req_version}) is too permissive.",
-                    )
-                )
-        return issues
-
-
-class ProviderVersionPinningRule(TerraformRule):
-    rule_id = "TF101"
-    description = "Provider configuration missing version constraint"
-    category = ValidationCategory.BEST_PRACTICE
-    severity = ValidationSeverity.WARNING
-    suggestion = "Pin all provider versions in 'required_providers' (e.g., 'version = \"~> 4.0\"')."
-
-    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
-        issues = []
-        # --- Updated Field ---
-        if not project.terraform_blocks:
-            return []
-
-        # Check all terraform blocks
-        for tf_block in project.terraform_blocks.values():
-            required_providers = tf_block.attributes.get("required_providers")
-            if not isinstance(required_providers, dict):
-                continue
-
-            for name, config in required_providers.items():
-                if isinstance(config, dict) and not config.get("version"):
-                    msg = f"Provider '{name}' in '{tf_block.full_name}' is missing a 'version' constraint."
-                    # Point to the terraform block itself
-                    issues.append(self._create_issue(tf_block, message=msg))
-        return issues
-
-
-class ModuleVersionPinningRule(TerraformRule):
-    rule_id = "TF102"
-    description = "Module 'source' uses a non-pinned reference (e.g., 'main' branch)"
-    category = ValidationCategory.BEST_PRACTICE
-    severity = ValidationSeverity.WARNING
-    suggestion = (
-        "Pin module 'source' to a specific tag or version (e.g., '..._?ref=v1.2.3_')."
-    )
-
-    def validate(self, project: TerraformProject) -> List[ValidationIssue]:
-        issues = []
-        for _, module in project.modules.items():
-            source = module.source or ""
-
-            if source.startswith("git@") or source.startswith("https://"):
-                if "?ref=" not in source:
-                    msg = f"Module '{module.full_name}' Git source is not pinned to a specific ref/tag."
-                    issues.append(self._create_issue(module, message=msg))
-
-            elif re.match(r"^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+$", source):
-                if not module.attributes.get("version"):
-                    # --- Updated Field ---
-                    msg = f"Module '{module.full_name}' from registry is missing a 'version' constraint."
-                    issues.append(self._create_issue(module, message=msg))
-        return issues
-
-
 class ResourceNamingConventionRule(TerraformRule):
     rule_id = "TF040"
     description = "Resource name does not follow snake_case convention"
@@ -634,7 +493,7 @@ class ResourceNamingConventionRule(TerraformRule):
             **project.modules,
         }
 
-        for full_name, item in items_to_check.items():
+        for _, item in items_to_check.items():
             # --- Updated Fields ---
             # Your model's 'name' field is the declared name (e.g., 'my_instance')
             # This is much cleaner!
@@ -741,7 +600,7 @@ class S3BucketPublicAclRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type == "aws_s3_bucket":
                 acl = resource.attributes.get("acl")
                 if acl in self.PUBLIC_ACLS:
@@ -763,7 +622,7 @@ class S3BucketEncryptionDisabledRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type == "aws_s3_bucket":
                 encryption = resource.attributes.get(
                     "server_side_encryption_configuration"
@@ -782,7 +641,7 @@ class S3BucketVersioningDisabledRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type == "aws_s3_bucket":
                 versioning = resource.attributes.get("versioning")
                 if not isinstance(versioning, dict) or not versioning.get("enabled"):
@@ -816,7 +675,7 @@ class IamPolicyWildcardActionRule(TerraformRule):
         self, project: TerraformProject, check_func
     ) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if (
                 not resource.resource_type
                 or "aws_iam_" not in resource.resource_type
@@ -883,7 +742,7 @@ class RdsInstancePubliclyAccessibleRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type in [
                 "aws_db_instance",
                 "aws_rds_cluster_instance",
@@ -902,7 +761,7 @@ class RdsInstanceEncryptionDisabledRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type == "aws_db_instance":
                 if resource.attributes.get("storage_encrypted") is False:
                     if not resource.attributes.get("replicate_source_db"):
@@ -927,7 +786,7 @@ class HardcodedSecretRule(TerraformRule):
         issues = []
         all_items = {**project.resources, **project.modules}
 
-        for name, item in all_items.items():
+        for _, item in all_items.items():
             issues.extend(self._check_attributes(item, item.attributes))
         return issues
 
@@ -995,7 +854,7 @@ class DeprecatedResourceTypeRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type in self.DEPRECATED_RESOURCES:
                 suggestion = self.DEPRECATED_RESOURCES[resource.resource_type]
                 msg = f"Resource type '{resource.resource_type}' is deprecated. {suggestion}"
@@ -1027,7 +886,7 @@ class DeprecatedAttributeRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type in self.DEPRECATED_ATTRIBUTES:
                 deprecated_attrs = self.DEPRECATED_ATTRIBUTES[resource.resource_type]
                 for attr_name, suggestion in deprecated_attrs.items():
@@ -1053,7 +912,7 @@ class ExcessiveCountRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             count_value = resource.attributes.get("count")
 
             if (
@@ -1080,7 +939,7 @@ class LargeInlineDataRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             for attr_name, attr_value in resource.attributes.items():
                 if (
                     isinstance(attr_value, str)
@@ -1210,7 +1069,7 @@ class MissingVariableDescriptionRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, var in project.variables.items():
+        for _, var in project.variables.items():
             if not var.description:
                 issues.append(self._create_issue(var))
         return issues
@@ -1225,7 +1084,7 @@ class MissingVariableTypeRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, var in project.variables.items():
+        for _, var in project.variables.items():
             if not var.variable_type:
                 issues.append(self._create_issue(var))
         return issues
@@ -1240,7 +1099,7 @@ class MissingOutputDescriptionRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, output in project.outputs.items():
+        for _, output in project.outputs.items():
             if not output.description:
                 issues.append(self._create_issue(output))
         return issues
@@ -1313,7 +1172,7 @@ class ModuleVersionPinningRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, module in project.modules.items():
+        for _, module in project.modules.items():
             source = module.source or ""
 
             if source.startswith("git@") or source.startswith("https://"):
@@ -1364,7 +1223,7 @@ class ResourceMissingTagsRule(TerraformRule):
 
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type in self.TAGGABLE_RESOURCE_TYPES:
                 tags = resource.attributes.get("tags")
                 if not isinstance(tags, dict) or not tags:
@@ -1405,7 +1264,7 @@ class MissingProviderRule(TerraformRule):
 
         if missing:
             # Create issue on first resource using missing provider
-            for name, resource in project.resources.items():
+            for _, resource in project.resources.items():
                 if resource.resource_type:
                     provider = resource.resource_type.split("_")[0]
                     if provider in missing:
@@ -1428,7 +1287,7 @@ class CountAndForEachRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             has_count = "count" in resource.attributes
             has_for_each = "for_each" in resource.attributes
 
@@ -1453,7 +1312,7 @@ class VariableValidationRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, var in project.variables.items():
+        for _, var in project.variables.items():
             if var.variable_type and var.variable_type in self.SENSITIVE_TYPES:
                 validation = var.attributes.get("validation")
                 if not validation:
@@ -1479,7 +1338,7 @@ class OutputSensitiveRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, output in project.outputs.items():
+        for _, output in project.outputs.items():
             if output.sensitive:
                 continue
 
@@ -1506,7 +1365,7 @@ class LocalValueComplexityRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, local in project.locals.items():
+        for _, local in project.locals.items():
             depth = self._get_nesting_depth(local.attributes)
             if depth > self.MAX_NESTED_DEPTH:
                 msg = f"Local value '{local.full_name}' has nesting depth of {depth}, consider simplifying"
@@ -1561,7 +1420,7 @@ class UntaggedResourcesRule(TerraformRule):
     def validate(self, project: TerraformProject) -> List[ValidationIssue]:
         issues = []
 
-        for name, resource in project.resources.items():
+        for _, resource in project.resources.items():
             if resource.resource_type not in self.TAGGABLE_TYPES:
                 continue
 

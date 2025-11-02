@@ -48,13 +48,11 @@ class TestTerraformAnalyzer:
             assert len(files) > 0
             assert all(f.endswith((".tf", ".tf.json")) for f in files)
 
-    @pytest.mark.skipif(
-        not os.path.exists("examples/project"), reason="Examples not available"
-    )
+    @pytest.mark.skipif(not os.path.exists("examples"), reason="Examples not available")
     def test_parse_terraform_files(self):
         """Test Terraform file parsing"""
         analyzer = TerraformAnalyzer()
-        project_path = "examples/project"
+        project_path = "examples"
         project = analyzer.analyze_project(project_path)
 
         assert len(project.all_objects) > 0

@@ -7,7 +7,7 @@ from typing import Optional
 from tfkit.analyzer.project import TerraformProject
 from tfkit.templates.template_factory import TemplateFactory
 from tfkit.templates.theme_manager import ThemeManager
-from tfkit.visualizer.graph_builder import GraphLayoutCalculator, TerraformGraphBuilder
+from tfkit.visualizer.graph_builder import TerraformGraphBuilder
 
 
 class ReportGenerator:
