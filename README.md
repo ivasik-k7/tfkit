@@ -2,7 +2,9 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![TFKit Version](https://img.shields.io/badge/version-0.4.44-orange.svg)](https://github.com/ivasik-k7/tfkit)
+[![Latest Release](https://img.shields.io/github/v/release/ivasik-k7/tfkit)](https://github.com/ivasik-k7/tfkit/releases)
+[![Pipeline Status](https://img.shields.io/github/actions/workflow/status/ivasik-k7/tfkit/main.yml?branch=main)](https://github.com/ivasik-k7/tfkit/actions)
+[![Code Coverage](https://img.shields.io/codecov/c/github/ivasik-k7/tfkit)](https://codecov.io/gh/ivasik-k7/tfkit)
 
 A comprehensive toolkit for analyzing, visualizing, and validating Terraform infrastructure code. TFKit provides deep insights into your Terraform projects with advanced dependency tracking, security scanning, and interactive visualizations.
 
@@ -46,7 +48,7 @@ tfkit export --format json --format yaml
 
 |                                        Graph Layout                                        |                                        Dashboard Layout                                        |                                        Classic Layout                                        |
 | :----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: |
-| [![Graph Visualization](https://iili.io/KPVF9cv.md.png)](https://freeimage.host/i/KPVF9cv) | [![Dashboard Visualization](https://iili.io/KPV3mPa.md.png)](https://freeimage.host/i/KPV3mPa) | [![Classic Visualization](https://iili.io/KPV3yKJ.md.png)](https://freeimage.host/i/KPV3yKJ) |
+| [![Graph Visualization](https://iili.io/KPVF9cv.md.png)](https://freeimage.host/i/KL7utRI) | [![Dashboard Visualization](https://iili.io/KPV3mPa.md.png)](https://freeimage.host/i/KPV3mPa) | [![Classic Visualization](https://iili.io/KPV3yKJ.md.png)](https://freeimage.host/i/KL7aYPe) |
 |                    Force-directed graph showing resource relationships                     |                              Dashboard with metrics and insights                               |                               Traditional hierarchical layout                                |
 
 </div>

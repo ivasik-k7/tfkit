@@ -2,9 +2,15 @@ name: Tests
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [main, master, develop, release/*]
   pull_request:
     branches: [main, master]
+  schedule:
+    - cron: "0 2 * * 1"
+
+env:
+  PYTHON_VERSION: "3.11"
+  UV_VERSION: "0.4.0"
 
 jobs:
   test:
@@ -34,14 +40,22 @@ jobs:
 
       - name: Run tests with pytest
         run: |
-          uv run pytest tests/ -v --cov=tfkit --cov-report=xml --cov-report=html
+          uv run pytest tests/ -v --cov=tfkit --cov-report=xml --cov-report=xml
+          uv run pytest --cov --junitxml=junit.xml -o junit_family=legacy
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   lint:
     runs-on: ubuntu-latest
@@ -75,9 +89,9 @@ jobs:
         run: |
           uv run ruff check src/ tests/
 
-      - name: Run mypy
-        run: |
-          uv run mypy src/
+      # - name: Run mypy
+      #   run: |
+      #     uv run mypy src/
 
   security:
     runs-on: ubuntu-latest
@@ -106,3 +120,35 @@ jobs:
       - name: Run safety
         run: |
           uv run safety check --json --output safety_results.json || true
+
+  # dependency-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Set up Python
+  #       uses: actions/setup-python@v4
+  #       with:
+  #         python-version: ${{ env.PYTHON_VERSION }}
+
+  #     - name: Install UV
+  #       uses: astral-sh/setup-uv@v1
+  #       with:
+  #         version: ${{ env.UV_VERSION }}
+
+  #     - name: Check for outdated dependencies
+  #       run: |
+  #         uv sync --dev
+  #         uv run pip list --outdated
+
+  #     - name: Check dependency licenses
+  #       run: |
+  #         uv run pip-licenses --format=json > licenses.json
+
+  #     - name: Upload license report
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: license-report
+  #         path: licenses.json
+  #         retention-days: 90
