@@ -1,7 +1,8 @@
+import importlib.resources
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
-from jinja2 import Environment, FileSystemLoader, Template, TemplateNotFound
+from jinja2 import BaseLoader, Environment, Template, TemplateNotFound
 
 
 class TemplateFactory:
@@ -13,21 +14,39 @@ class TemplateFactory:
         "dashboard": "dashboard-template.html.j2",
     }
 
-    def __init__(self, template_dir: Optional[Path] = None):
+    def __init__(self):
         """
-        Initialize the template factory with Jinja2 environment.
+        Initialize the template factory.
+        Uses importlib.resources for reliable template loading in all environments.
+        """
+        self.template_cache = {}
 
-        Args:
-            template_dir: Directory containing template files.
-                         Defaults to the directory of this file.
-        """
-        self.template_dir = template_dir or Path(__file__).parent
-        self.jinja_env = Environment(
-            loader=FileSystemLoader(str(self.template_dir)),
-            autoescape=True,
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
+    def _load_template_content(self, template_type: str) -> str:
+        """Load template content using importlib.resources."""
+        filename = self.TEMPLATE_FILES.get(template_type)
+        if not filename:
+            available = ", ".join(self.get_available_templates())
+            raise ValueError(
+                f"Unknown template type: '{template_type}'. Available: {available}"
+            )
+
+        try:
+            template_content = (
+                importlib.resources.files("tfkit.templates")
+                .joinpath(filename)
+                .read_text(encoding="utf-8")
+            )
+        except (AttributeError, FileNotFoundError):
+            try:
+                template_content = importlib.resources.read_text(
+                    "tfkit.templates", filename, encoding="utf-8"
+                )
+            except Exception as e:
+                raise TemplateNotFound(  # noqa: B904
+                    f"Failed to load template '{filename}': {e}"
+                )
+
+        return template_content
 
     def get_template(self, template_type: str) -> Template:
         """
@@ -41,22 +60,23 @@ class TemplateFactory:
 
         Raises:
             ValueError: If template_type is not recognized
-            TemplateNotFound: If .j2 file doesn't exist
+            TemplateNotFound: If template file cannot be loaded
         """
+        if template_type in self.template_cache:
+            return self.template_cache[template_type]
+
         filename = self.TEMPLATE_FILES.get(template_type)
         if not filename:
             available = ", ".join(self.get_available_templates())
             raise ValueError(
-                f"Unknown template type: '{template_type}'. "
-                f"Available templates: {available}"
+                f"Unknown template type: '{template_type}'. Available: {available}"
             )
 
-        try:
-            return self.jinja_env.get_template(filename)
-        except TemplateNotFound:
-            raise TemplateNotFound(  # noqa: B904
-                f"Template file not found: {filename} in {self.template_dir}"
-            )
+        template_content = self._load_template_content(template_type)
+
+        template = Environment(loader=BaseLoader()).from_string(template_content)
+        self.template_cache[template_type] = template
+        return template
 
     def render(self, template_type: str, **context) -> str:
         """
@@ -136,18 +156,17 @@ class TemplateFactory:
         if template_type not in self.TEMPLATE_FILES:
             return False
 
-        filename = self.TEMPLATE_FILES[template_type]
-        template_path = self.template_dir / filename
-        return template_path.exists()
+        try:
+            self._load_template_content(template_type)
+            return True
+        except (TemplateNotFound, ValueError):
+            return False
 
-    def list_template_files(self) -> Dict[str, Path]:
+    def list_template_files(self) -> Dict[str, str]:
         """
-        Get a mapping of template types to their file paths.
+        Get a mapping of template types to their filenames.
 
         Returns:
-            Dictionary mapping template names to Path objects
+            Dictionary mapping template names to filenames
         """
-        return {
-            name: self.template_dir / filename
-            for name, filename in self.TEMPLATE_FILES.items()
-        }
+        return self.TEMPLATE_FILES.copy()

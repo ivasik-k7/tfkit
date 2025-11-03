@@ -1,4 +1,4 @@
-__version__ = "0.4.56"
+__version__ = "0.4.57"
 __author__ = "Ivan Kovtun"
 __email__ = "kovtun.ivan@proton.me"
 __description__ = "Advanced Terraform Intelligence & Analysis Suite"
