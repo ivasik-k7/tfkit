@@ -1,14 +1,28 @@
 include README.md
 include LICENSE
 include INSTALLATION.md
+include pyproject.toml
 
 recursive-include src/tfkit *.py
 recursive-include src/tfkit *.json
 recursive-include src/tfkit *.yaml
+recursive-include src/tfkit *.yml
 recursive-include src/tfkit *.jinja2
+recursive-include src/tfkit *.j2
 recursive-include src/tfkit/templates *
 
+recursive-include src/tfkit *.txt
+recursive-include src/tfkit *.md
+recursive-include src/tfkit *.cfg
+recursive-include src/tfkit *.ini
+
 global-exclude __pycache__
-global-exclude *.pyc
+global-exclude *.py[cod]
+global-exclude *$py.class
+global-exclude *.so
 global-exclude .DS_Store
 global-exclude *.egg-info
+global-exclude .git*
+global-exclude *~
+global-exclude *.bak
+global-exclude *.swp

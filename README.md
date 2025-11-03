@@ -48,8 +48,8 @@ tfkit export --format json --format yaml
 
 |                                        Graph Layout                                        |                                        Dashboard Layout                                        |                                        Classic Layout                                        |
 | :----------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: |
-| [![Graph Visualization](https://iili.io/KPVF9cv.md.png)](https://freeimage.host/i/KL7utRI) | [![Dashboard Visualization](https://iili.io/KPV3mPa.md.png)](https://freeimage.host/i/KPV3mPa) | [![Classic Visualization](https://iili.io/KPV3yKJ.md.png)](https://freeimage.host/i/KL7aYPe) |
-|                    Force-directed graph showing resource relationships                     |                              Dashboard with metrics and insights                               |                               Traditional hierarchical layout                                |
+| [![Graph Visualization](https://iili.io/KL7utRI.md.png)](https://freeimage.host/i/KL7utRI) | [![Dashboard Visualization](https://iili.io/KPV3mPa.md.png)](https://freeimage.host/i/KPV3mPa) | [![Classic Visualization](https://iili.io/KL7aYPe.md.png)](https://freeimage.host/i/KL7aYPe) |
+|          Force-directed graph showing resource relationships (Github-Dark Theme)           |                              Dashboard with metrics and insights                               |                   Traditional hierarchical layout (Solirized-Light Theme)                    |
 
 </div>
 

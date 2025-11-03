@@ -77,15 +77,15 @@ Issues = "https://github.com/ivasik-k7/tfkit/issues"
 path = "src/tfkit/__init__.py"
 
 [tool.hatch.build]
-# Only include essential files
 include = [
-    "src/tfkit/**/*.py",
+    "src/tfkit/**/*",
     "README.md",
     "LICENSE",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/tfkit"]
+
 exclude = [
     "**/__pycache__",
     "**/*.pyc",
@@ -100,8 +100,9 @@ exclude = [
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/src",
-    "pyproject.toml",
+    "src/tfkit",
+    "src/tfkit/templates",
+    "pyproject.toml", 
     "README.md",
     "LICENSE",
     "INSTALLATION.md",
@@ -110,10 +111,10 @@ exclude = [
     "**/__pycache__",
     "**/*.pyc",
     "**/*.pyo",
-    "/dist",
-    "/build",
-    "/.venv",
-    "/venv",
+    "dist",
+    "build", 
+    ".venv",
+    "venv",
     "*.egg-info",
     ".git",
     ".github",
