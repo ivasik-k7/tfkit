@@ -28,7 +28,6 @@ class TerraformParser:
     def __init__(self):
         self._file_cache: Dict[str, List[str]] = {}
 
-        # Terraform function registry (subset of common functions)
         self.terraform_functions = {
             "file",
             "filebase64",
@@ -97,6 +96,17 @@ class TerraformParser:
             "timestamp",
             "timeadd",
             "formatdate",
+            "range",
+            "chunklist",
+            "setintersection",
+            "setproduct",
+            "setsubtract",
+            "setunion",
+            "anytrue",
+            "alltrue",
+            "one",
+            "sensitive",
+            "nonsensitive",
         }
 
     # ========================================================================
@@ -188,20 +198,210 @@ class TerraformParser:
         return len(lines)
 
     # ========================================================================
-    # REFERENCE PARSING
+    #  REFERENCE EXTRACTION
     # ========================================================================
+
+    def _extract_references(self, value: Any) -> List[TerraformReference]:
+        """
+        extract all Terraform references from any value type.
+        This is the main entry point for reference extraction.
+        """
+        seen_refs = set()
+        references = []
+
+        def add_unique_ref(ref: TerraformReference):
+            if ref and ref.full_reference not in seen_refs:
+                seen_refs.add(ref.full_reference)
+                references.append(ref)
+
+        self._extract_references_recursive(value, add_unique_ref)
+
+        return references
+
+    def _extract_references_recursive(self, value: Any, add_ref_callback):
+        """Recursively extract references from any value type."""
+        if value is None:
+            return
+
+        if isinstance(value, str):
+            self._extract_from_string(value, add_ref_callback)
+
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                # Keys can also contain references in Terraform
+                self._extract_references_recursive(k, add_ref_callback)
+                self._extract_references_recursive(v, add_ref_callback)
+
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                self._extract_references_recursive(item, add_ref_callback)
+
+        elif isinstance(value, set):
+            for item in value:
+                self._extract_references_recursive(item, add_ref_callback)
+
+    def _extract_from_string(self, value: str, add_ref_callback):
+        """Extract all references from a string value."""
+        if not value or not isinstance(value, str):
+            return
+
+        # 1. Extract direct references (no interpolation)
+        # e.g., "var.environment", "local.vpc_id", "aws_vpc.main.id"
+        for ref_str in self._find_all_reference_patterns(value):
+            ref = self._parse_reference(ref_str)
+            if ref:
+                add_ref_callback(ref)
+
+        # 2. Extract from interpolations: ${...}
+        interpolation_pattern = r"\$\{([^}]+)\}"
+        for match in re.finditer(interpolation_pattern, value):
+            interpolation_content = match.group(1)
+
+            # Extract references from the interpolation content
+            for ref_str in self._find_all_reference_patterns(interpolation_content):
+                ref = self._parse_reference(ref_str)
+                if ref:
+                    add_ref_callback(ref)
+
+            # Handle nested interpolations
+            if "${" in interpolation_content:
+                self._extract_from_string(interpolation_content, add_ref_callback)
+
+        # 3. Extract from for expressions: for x in collection : expression
+        for_pattern = r"\bfor\s+\w+\s+in\s+([^:]+):"
+        for match in re.finditer(for_pattern, value):
+            collection_expr = match.group(1).strip()
+            for ref_str in self._find_all_reference_patterns(collection_expr):
+                ref = self._parse_reference(ref_str)
+                if ref:
+                    add_ref_callback(ref)
+
+        # 4. Extract from function calls
+        self._extract_from_functions(value, add_ref_callback)
+
+        # 5. Extract from conditional expressions: condition ? true_val : false_val
+        conditional_pattern = r"([^?]+)\?([^:]+):(.+)"
+        conditional_match = re.search(conditional_pattern, value)
+        if conditional_match:
+            for group in conditional_match.groups():
+                for ref_str in self._find_all_reference_patterns(group):
+                    ref = self._parse_reference(ref_str)
+                    if ref:
+                        add_ref_callback(ref)
+
+    def _find_all_reference_patterns(self, text: str) -> List[str]:
+        """
+        Find all Terraform reference patterns in text.
+        Returns list of reference strings like "var.name", "local.value", etc.
+        """
+        if not text:
+            return []
+
+        references = []
+
+        # Comprehensive reference patterns
+        patterns = [
+            # var.name or var.name.attribute.path
+            r"\bvar\.([a-zA-Z_][a-zA-Z0-9_-]*)(?:\.([a-zA-Z_][a-zA-Z0-9_-]*))*",
+            # local.name or local.name.attribute.path
+            r"\blocal\.([a-zA-Z_][a-zA-Z0-9_-]*)(?:\.([a-zA-Z_][a-zA-Z0-9_-]*))*",
+            # module.name or module.name.output or module.name.output.attr
+            r"\bmodule\.([a-zA-Z_][a-zA-Z0-9_-]*)(?:\.([a-zA-Z_][a-zA-Z0-9_-]*))*",
+            # data.type.name or data.type.name.attribute
+            r"\bdata\.([a-zA-Z_][a-zA-Z0-9_-]*)\.([a-zA-Z_][a-zA-Z0-9_-]*)(?:\.([a-zA-Z_][a-zA-Z0-9_-]*))*",
+            # resource_type.name or resource_type.name.attribute
+            # Must be careful not to match function names or keywords
+            r"\b([a-z][a-z0-9]*_[a-z0-9_]+)\.([a-zA-Z_][a-zA-Z0-9_-]*)(?:\.([a-zA-Z_][a-zA-Z0-9_-]*))*",
+            # path.module, path.root, path.cwd
+            r"\bpath\.(module|root|cwd)",
+            # terraform.workspace
+            r"\bterraform\.(workspace)",
+            # count.index
+            r"\bcount\.(index)",
+            # each.key, each.value
+            r"\beach\.(key|value)",
+            # self.attribute
+            r"\bself\.([a-zA-Z_][a-zA-Z0-9_-]*)(?:\.([a-zA-Z_][a-zA-Z0-9_-]*))*",
+        ]
+
+        for pattern in patterns:
+            for match in re.finditer(pattern, text):
+                ref_str = match.group(0)
+
+                # Skip if this looks like it's part of a larger identifier
+                start_pos = match.start()
+                end_pos = match.end()
+
+                # Check character before
+                if start_pos > 0 and text[start_pos - 1].isalnum():
+                    continue
+
+                # Check character after
+                if end_pos < len(text) and text[end_pos].isalnum():
+                    continue
+
+                # Skip if it's inside a string literal (simple check)
+                if self._is_in_string_literal(text, start_pos):
+                    continue
+
+                references.append(ref_str)
+
+        return references
+
+    def _is_in_string_literal(self, text: str, position: int) -> bool:
+        """Check if a position in text is inside a string literal."""
+        in_string = False
+        string_char = None
+        escape_next = False
+
+        for i in range(position):
+            char = text[i]
+
+            if escape_next:
+                escape_next = False
+                continue
+
+            if char == "\\":
+                escape_next = True
+                continue
+
+            if char in ('"', "'") and not in_string:
+                in_string = True
+                string_char = char
+            elif char == string_char and in_string:
+                in_string = False
+                string_char = None
+
+        return in_string
+
+    def _extract_from_functions(self, text: str, add_ref_callback):
+        """Extract references from function calls."""
+        # Find all function calls: function_name(args)
+        function_pattern = r"([a-z_][a-z0-9_]*)\s*\(([^)]*(?:\([^)]*\))*[^)]*)\)"
+
+        for match in re.finditer(function_pattern, text, re.IGNORECASE | re.DOTALL):
+            func_name = match.group(1)
+            args_str = match.group(2)
+
+            if func_name not in self.terraform_functions:
+                continue
+
+            # Extract references from function arguments
+            for ref_str in self._find_all_reference_patterns(args_str):
+                ref = self._parse_reference(ref_str)
+                if ref:
+                    add_ref_callback(ref)
+
+            # Recursively extract from nested structures in arguments
+            self._extract_from_string(args_str, add_ref_callback)
 
     def _parse_reference(self, ref_string: str) -> Optional[TerraformReference]:
         """
-        Parse a Terraform reference string.
-
-        Examples:
-            var.environment -> Variable reference
-            local.vpc_id -> Local reference
-            aws_vpc.main.id -> Resource reference
-            module.vpc.vpc_id -> Module reference
-            data.aws_ami.ubuntu.id -> Data source reference
+        Parse a Terraform reference string into TerraformReference object.
         """
+        if not ref_string:
+            return None
+
         parts = ref_string.split(".")
 
         if len(parts) < 2:
@@ -209,7 +409,7 @@ class TerraformParser:
 
         prefix = parts[0]
 
-        # Variable reference: var.name
+        # Variable reference: var.name or var.name.attr
         if prefix == "var":
             return TerraformReference(
                 reference_type=ReferenceType.VARIABLE,
@@ -218,7 +418,6 @@ class TerraformParser:
                 full_reference=ref_string,
             )
 
-        # Local reference: local.name
         if prefix == "local":
             return TerraformReference(
                 reference_type=ReferenceType.LOCAL,
@@ -283,8 +482,7 @@ class TerraformParser:
                 full_reference=ref_string,
             )
 
-        # Resource reference: type.name.attr
-        if len(parts) >= 2:
+        if "_" in prefix and len(parts) >= 2:
             return TerraformReference(
                 reference_type=ReferenceType.RESOURCE,
                 target=f"{parts[0]}.{parts[1]}",
@@ -294,262 +492,6 @@ class TerraformParser:
 
         return None
 
-    def _extract_references(self, value: Any) -> List[TerraformReference]:
-        """Extract all Terraform references from any value type comprehensively."""
-        references = []
-
-        if value is None:
-            return references
-
-        if isinstance(value, str):
-            references.extend(self._extract_references_from_string(value))
-
-        elif isinstance(value, list):
-            for item in value:
-                references.extend(self._extract_references(item))
-
-        elif isinstance(value, dict):
-            for k, v in value.items():
-                references.extend(self._extract_references(k))
-                references.extend(self._extract_references(v))
-
-        elif isinstance(value, (int, float, bool)):
-            # Primitive types don't contain references
-            pass
-
-        else:
-            try:
-                for item in value:
-                    references.extend(self._extract_references(item))
-            except TypeError:
-                pass
-
-        seen = set()
-        unique_references = []
-        for ref in references:
-            if ref.full_reference not in seen:
-                seen.add(ref.full_reference)
-                unique_references.append(ref)
-
-        return unique_references
-
-    def _extract_references_from_string(self, value: str) -> List[TerraformReference]:
-        """Extract all references from a string value."""
-        references = []
-
-        if not value or not isinstance(value, str):
-            return references
-
-        direct_refs = self._find_references_in_expression(value)
-        for ref_str in direct_refs:
-            ref = self._parse_reference(ref_str)
-            if ref:
-                references.append(ref)
-
-        interpolation_pattern = r"\$\{([^}]+)\}"
-        interpolation_matches = re.findall(interpolation_pattern, value)
-
-        for interpolation_content in interpolation_matches:
-            inner_refs = self._find_references_in_expression(interpolation_content)
-            for ref_str in inner_refs:
-                ref = self._parse_reference(ref_str)
-                if ref:
-                    references.append(ref)
-
-            if "${" in interpolation_content:
-                references.extend(
-                    self._extract_references_from_string(interpolation_content)
-                )
-
-        function_refs = self._extract_references_from_functions(value)
-        references.extend(function_refs)
-
-        heredoc_refs = self._extract_references_from_heredoc(value)
-        references.extend(heredoc_refs)
-
-        return references
-
-    def _extract_references_from_functions(
-        self, value: str
-    ) -> List[TerraformReference]:
-        """Extract references from function calls within strings."""
-        references = []
-
-        # Look for function calls and extract references from their arguments
-        function_pattern = r"([a-z_][a-z0-9_]*)\s*\(([^)]*)\)"
-        function_matches = re.finditer(
-            function_pattern, value, re.IGNORECASE | re.DOTALL
-        )
-
-        for match in function_matches:
-            func_name = match.group(1)
-            args_str = match.group(2)
-
-            if func_name == "templatefile":
-                args = self._split_function_arguments(args_str)
-                if len(args) >= 2:
-                    vars_arg = args[1].strip()
-                    references.extend(self._extract_references_from_string(vars_arg))
-
-            elif func_name == "format":
-                args = self._split_function_arguments(args_str)
-                for arg in args[1:]:
-                    arg = arg.strip()
-                    references.extend(self._extract_references_from_string(arg))
-
-            elif func_name == "join":
-                args = self._split_function_arguments(args_str)
-                if len(args) >= 2:
-                    list_arg = args[1].strip()
-                    references.extend(self._extract_references_from_string(list_arg))
-
-        return references
-
-    def _extract_references_from_heredoc(self, value: str) -> List[TerraformReference]:
-        """Extract references from HEREDOC syntax."""
-        references = []
-
-        heredoc_pattern = r"<<-?\s*\w+\s*\n(.*?)\n\s*\w+"
-        heredoc_matches = re.finditer(heredoc_pattern, value, re.DOTALL)
-
-        for match in heredoc_matches:
-            heredoc_content = match.group(1)
-            references.extend(self._extract_references_from_string(heredoc_content))
-
-        return references
-
-    def _split_function_arguments(self, args_str: str) -> List[str]:
-        """Split function arguments respecting nested structures."""
-        args = []
-        current_arg = []
-        depth = 0
-        in_string = False
-        string_char = None
-        escape_next = False
-
-        for char in args_str:
-            if escape_next:
-                current_arg.append(char)
-                escape_next = False
-                continue
-
-            if char == "\\":
-                escape_next = True
-                current_arg.append(char)
-                continue
-
-            if char in ('"', "'") and not in_string:
-                in_string = True
-                string_char = char
-                current_arg.append(char)
-            elif char == string_char and in_string:
-                in_string = False
-                string_char = None
-                current_arg.append(char)
-            elif in_string:
-                current_arg.append(char)
-
-            elif char in "([{":
-                depth += 1
-                current_arg.append(char)
-            elif char in ")]}":
-                depth -= 1
-                current_arg.append(char)
-
-            elif char == "," and depth == 0 and not in_string:
-                args.append("".join(current_arg).strip())
-                current_arg = []
-            else:
-                current_arg.append(char)
-
-        if current_arg:
-            args.append("".join(current_arg).strip())
-
-        return args
-
-    def _find_references_in_expression(self, expression: str) -> List[str]:
-        """Find all Terraform references in an expression with comprehensive patterns."""
-        references = []
-
-        patterns = [
-            # Variable references: var.name, var.name.attr
-            r"\bvar\.[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)*\b",
-            # Local references: local.name, local.name.attr
-            r"\blocal\.[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)*\b",
-            # Module references: module.name, module.name.output
-            r"\bmodule\.[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)*\b",
-            # Data source references: data.type.name, data.type.name.attr
-            r"\bdata\.[a-zA-Z_][a-zA-Z0-9_-]*\.[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)*\b",
-            # Resource references: type.name, type.name.attr
-            r"\b[a-z_][a-z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)*\b",
-            # Path references: path.module, path.root, path.cwd
-            r"\bpath\.[a-z]+\b",
-            # Terraform references: terraform.workspace
-            r"\bterraform\.[a-z]+\b",
-            # Count references: count.index
-            r"\bcount\.[a-z]+\b",
-            # Each references: each.key, each.value
-            r"\beach\.[a-z]+\b",
-            # Self references: self.attr
-            r"\bself\.[a-zA-Z_][a-zA-Z0-9_-]*(?:\.[a-zA-Z_][a-zA-Z0-9_-]*)*\b",
-        ]
-
-        for pattern in patterns:
-            matches = re.findall(pattern, expression)
-            references.extend(matches)
-
-        filtered_references = []
-        for ref in references:
-            if re.search(r"[a-zA-Z]" + re.escape(ref) + r"[a-zA-Z]", expression):
-                continue
-            if self._is_inside_string_literal(expression, ref):
-                continue
-            filtered_references.append(ref)
-
-        return filtered_references
-
-    def _is_inside_string_literal(self, expression: str, substring: str) -> bool:
-        """Check if a substring appears inside a string literal in an expression."""
-        in_string = False
-        string_char = None
-        escape_next = False
-
-        i = 0
-        while i < len(expression):
-            char = expression[i]
-
-            if escape_next:
-                escape_next = False
-                i += 1
-                continue
-
-            if char == "\\":
-                escape_next = True
-                i += 1
-                continue
-
-            if char in ('"', "'") and not in_string:
-                in_string = True
-                string_char = char
-            elif char == string_char and in_string:
-                in_string = False
-                string_char = None
-
-            if expression[i : i + len(substring)] == substring and in_string:
-                return True
-
-            i += 1
-
-        return False
-
-    def _find_references_in_expression(self, expression: str) -> List[str]:
-        """Find all Terraform references in an expression."""
-        # Pattern for Terraform references
-        pattern = r"\b(var\.[a-zA-Z0-9_]+|local\.[a-zA-Z0-9_]+|module\.[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*|data\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*|[a-z][a-z0-9_]*\.[a-zA-Z0-9_]+(?:\.[a-zA-Z0-9_]+)*|path\.[a-z]+|terraform\.[a-z]+|count\.[a-z]+|each\.[a-z]+|self\.[a-zA-Z0-9_]+)"
-
-        matches = re.findall(pattern, expression)
-        return matches
-
     # ========================================================================
     # FUNCTION PARSING
     # ========================================================================
@@ -557,8 +499,6 @@ class TerraformParser:
     def _parse_function_call(self, expression: str) -> Optional[TerraformFunction]:
         """
         Parse a Terraform function call.
-
-        Example: file("path/to/file") -> TerraformFunction(name="file", arguments=["path/to/file"])
         """
         expression = expression.strip()
 
@@ -571,6 +511,9 @@ class TerraformParser:
 
         func_name = match.group(1)
         args_str = match.group(2).strip()
+
+        if func_name not in self.terraform_functions:
+            return None
 
         # Parse arguments
         arguments = self._parse_function_arguments(args_str)
@@ -597,8 +540,7 @@ class TerraformParser:
 
     def _parse_function_arguments(self, args_str: str) -> List[Any]:
         """Parse function arguments with proper nested structure handling."""
-        args_str = args_str.strip()
-        if not args_str:
+        if not args_str.strip():
             return []
 
         arguments = []
@@ -608,20 +550,15 @@ class TerraformParser:
         string_char = None
         escape_next = False
 
-        i = 0
-        while i < len(args_str):
-            char = args_str[i]
-
+        for char in args_str:
             if escape_next:
                 current_arg.append(char)
                 escape_next = False
-                i += 1
                 continue
 
             if char == "\\":
                 current_arg.append(char)
                 escape_next = True
-                i += 1
                 continue
 
             # Handle strings
@@ -644,7 +581,7 @@ class TerraformParser:
                 depth -= 1
                 current_arg.append(char)
 
-            # Handle comma separation (only at depth 0, not in strings)
+            # Handle comma separation
             elif char == "," and depth == 0 and not in_string:
                 arg_str = "".join(current_arg).strip()
                 if arg_str:
@@ -652,8 +589,6 @@ class TerraformParser:
                 current_arg = []
             else:
                 current_arg.append(char)
-
-            i += 1
 
         # Add the last argument
         if current_arg:
@@ -668,7 +603,7 @@ class TerraformParser:
         arg_str = arg_str.strip()
 
         # Try to parse as reference
-        refs = self._find_references_in_expression(arg_str)
+        refs = self._find_all_reference_patterns(arg_str)
         if refs and len(refs) == 1 and refs[0] == arg_str:
             ref = self._parse_reference(arg_str)
             if ref:
@@ -679,27 +614,6 @@ class TerraformParser:
             func = self._parse_function_call(arg_str)
             if func:
                 return func
-
-        # Try to parse as map/object
-        if arg_str.startswith("{") and arg_str.endswith("}"):
-            try:
-                # Try to parse as JSON-like structure
-                # Replace Terraform interpolation with placeholders
-                temp_str = re.sub(r"\$\{[^}]+\}", '"INTERPOLATION"', arg_str)
-                parsed = json.loads(temp_str)
-                return parsed
-            except json.JSONDecodeError:
-                # If JSON parsing fails, try to parse as Terraform map
-                return self._parse_terraform_map(arg_str)
-
-        # Try to parse as list
-        if arg_str.startswith("[") and arg_str.endswith("]"):
-            try:
-                temp_str = re.sub(r"\$\{[^}]+\}", '"INTERPOLATION"', arg_str)
-                parsed = json.loads(temp_str)
-                return parsed
-            except json.JSONDecodeError:
-                pass
 
         # Try to parse as string (quoted)
         if (arg_str.startswith('"') and arg_str.endswith('"')) or (
@@ -724,111 +638,8 @@ class TerraformParser:
         if arg_str.lower() in ("null", "none"):
             return None
 
-        # Default: return as string (might contain interpolations)
+        # Default: return as string
         return arg_str
-
-    def _parse_terraform_map(self, map_str: str) -> Dict[str, Any]:
-        """Parse a Terraform map expression."""
-        # Remove outer braces
-        content = map_str[1:-1].strip()
-        result = {}
-
-        if not content:
-            return result
-
-        current_key = []
-        current_value = []
-        depth = 0
-        in_string = False
-        string_char = None
-        escape_next = False
-        parsing_key = True
-
-        i = 0
-        while i < len(content):
-            char = content[i]
-
-            if escape_next:
-                if parsing_key:
-                    current_key.append(char)
-                else:
-                    current_value.append(char)
-                escape_next = False
-                i += 1
-                continue
-
-            if char == "\\":
-                escape_next = True
-                if parsing_key:
-                    current_key.append(char)
-                else:
-                    current_value.append(char)
-                i += 1
-                continue
-
-            # Handle strings
-            if char in ('"', "'") and not in_string:
-                in_string = True
-                string_char = char
-            elif char == string_char and in_string:
-                in_string = False
-                string_char = None
-
-            # Handle brackets
-            if char in "([{":
-                depth += 1
-            elif char in ")]}":
-                depth -= 1
-
-            # Handle equals sign (key-value separator)
-            if char == "=" and depth == 0 and not in_string and parsing_key:
-                parsing_key = False
-                # Skip whitespace after equals
-                i += 1
-                while i < len(content) and content[i].isspace():
-                    i += 1
-                continue
-
-            # Handle comma (entry separator)
-            if char == "," and depth == 0 and not in_string and not parsing_key:
-                key_str = "".join(current_key).strip()
-                value_str = "".join(current_value).strip()
-
-                if key_str:
-                    # Remove quotes from key if present
-                    if (key_str.startswith('"') and key_str.endswith('"')) or (
-                        key_str.startswith("'") and key_str.endswith("'")
-                    ):
-                        key_str = key_str[1:-1]
-
-                    result[key_str] = self._parse_argument_value(value_str)
-
-                current_key = []
-                current_value = []
-                parsing_key = True
-                i += 1
-                continue
-
-            if parsing_key:
-                current_key.append(char)
-            else:
-                current_value.append(char)
-
-            i += 1
-
-        # Handle the last key-value pair
-        if current_key and current_value:
-            key_str = "".join(current_key).strip()
-            value_str = "".join(current_value).strip()
-
-            if (key_str.startswith('"') and key_str.endswith('"')) or (
-                key_str.startswith("'") and key_str.endswith("'")
-            ):
-                key_str = key_str[1:-1]
-
-            result[key_str] = self._parse_argument_value(value_str)
-
-        return result
 
     # ========================================================================
     # ATTRIBUTE VALUE PARSING
@@ -846,16 +657,23 @@ class TerraformParser:
             return AttributeType.NUMBER
 
         if isinstance(value, str):
+            # Check for interpolation
             if "${" in value:
-                interpolation_content = re.search(r"\$\{(.+)\}", value)
-                if interpolation_content:
-                    inner_content = interpolation_content.group(1).strip()
+                # Check if it's a function inside interpolation
+                interpolation_match = re.search(r"\$\{(.+)\}", value)
+                if interpolation_match:
+                    inner_content = interpolation_match.group(1).strip()
                     if self._parse_function_call(inner_content):
                         return AttributeType.FUNCTION
                 return AttributeType.INTERPOLATION
 
-            refs = self._find_references_in_expression(value)
-            if refs and value.strip() in refs:
+            # Check for direct function call (without interpolation)
+            if self._parse_function_call(value):
+                return AttributeType.FUNCTION
+
+            # Check for direct reference (without interpolation)
+            refs = self._find_all_reference_patterns(value)
+            if refs and len(refs) == 1 and refs[0] == value.strip():
                 return AttributeType.REFERENCE
 
             return AttributeType.STRING
@@ -882,9 +700,9 @@ class TerraformParser:
         functions = []
         if isinstance(value, str):
             if "${" in value:
-                interpolation_content = re.search(r"\$\{(.+)\}", value)
-                if interpolation_content:
-                    inner_content = interpolation_content.group(1).strip()
+                interpolation_match = re.search(r"\$\{(.+)\}", value)
+                if interpolation_match:
+                    inner_content = interpolation_match.group(1).strip()
                     func = self._parse_function_call(inner_content)
                     if func:
                         functions.append(func)
@@ -927,7 +745,7 @@ class TerraformParser:
         # Determine object type
         obj_type = self._get_object_type(block_type)
 
-        # Extract resource type and name for resources/data sources
+        # Extract resource type and name
         resource_type = None
         name = None
 
@@ -985,12 +803,10 @@ class TerraformParser:
                 lifecycle = value if isinstance(value, dict) else {}
                 continue
             elif key == "provider":
-                # Provider alias
                 continue
 
             # Create attribute
             attribute = TerraformAttribute(name=key, value=attr_value)
-
             attributes[key] = attribute
 
         # Create block
@@ -1027,15 +843,7 @@ class TerraformParser:
     # ========================================================================
 
     def parse_file(self, file_path: str) -> TerraformFile:
-        """
-        Parse a Terraform file and extract all metadata.
-
-        Args:
-            file_path: Path to the .tf or .tf.json file
-
-        Returns:
-            TerraformFile with all blocks and metadata
-        """
+        """Parse a Terraform file and extract all metadata."""
         # Cache file for line number lookups
         self._cache_file(file_path)
 
@@ -1048,9 +856,9 @@ class TerraformParser:
         if not parsed_data:
             return TerraformFile(file_path=file_path)
 
-        # Extract blocks
         blocks = []
 
+        # Parse resources
         for resource_item in parsed_data.get("resource", []):
             for resource_type, resources in resource_item.items():
                 for resource_name, resource_data in resources.items():
@@ -1062,26 +870,43 @@ class TerraformParser:
                     )
                     blocks.append(block)
 
-        for output_item in parsed_data.get("data", []):
-            for name, data in output_item.items():
-                block = self._parse_block("data", data, file_path, labels=[name])
+        # Parse data sources
+        for data_item in parsed_data.get("data", []):
+            for data_type, data_sources in data_item.items():
+                for data_name, data_data in data_sources.items():
+                    block = self._parse_block(
+                        "data",
+                        data_data,
+                        file_path,
+                        labels=[data_type, data_name],
+                    )
+                    blocks.append(block)
+
+        # Parse modules
+        for module_item in parsed_data.get("module", []):
+            for module_name, module_data in module_item.items():
+                block = self._parse_block(
+                    "module", module_data, file_path, labels=[module_name]
+                )
                 blocks.append(block)
 
-        for output_item in parsed_data.get("module", []):
-            for name, data in output_item.items():
-                block = self._parse_block("module", data, file_path, labels=[name])
+        # Parse variables
+        for var_item in parsed_data.get("variable", []):
+            for var_name, var_data in var_item.items():
+                block = self._parse_block(
+                    "variable", var_data, file_path, labels=[var_name]
+                )
                 blocks.append(block)
 
-        for output_item in parsed_data.get("variable", []):
-            for name, data in output_item.items():
-                block = self._parse_block("variable", data, file_path, labels=[name])
-                blocks.append(block)
-
+        # Parse outputs
         for output_item in parsed_data.get("output", []):
-            for name, data in output_item.items():
-                block = self._parse_block("output", data, file_path, labels=[name])
+            for output_name, output_data in output_item.items():
+                block = self._parse_block(
+                    "output", output_data, file_path, labels=[output_name]
+                )
                 blocks.append(block)
 
+        # Parse locals
         for locals_data in parsed_data.get("locals", []):
             for local_name, local_value in locals_data.items():
                 block = self._parse_block(
@@ -1089,23 +914,17 @@ class TerraformParser:
                 )
                 blocks.append(block)
 
+        # Parse providers
         for provider_item in parsed_data.get("provider", []):
             for provider_name, provider_data in provider_item.items():
                 block = self._parse_block(
-                    "provider",
-                    provider_data,
-                    file_path,
-                    labels=[provider_name],
+                    "provider", provider_data, file_path, labels=[provider_name]
                 )
                 blocks.append(block)
 
+        # Parse terraform blocks
         for terraform_item in parsed_data.get("terraform", []):
-            block = self._parse_block(
-                "terraform",
-                terraform_item,
-                file_path,
-                labels=[],
-            )
+            block = self._parse_block("terraform", terraform_item, file_path, labels=[])
             blocks.append(block)
 
         return TerraformFile(file_path=file_path, blocks=blocks)
@@ -1139,7 +958,7 @@ class TerraformParser:
     # MODULE PARSING
     # ========================================================================
 
-    def parse_module(self, root_path: str, recursive: bool = True) -> TerraformModule:
+    def parse_module(self, root_path: str, recursive: bool = False) -> TerraformModule:
         """
         Parse an entire Terraform module (directory of .tf files).
 
@@ -1168,7 +987,7 @@ class TerraformParser:
 
         if recursive:
             for subdir in root.rglob("*"):
-                if subdir.is_dir():
+                if subdir.is_dir() and subdir != root:
                     collect_files(subdir)
 
         return TerraformModule(root_path=str(root), files=files)
