@@ -8,7 +8,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from tfkit.analyzer.terraform_analyzer import TerraformAnalyzer
+from tfkit.inspector.parser import TerraformParser
+from tfkit.inspector.resolver import ReferenceResolver
 from tfkit.validator.models import ValidationCategory, ValidationSeverity
 from tfkit.validator.rule_register import rule_registry
 from tfkit.validator.validator import TerraformValidator, ValidatorConfig
@@ -85,6 +86,21 @@ from .utils import console, print_banner
     is_flag=True,
     help="Stop validation on first error",
 )
+@click.option(
+    "--resolve-references",
+    is_flag=True,
+    help="Enable reference resolution for enhanced validation",
+)
+@click.option(
+    "--terraform-vars",
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to Terraform variables file (.tfvars) for reference resolution",
+)
+@click.option(
+    "--var",
+    multiple=True,
+    help="Set Terraform variable values for reference resolution (format: key=value)",
+)
 def validate(
     path,
     checks,
@@ -102,6 +118,9 @@ def validate(
     enable_rule,
     disable_rule,
     fail_fast,
+    resolve_references,
+    terraform_vars,
+    var,
 ):
     """Validate Terraform configurations.
 
@@ -124,8 +143,14 @@ def validate(
       # Run specific checks
       tfkit validate --checks syntax --checks security
 
-      # Run all checks
-      tfkit validate --checks all
+      # Run all checks with reference resolution
+      tfkit validate --checks all --resolve-references
+
+      # Use Terraform variables for resolution
+      tfkit validate --terraform-vars production.tfvars --resolve-references
+
+      # Set variables directly
+      tfkit validate --var environment=prod --var instance_count=3 --resolve-references
 
       # List all available rules
       tfkit validate --list-rules
@@ -183,7 +208,6 @@ def validate(
         )
         console.print()
 
-    # Apply enable/disable rules
     for rule_id in disable_rule:
         if validator.disable_rule(rule_id):
             if not quiet:
@@ -199,9 +223,9 @@ def validate(
             console.print(f"   [red]Warning: Rule '{rule_id}' not found[/red]")
 
     # List rules and exit if requested
-    if list_rules:
-        _display_available_rules(validator)
-        sys.exit(0)
+    # if list_rules:
+    #     _display_available_rules(validator)
+    #     sys.exit(0)
 
     if show_rules and not quiet:
         _display_loaded_rules_summary(validator)
@@ -220,6 +244,8 @@ def validate(
             console.print("   Fail Fast: [yellow]Enabled[/yellow]")
         if ignore:
             console.print(f"   Ignoring rules: [dim]{', '.join(ignore)}[/dim]")
+        if resolve_references:
+            console.print("   Reference Resolution: [green]Enabled[/green]")
 
         console.print("\n   Active check categories:")
         for category in check_categories:
@@ -230,17 +256,21 @@ def validate(
     try:
         if not quiet:
             with console.status("[bold cyan]Analyzing Terraform project..."):
-                analyzer = TerraformAnalyzer()
-                project = analyzer.analyze_project(str(path))
+                # Use the new parser and resolver
+                project = _analyze_terraform_project(
+                    path, resolve_references, terraform_vars, var
+                )
 
             console.print(
-                f"[green]✓[/green] Found {len(project.resources)} resources, "
-                f"{len(project.modules)} modules, {len(project.variables)} variables"
+                f"[green]✓[/green] Found {project.get('summary', {}).get('total_resources', 0)} resources, "
+                f"{project.get('summary', {}).get('total_variables', 0)} variables, "
+                f"{project.get('summary', {}).get('total_locals', 0)} locals"
             )
             console.print()
         else:
-            analyzer = TerraformAnalyzer()
-            project = analyzer.analyze_project(str(path))
+            project = _analyze_terraform_project(
+                path, resolve_references, terraform_vars, var
+            )
 
         if not quiet:
             console.print("[bold cyan]Running validation checks...[/bold cyan]")
@@ -313,6 +343,104 @@ def validate(
         sys.exit(1)
 
 
+def _analyze_terraform_project(
+    path, resolve_references=False, terraform_vars=None, var_args=None
+):
+    """Analyze Terraform project using the new parser and resolver."""
+    parser = TerraformParser()
+
+    # if not quiet:
+    #     console.print("   [dim]Parsing Terraform files...[/dim]")
+
+    module = parser.parse_module(str(path))
+
+    # Convert to dictionary for compatibility with existing validator
+    project_dict = module.to_dict()
+
+    # Add enhanced metadata if reference resolution is enabled
+    if resolve_references:
+        # if not quiet:
+        #     console.print("   [dim]Resolving references...[/dim]")
+
+        # Prepare Terraform variables
+        terraform_variables = {}
+
+        # Load from .tfvars file if provided
+        if terraform_vars and terraform_vars.exists():
+            try:
+                with open(terraform_vars, "r") as f:
+                    # Simple .tfvars parsing (basic key=value format)
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            if "=" in line:
+                                key, value = line.split("=", 1)
+                                key = key.strip()
+                                value = value.strip()
+                                # Try to parse value
+                                if value.startswith('"') and value.endswith('"'):
+                                    value = value[1:-1]
+                                elif value.lower() in ("true", "false"):
+                                    value = value.lower() == "true"
+                                elif value.isdigit():
+                                    value = int(value)
+                                terraform_variables[key] = value
+            except Exception as e:
+                console.print(
+                    f"   [yellow]Warning: Could not parse .tfvars file: {e}[/yellow]"
+                )
+
+        # Add variables from command line
+        if var_args:
+            for var_arg in var_args:
+                if "=" in var_arg:
+                    key, value = var_arg.split("=", 1)
+                    terraform_variables[key] = value
+
+        # Resolve references
+        resolver = ReferenceResolver(module, terraform_variables)
+        try:
+            resolved_module = resolver.resolve_module()
+            # Add resolved values to project dict
+            project_dict["resolved_values"] = _extract_resolved_values(resolved_module)
+        except Exception as e:
+            console.print(
+                f"   [yellow]Warning: Reference resolution failed: {e}[/yellow]"
+            )
+
+    return project_dict
+
+
+def _extract_resolved_values(module):
+    """Extract resolved values from module for enhanced validation."""
+    resolved_data = {"locals": {}, "variables": {}, "resources": {}}
+
+    # Extract resolved local values
+    for local_block in module._global_local_index.values():
+        value_attr = local_block.attributes.get("value")
+        if value_attr and value_attr.value.is_fully_resolved:
+            resolved_data["locals"][local_block.name] = {
+                "raw_value": value_attr.value.raw_value,
+                "resolved_value": value_attr.value.resolved_value,
+                "is_fully_resolved": value_attr.value.is_fully_resolved,
+            }
+
+    # Extract resolved resource attributes
+    for resource_block in module._global_resource_index.values():
+        resource_data = {}
+        for attr_name, attr in resource_block.attributes.items():
+            if attr.value.is_fully_resolved:
+                resource_data[attr_name] = {
+                    "raw_value": attr.value.raw_value,
+                    "resolved_value": attr.value.resolved_value,
+                    "is_fully_resolved": attr.value.is_fully_resolved,
+                }
+        if resource_data:
+            resolved_data["resources"][resource_block.address] = resource_data
+
+    return resolved_data
+
+
 def _resolve_check_categories(checks):
     """Determine which check categories to run based on the checks list."""
     if "all" in checks:
@@ -335,74 +463,6 @@ def _resolve_check_categories(checks):
             categories.add(check_mapping[check])
 
     return categories
-
-
-def _display_available_rules(validator):
-    """Display all available validation rules in a detailed table."""
-    console.print("\n[bold cyan]Available Validation Rules[/bold cyan]\n")
-
-    rules = validator.list_available_rules()
-
-    if not rules:
-        console.print("[yellow]No rules loaded.[/yellow]")
-        return
-
-    # Group rules by category
-    rules_by_category = {}
-    for rule in rules:
-        category = rule["category"]
-        if category not in rules_by_category:
-            rules_by_category[category] = []
-        rules_by_category[category].append(rule)
-
-    # Display rules by category
-    for category in sorted(rules_by_category.keys()):
-        category_rules = rules_by_category[category]
-
-        table = Table(
-            show_header=True,
-            header_style="bold magenta",
-            title=f"[bold]{category.upper()}[/bold]",
-            title_style="bold cyan",
-        )
-        table.add_column("Rule ID", width=15)
-        table.add_column("Severity", width=10)
-        table.add_column("Scope", width=15)
-        table.add_column("Priority", width=8, justify="right")
-        table.add_column("Status", width=10)
-        table.add_column("Description")
-
-        for rule in sorted(category_rules, key=lambda r: r["rule_id"]):
-            severity_style = {
-                "error": "red",
-                "warning": "yellow",
-                "info": "blue",
-            }.get(rule["severity"], "white")
-
-            status_text = (
-                Text("Enabled", style="green")
-                if rule["enabled"]
-                else Text("Disabled", style="dim")
-            )
-
-            table.add_row(
-                rule["rule_id"],
-                Text(rule["severity"].upper(), style=severity_style),
-                rule["scope"],
-                str(rule["priority"]),
-                status_text,
-                rule["description"],
-            )
-
-        console.print(table)
-        console.print()
-
-    # Summary
-    total_rules = len(rules)
-    enabled_rules = sum(1 for r in rules if r["enabled"])
-    console.print(
-        f"[bold]Total:[/bold] {total_rules} rules ({enabled_rules} enabled, {total_rules - enabled_rules} disabled)"
-    )
 
 
 def _display_loaded_rules_summary(validator):
