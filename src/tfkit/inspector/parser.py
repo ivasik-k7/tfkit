@@ -137,21 +137,27 @@ class TerraformParser:
     def _find_block_line(
         self, file_path: str, block_type: str, labels: List[str]
     ) -> Optional[int]:
+        """Find the line number where a block starts."""
         lines = self._get_file_lines(file_path)
 
+        # --- Special Handling for Singleton/Container Blocks (locals, terraform) ---
         if block_type in ["locals", "terraform"]:
+            # We search for the container block, ignoring any potential labels
             search_block_type = block_type if block_type == "terraform" else "locals"
             pattern = rf"^\s*{re.escape(search_block_type)}\s*\{{"
 
+        # --- Standard blocks (resource, module, provider, output, variable, and singular 'local') ---
         elif labels:
-            search_block_type = block_type if block_type != "local" else "locals"
-
+            # Standard block structure: block_type "label1" "label2" {
+            search_block_type = block_type
             label_pattern = r"\s+".join(f'"{re.escape(label)}"' for label in labels)
             pattern = rf"^\s*{re.escape(search_block_type)}\s+{label_pattern}\s*\{{"
 
         else:
+            # Non-labeled blocks
             pattern = rf"^\s*{re.escape(block_type)}\s*\{{"
 
+        # --- Search ---
         for line_num, line in enumerate(lines, 1):
             if line.strip().startswith("#") or not line.strip():
                 continue
@@ -177,7 +183,8 @@ class TerraformParser:
         if end_line is None:
             end_line = self._find_block_end(file_path, start_line)
 
-        pattern = rf"^\s*{re.escape(attribute_name)}\s*=\s*[^\{{]"
+        # Pattern for attribute/local assignment: attribute_name = value
+        pattern = rf"^\s*{re.escape(attribute_name)}\s*="
 
         for line_num in range(start_line, min(end_line + 1, len(lines) + 1)):
             line = lines[line_num - 1]
@@ -201,6 +208,7 @@ class TerraformParser:
 
         for line_num in range(start_line, len(lines) + 1):
             line = lines[line_num - 1]
+
             brace_depth += line.count("{") - line.count("}")
 
             if brace_depth == 0 and line_num > start_line:
@@ -756,30 +764,45 @@ class TerraformParser:
 
         if labels:
             if obj_type in (
-                TerraformObjectType.RESOURCE,
-                TerraformObjectType.DATA_SOURCE,
+                self.TerraformObjectType.RESOURCE,
+                self.TerraformObjectType.DATA_SOURCE,
             ):
                 if len(labels) >= 2:
                     resource_type = labels[0]
                     name = labels[1]
-            elif obj_type in (
-                TerraformObjectType.MODULE,
-                TerraformObjectType.VARIABLE,
-                TerraformObjectType.OUTPUT,
-                TerraformObjectType.PROVIDER,
-                TerraformObjectType.MOVED,
-                TerraformObjectType.IMPORT,
-            ):
+            elif obj_type != self.TerraformObjectType.RESOURCE:
                 name = labels[0]
 
         # 2. Determine Source Location
-        block_line = self._find_block_line(file_path, block_type, labels)
-        source_location = None
-        if block_line:
-            end_line = self._find_block_end(file_path, block_line)
-            source_location = SourceLocation(
-                file_path=file_path, line_start=block_line, line_end=end_line
-            )
+        if obj_type == self.TerraformObjectType.LOCAL:
+            if labels:
+                local_name = labels[0]
+
+                container_line = self._find_block_line(file_path, "locals", [])
+
+                if container_line:
+                    container_end_line = self._find_block_end(file_path, container_line)
+
+                    block_line = self._find_attribute_line(
+                        file_path, container_line, local_name, container_end_line
+                    )
+
+                    # Set source location for the single assignment line
+                    if block_line:
+                        source_location = self.SourceLocation(
+                            file_path=file_path,
+                            line_start=block_line,
+                            line_end=block_line,
+                        )
+
+        # --- STANDARD BLOCK HANDLING ---
+        if source_location is None:
+            block_line = self._find_block_line(file_path, block_type, labels)
+            if block_line:
+                end_line = self._find_block_end(file_path, block_line)
+                source_location = self.SourceLocation(
+                    file_path=file_path, line_start=block_line, line_end=end_line
+                )
 
         attributes = {}
         count_attr = None
@@ -926,6 +949,8 @@ class TerraformParser:
         # Parse locals
         for locals_data in parsed_data.get("locals", []):
             for local_name, local_value in locals_data.items():
+                # TODO: Define a method _parse_locals which going to parse locals and produce
+                # multiple objects like name.name from locals.name.name with correct line location, etc
                 block = self._parse_block(
                     "locals", {"value": local_value}, file_path, labels=[local_name]
                 )

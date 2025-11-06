@@ -114,10 +114,11 @@ def run_complete_test():
     all_providers = list(module._global_provider_index.values())
     print(f"    Total unique provider configs found: {len(all_providers)}")
 
-    for provider_block in all_providers[:3]:
+    for provider_block in all_providers[:5]:
         provider_name = provider_block.labels[0]
-        is_aliased = provider_block.address.count(".") > 1
-        alias_info = " (Aliased)" if is_aliased else " (Default)"
+        alias = provider_block.attributes.get("alias")
+        is_aliased = alias is not None
+        alias_info = f"({alias.value.raw_value})" if is_aliased else " (Default)"
 
         print(f"    → Address: **{provider_block.address}** {alias_info}")
         print(f"      Config Key: **{provider_name}**")
