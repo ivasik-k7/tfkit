@@ -4,6 +4,35 @@ This demonstrates the full capabilities of the Terraform Inspector.
 """
 
 from pathlib import Path
+from typing import Any, Dict
+
+
+def mock_hcl_loads() -> Dict[str, Any]:
+    """
+    Mocks the behavior of an HCL parser (like hcl.loads) for demonstration purposes.
+    In a real-world scenario, you MUST use the actual hcl library.
+    """
+    # This is simplified and only handles the key-value pairs we know are in the file.
+    # The actual HCL parser handles complex logic, comments, and syntax rules.
+    data = {
+        "environment": "staging",
+        "machine_size": "medium",
+        "instance_count": 3,
+        "enable_monitoring": True,
+        "tags": {
+            "Project": "MultiCloudApp",
+            "ManagedBy": "Terraform",
+            "Owner": "EngineeringTeam",
+        },
+        "aws_region": "eu-west-1",
+        "gcp_region": "europe-west3",
+        "gcp_zone": "europe-west3-a",
+        "azure_region": "West Europe",
+        "azure_subscription_id": "00000000-0000-0000-0000-000000000000",
+        "azure_tenant_id": "11111111-1111-1111-1111-111111111111",
+        "unused_variable": "test-graph-ignore",
+    }
+    return data
 
 
 def run_complete_test():
@@ -76,8 +105,8 @@ def run_complete_test():
         for attr_name, attr in block.attributes.items():
             if attr.value.references and attr_name not in examples_shown:
                 ref = attr.value.references[0]
-                print(f"      🔗 Attribute ({block.address}.{attr_name})")
-                print(f"        → Ref: {ref.full_reference}")
+                print(f"        🔗 Attribute ({block.address}.{attr_name})")
+                print(f"        → Ref: {ref.full_reference}")
                 examples_shown.add(attr_name)
                 if len(examples_shown) >= 5:
                     break
@@ -128,19 +157,7 @@ def run_complete_test():
         print(f"      Lookup by Address: {lookup_status}")
 
     print("\n[5] Resolving references...")
-    terraform_vars = {
-        "environment": "production",
-        "region": "eu-west-1",
-        "vpc_cidr": "10.100.0.0/16",
-        "availability_zones": ["eu-west-1a", "eu-west-1b"],
-        "tags": {
-            "Project": "WebApp",
-            "ManagedBy": "Terraform",
-            "Team": "Platform",
-        },
-    }
-
-    print(f"    Using variables: {list(terraform_vars.keys())}")
+    terraform_vars = mock_hcl_loads()
 
     resolver = ReferenceResolver(module, terraform_vars)
 

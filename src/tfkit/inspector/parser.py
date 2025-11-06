@@ -747,6 +747,156 @@ class TerraformParser:
     # BLOCK PARSING
     # ========================================================================
 
+    def _parse_locals(
+        self, locals_data: Dict[str, Any], file_path: str
+    ) -> List[TerraformBlock]:
+        """
+        Parse locals block and create individual TerraformBlock objects for each
+        accessible path within the locals.
+
+        For example, given:
+            locals {
+                naming = {
+                    aws = {
+                        instance_name = "foo"
+                        bucket_name = "bar"
+                    }
+                    gcp = {
+                        instance_name = "baz"
+                    }
+                }
+                project_prefix = "my-project"
+            }
+
+        This creates separate blocks for:
+            - local.naming (map)
+            - local.naming.aws (map)
+            - local.naming.aws.instance_name (string)
+            - local.naming.aws.bucket_name (string)
+            - local.naming.gcp (map)
+            - local.naming.gcp.instance_name (string)
+            - local.project_prefix (string)
+
+        Args:
+            locals_data: Dictionary of local values from parsed HCL
+            file_path: Path to the source file
+
+        Returns:
+            List of TerraformBlock objects, one for each accessible path
+        """
+        blocks = []
+
+        container_line = self._find_block_line(file_path, "locals", [])
+        container_end_line = None
+        if container_line:
+            container_end_line = self._find_block_end(file_path, container_line)
+
+        for local_name, local_value in locals_data.items():
+            nested_blocks = self._create_local_blocks_recursive(
+                name=local_name,
+                value=local_value,
+                file_path=file_path,
+                parent_path="",
+                container_line=container_line,
+                container_end_line=container_end_line,
+                is_top_level=True,
+            )
+            blocks.extend(nested_blocks)
+
+        return blocks
+
+    def _create_local_blocks_recursive(
+        self,
+        name: str,
+        value: Any,
+        file_path: str,
+        parent_path: str,
+        container_line: Optional[int],
+        container_end_line: Optional[int],
+        is_top_level: bool = False,
+    ) -> List[TerraformBlock]:
+        """
+        Recursively create TerraformBlock objects for a local value and
+        all its nested accessible paths.
+
+        Args:
+            name: Name of the current local/attribute
+            value: Value of the current local/attribute
+            file_path: Source file path
+            parent_path: Parent path (e.g., "local.naming.aws")
+            container_line: Start line of the locals container
+            container_end_line: End line of the locals container
+            is_top_level: Whether this is a top-level local variable
+
+        Returns:
+            List of TerraformBlock objects
+        """
+        blocks = []
+
+        if parent_path:
+            full_path = f"{parent_path}.{name}"
+        else:
+            full_path = f"local.{name}"
+
+        line_number = None
+        if container_line and is_top_level:
+            line_number = self._find_attribute_line(
+                file_path, container_line, name, container_end_line
+            )
+        elif container_line:
+            line_number = container_line
+
+        source_location = None
+        if line_number:
+            source_location = SourceLocation(
+                file_path=file_path, line_start=line_number, line_end=line_number
+            )
+
+        attr_value = self._parse_attribute_value(value, file_path, line_number)
+
+        main_attribute = TerraformAttribute(name="value", value=attr_value)
+
+        simple_name = full_path.replace("local.", "")
+
+        block = TerraformBlock(
+            block_type=TerraformObjectType.LOCAL,
+            name=simple_name,
+            labels=[simple_name],
+            attributes={"value": main_attribute},
+            source_location=source_location,
+            address=full_path,
+        )
+
+        blocks.append(block)
+
+        if isinstance(value, dict):
+            for nested_key, nested_value in value.items():
+                nested_blocks = self._create_local_blocks_recursive(
+                    name=nested_key,
+                    value=nested_value,
+                    file_path=file_path,
+                    parent_path=full_path,
+                    container_line=container_line,
+                    container_end_line=container_end_line,
+                    is_top_level=False,
+                )
+                blocks.extend(nested_blocks)
+
+        elif isinstance(value, list):
+            for idx, item in enumerate(value):
+                nested_blocks = self._create_local_blocks_recursive(
+                    name=str(idx),
+                    value=item,
+                    file_path=file_path,
+                    parent_path=full_path,
+                    container_line=container_line,
+                    container_end_line=container_end_line,
+                    is_top_level=False,
+                )
+                blocks.extend(nested_blocks)
+
+        return blocks
+
     def _parse_block(
         self,
         block_type: str,
@@ -764,45 +914,23 @@ class TerraformParser:
 
         if labels:
             if obj_type in (
-                self.TerraformObjectType.RESOURCE,
-                self.TerraformObjectType.DATA_SOURCE,
+                TerraformObjectType.RESOURCE,
+                TerraformObjectType.DATA_SOURCE,
             ):
                 if len(labels) >= 2:
                     resource_type = labels[0]
                     name = labels[1]
-            elif obj_type != self.TerraformObjectType.RESOURCE:
+            elif obj_type != TerraformObjectType.RESOURCE:
                 name = labels[0]
 
-        # 2. Determine Source Location
-        if obj_type == self.TerraformObjectType.LOCAL:
-            if labels:
-                local_name = labels[0]
+        block_line = self._find_block_line(file_path, block_type, labels)
 
-                container_line = self._find_block_line(file_path, "locals", [])
-
-                if container_line:
-                    container_end_line = self._find_block_end(file_path, container_line)
-
-                    block_line = self._find_attribute_line(
-                        file_path, container_line, local_name, container_end_line
-                    )
-
-                    # Set source location for the single assignment line
-                    if block_line:
-                        source_location = self.SourceLocation(
-                            file_path=file_path,
-                            line_start=block_line,
-                            line_end=block_line,
-                        )
-
-        # --- STANDARD BLOCK HANDLING ---
-        if source_location is None:
-            block_line = self._find_block_line(file_path, block_type, labels)
-            if block_line:
-                end_line = self._find_block_end(file_path, block_line)
-                source_location = self.SourceLocation(
-                    file_path=file_path, line_start=block_line, line_end=end_line
-                )
+        source_location = None
+        if block_line:
+            end_line = self._find_block_end(file_path, block_line)
+            source_location = SourceLocation(
+                file_path=file_path, line_start=block_line, line_end=end_line
+            )
 
         attributes = {}
         count_attr = None
@@ -948,15 +1076,16 @@ class TerraformParser:
 
         # Parse locals
         for locals_data in parsed_data.get("locals", []):
-            for local_name, local_value in locals_data.items():
-                # TODO: Define a method _parse_locals which going to parse locals and produce
-                # multiple objects like name.name from locals.name.name with correct line location, etc
-                block = self._parse_block(
-                    "locals", {"value": local_value}, file_path, labels=[local_name]
-                )
-                blocks.append(block)
+            local_blocks = self._parse_locals(locals_data, file_path)
+            leaf_blocks = [
+                block
+                for block in local_blocks
+                if block.attributes.get("value")
+                and block.attributes["value"].value.value_type
+                not in (AttributeType.MAP, AttributeType.LIST, AttributeType.OBJECT)
+            ]
+            blocks.extend(leaf_blocks)
 
-        # Parse providers
         for provider_item in parsed_data.get("provider", []):
             for provider_name, provider_data in provider_item.items():
                 block = self._parse_block(
