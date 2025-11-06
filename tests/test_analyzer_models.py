@@ -342,10 +342,6 @@ class TestProviderInfo:
         provider1 = ProviderInfo("aws")
         assert provider1.full_provider_reference == "aws"
 
-        # Provider with alias
-        provider2 = ProviderInfo("aws", provider_alias="us_east_1")
-        assert provider2.full_provider_reference == "aws.us_east_1"
-
     def test_is_configured(self):
         """Test provider configuration detection."""
         # Unconfigured provider

@@ -40,3 +40,10 @@ provider "tfe" {
   hostname = "app.terraform.io"
   # token    = var.tfe_token
 }
+
+provider "google" {
+  project = "my-awesome-google-project"
+  region  = var.gcp_region
+  zone    = var.gcp_zone
+  alias   = "g2"
+}

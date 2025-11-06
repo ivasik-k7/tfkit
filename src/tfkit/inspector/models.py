@@ -282,7 +282,7 @@ class TerraformBlock:
     count: Optional[AttributeValue] = None
     for_each: Optional[AttributeValue] = None
     depends_on: List[str] = field(default_factory=list)
-    provider_alias: Optional[str] = None
+    explicit_provider: Optional[AttributeValue] = None
     lifecycle: Dict[str, Any] = field(default_factory=dict)
 
     # Dynamic blocks
@@ -305,44 +305,61 @@ class TerraformBlock:
     def _build_address(self) -> str:
         """Build the full Terraform address for this block."""
         parts = []
-        if self.block_type == TerraformObjectType.RESOURCE:
-            if self.resource_type and self.name:
-                parts = [self.resource_type, self.name]
-        elif self.block_type == TerraformObjectType.DATA_SOURCE:
-            if self.resource_type and self.name:
-                parts = ["data", self.resource_type, self.name]
-        elif self.block_type == TerraformObjectType.MODULE:
+
+        address_prefixes = {
+            TerraformObjectType.RESOURCE: self.resource_type,  # resource "type" "name" -> type.name
+            TerraformObjectType.DATA_SOURCE: f"data.{self.resource_type}",  # data "type" "name" -> data.type.name
+            TerraformObjectType.MODULE: "module",
+            TerraformObjectType.LOCAL: "local",
+            TerraformObjectType.VARIABLE: "var",
+            TerraformObjectType.OUTPUT: "output",
+        }
+
+        prefix = address_prefixes.get(self.block_type)
+
+        if prefix:
+            if "." in prefix:
+                parts.extend(prefix.split("."))
+            else:
+                parts.append(prefix)
+
             if self.name:
-                parts = ["module", self.name]
-        elif self.block_type == TerraformObjectType.LOCAL:
+                parts.append(self.name)
+        elif self.block_type in (
+            TerraformObjectType.TERRAFORM,
+            TerraformObjectType.PROVIDER,
+        ):
+            parts = [self.block_type.value]
             if self.name:
-                parts = ["local", self.name]
-        elif self.block_type == TerraformObjectType.VARIABLE:
-            if self.name:
-                parts = ["var", self.name]
-        elif self.block_type == TerraformObjectType.OUTPUT:
-            if self.name:
-                parts = ["output", self.name]
+                parts.append(self.name)
         else:
             parts = [self.block_type.value]
             if self.name:
                 parts.append(self.name)
 
-        return ".".join(parts)
+        return ".".join([p for p in parts if p is not None])
 
     def _compute_dependencies(self):
-        """Compute all dependencies from attributes."""
+        """
+        Compute all dependencies from attributes and meta-arguments.
+        Enhanced to check count/for_each/explicit_provider as they often hold references.
+        """
         self.dependencies.clear()
 
-        # Add explicit depends_on
+        def add_refs_from_attr_value(attr_value: Optional[AttributeValue]):
+            if attr_value:
+                for ref in attr_value.references:
+                    self.dependencies.add(ref.target)
+
         self.dependencies.update(self.depends_on)
 
-        # Extract from attributes
-        for attr in self.attributes.values():
-            for ref in attr.value.references:
-                self.dependencies.add(ref.target)
+        add_refs_from_attr_value(self.count)
+        add_refs_from_attr_value(self.for_each)
+        add_refs_from_attr_value(self.explicit_provider)
 
-            # Recursively check nested attributes
+        for attr in self.attributes.values():
+            add_refs_from_attr_value(attr.value)
+
             self._extract_nested_dependencies(attr)
 
     def _extract_nested_dependencies(self, attr: TerraformAttribute):
@@ -355,12 +372,6 @@ class TerraformBlock:
     def get_attribute(self, path: str) -> Optional[TerraformAttribute]:
         """
         Get an attribute by path (e.g., "vpc.cidr_block").
-
-        Args:
-            path: Dot-separated path to the attribute
-
-        Returns:
-            TerraformAttribute or None if not found
         """
         parts = path.split(".")
         current = self.attributes.get(parts[0])
@@ -404,8 +415,8 @@ class TerraformBlock:
         if self.depends_on:
             result["depends_on"] = self.depends_on
 
-        if self.provider_alias:
-            result["provider_alias"] = self.provider_alias
+        if self.explicit_provider:
+            result["explicit_provider"] = self.explicit_provider.to_dict()
 
         if self.lifecycle:
             result["lifecycle"] = self.lifecycle
@@ -426,7 +437,6 @@ class TerraformFile:
     file_path: str
     blocks: List[TerraformBlock] = field(default_factory=list)
 
-    # Indexes for fast lookup
     _resource_index: Dict[str, TerraformBlock] = field(default_factory=dict, repr=False)
     _data_index: Dict[str, TerraformBlock] = field(default_factory=dict, repr=False)
     _module_index: Dict[str, TerraformBlock] = field(default_factory=dict, repr=False)
@@ -453,6 +463,7 @@ class TerraformFile:
         self._terraform_index.clear()
 
         for block in self.blocks:
+            # All general blocks are indexed by their full address (e.g., "module.vpc", "aws_vpc.main")
             if block.block_type == TerraformObjectType.RESOURCE:
                 self._resource_index[block.address] = block
             elif block.block_type == TerraformObjectType.DATA_SOURCE:
@@ -466,26 +477,37 @@ class TerraformFile:
             elif block.block_type == TerraformObjectType.LOCAL:
                 self._local_index[block.address] = block
             elif block.block_type == TerraformObjectType.PROVIDER:
-                # Use the first label as the key (e.g., "aws" from provider "aws" { ... })
-                if block.labels:
-                    provider_key = block.labels[0]
-                    self._provider_index[provider_key] = block
+                alias_attr = block.attributes.get("alias")
+
+                provider_key = block.address
+
+                if (
+                    alias_attr
+                    and alias_attr.value
+                    and isinstance(alias_attr.value.raw_value, str)
+                ):
+                    alias_value = alias_attr.value.raw_value.strip('"')
+                    provider_key = f"{block.address}.{alias_value}"
+
+                self._provider_index[provider_key] = block
             elif block.block_type == TerraformObjectType.TERRAFORM:
                 self._terraform_index[block.address] = block
 
     def get_block(self, address: str) -> Optional[TerraformBlock]:
-        """Get a block by its address."""
-        # Try each index
-        return (
-            self._resource_index.get(address)
-            or self._data_index.get(address)
-            or self._module_index.get(address)
-            or self._variable_index.get(address)
-            or self._output_index.get(address)
-            or self._local_index.get(address)
-            or self._provider_index.get(address)  # Provider uses label[0] as key
-            or self._terraform_index.get(address)
-        )
+        """Get a block by its address (Enhanced logic)."""
+        if address.startswith("data."):
+            return self._data_index.get(address)
+        elif address.startswith("module."):
+            return self._module_index.get(address)
+        elif address.startswith("var."):
+            return self._variable_index.get(address)
+        elif address.startswith("output."):
+            return self._output_index.get(address)
+        elif address.startswith("local."):
+            return self._local_index.get(address)
+        elif address.startswith("provider."):
+            return self._provider_index.get(address)
+        return self._resource_index.get(address) or self._terraform_index.get(address)
 
     def get_resources(self) -> List[TerraformBlock]:
         """Get all resources."""
@@ -499,17 +521,41 @@ class TerraformFile:
         """Get all modules."""
         return list(self._module_index.values())
 
-    def get_providers(self) -> List[TerraformBlock]:
-        """Get all provider configurations."""
-        return list(self._provider_index.values())
-
     def get_terraform_blocks(self) -> List[TerraformBlock]:
         """Get all terraform configuration blocks."""
         return list(self._terraform_index.values())
 
-    def get_provider(self, provider_name: str) -> Optional[TerraformBlock]:
-        """Get a specific provider configuration by provider name."""
-        return self._provider_index.get(provider_name)
+    def get_providers(
+        self, provider_name: Optional[str] = None
+    ) -> List[TerraformBlock]:
+        """
+        Get all provider configurations, optionally filtered by the base provider name (e.g., 'aws').
+        """
+        if not provider_name:
+            return list(self._provider_index.values())
+
+        prefix = f"provider.{provider_name}"
+        return [
+            block
+            for address, block in self._provider_index.items()
+            if address == prefix or address.startswith(f"{prefix}.")
+        ]
+
+    def get_provider(self, provider_alias_or_name: str) -> Optional[TerraformBlock]:
+        """
+        Get a specific provider configuration by its full address (including alias, e.g., 'aws.us-east-1')
+        or by its default address ('aws').
+        """
+        address = f"provider.{provider_alias_or_name}"
+        block = self._provider_index.get(address)
+        if block:
+            return block
+
+        if "." not in provider_alias_or_name:
+            address = f"provider.{provider_alias_or_name}"
+            return self._provider_index.get(address)
+
+        return None
 
     def get_terraform_settings(self) -> Optional[TerraformBlock]:
         """Get the terraform settings block."""
@@ -546,6 +592,10 @@ class TerraformModule:
     _global_resource_index: Dict[str, TerraformBlock] = field(
         default_factory=dict, repr=False
     )
+    _global_module_index: Dict[str, Any] = field(
+        default_factory=dict,
+        repr=False,
+    )
     _global_variable_index: Dict[str, TerraformBlock] = field(
         default_factory=dict, repr=False
     )
@@ -573,37 +623,54 @@ class TerraformModule:
         self._global_local_index.clear()
         self._global_provider_index.clear()
         self._global_terraform_index.clear()
+        self._global_module_index.clear()
 
         for file in self.files:
             self._global_resource_index.update(file._resource_index)
             self._global_resource_index.update(file._data_index)
-            self._global_resource_index.update(file._module_index)
+            self._global_module_index.update(file._module_index)
             self._global_variable_index.update(file._variable_index)
             self._global_output_index.update(file._output_index)
             self._global_local_index.update(file._local_index)
-            self._global_provider_index.update(
-                file._provider_index
-            )  # Uses label[0] as key
+            self._global_provider_index.update(file._provider_index)
             self._global_terraform_index.update(file._terraform_index)
+
+    def _get_index_by_address(
+        self, address: str
+    ) -> Optional[Dict[str, TerraformBlock]]:
+        if "." not in address:
+            if address == "terraform":
+                return self._terraform_index
+            elif address == "locals":
+                return self._local_index
+            else:
+                return None
+
+        prefix = address.split(".")[0]
+
+        if prefix == "data":
+            return self._global_resource_index
+        elif prefix == "module":
+            return self._global_module_index
+        elif prefix == "var":
+            return self._global_variable_index
+        elif prefix == "output":
+            return self._global_output_index
+        elif prefix == "provider":
+            return self._global_provider_index
+
+        return self._global_resource_index
 
     def get_block(self, address: str) -> Optional[TerraformBlock]:
         """
-        Get a block by its full address.
-
-        Args:
-            address: The full block address (e.g., "aws_vpc.main", "var.environment", "aws" for provider)
-
-        Returns:
-            TerraformBlock or None if not found
+        Get a block by its address, using intelligent index lookup.
         """
-        return (
-            self._global_resource_index.get(address)
-            or self._global_variable_index.get(address)
-            or self._global_output_index.get(address)
-            or self._global_local_index.get(address)
-            or self._global_provider_index.get(address)  # Provider uses label[0] as key
-            or self._global_terraform_index.get(address)
-        )
+        target_index = self._get_index_by_address(address)
+
+        if target_index:
+            return target_index.get(address)
+
+        return self._global_terraform_index.get(address)
 
     def get_resource(self, address: str) -> Optional[TerraformBlock]:
         """Get a resource block by address."""
@@ -616,6 +683,10 @@ class TerraformModule:
     def get_output(self, name: str) -> Optional[TerraformBlock]:
         """Get an output block by name."""
         return self._global_output_index.get(f"output.{name}")
+
+    def get_module(self, address: str) -> Optional[Any]:
+        """Get a module block by address."""
+        return self._global_module_index.get(address)
 
     def get_local(self, name: str) -> Optional[TerraformBlock]:
         """Get a local value block by name."""
@@ -711,6 +782,7 @@ class TerraformModule:
             "summary": {
                 "total_files": len(self.files),
                 "total_resources": len(self._global_resource_index),
+                "total_modules": len(self._global_module_index),
                 "total_variables": len(self._global_variable_index),
                 "total_outputs": len(self._global_output_index),
                 "total_locals": len(self._global_local_index),

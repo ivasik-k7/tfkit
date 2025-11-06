@@ -137,17 +137,25 @@ class TerraformParser:
     def _find_block_line(
         self, file_path: str, block_type: str, labels: List[str]
     ) -> Optional[int]:
-        """Find the line number where a block starts."""
         lines = self._get_file_lines(file_path)
 
-        # Build search pattern
-        if labels:
+        if block_type in ["locals", "terraform"]:
+            search_block_type = block_type if block_type == "terraform" else "locals"
+            pattern = rf"^\s*{re.escape(search_block_type)}\s*\{{"
+
+        elif labels:
+            search_block_type = block_type if block_type != "local" else "locals"
+
             label_pattern = r"\s+".join(f'"{re.escape(label)}"' for label in labels)
-            pattern = rf"^\s*{re.escape(block_type)}\s+{label_pattern}\s*\{{"
+            pattern = rf"^\s*{re.escape(search_block_type)}\s+{label_pattern}\s*\{{"
+
         else:
             pattern = rf"^\s*{re.escape(block_type)}\s*\{{"
 
         for line_num, line in enumerate(lines, 1):
+            if line.strip().startswith("#") or not line.strip():
+                continue
+
             if re.search(pattern, line):
                 return line_num
 
@@ -160,27 +168,30 @@ class TerraformParser:
         attribute_name: str,
         end_line: Optional[int] = None,
     ) -> Optional[int]:
-        """Find the line number of an attribute within a block."""
+        """Find the line number of an attribute (or local variable assignment) within a block."""
         lines = self._get_file_lines(file_path)
 
         if start_line < 1 or start_line > len(lines):
             return None
 
-        # Determine search range
         if end_line is None:
             end_line = self._find_block_end(file_path, start_line)
 
-        # Pattern for attribute assignment
-        pattern = rf"^\s*{re.escape(attribute_name)}\s*="
+        pattern = rf"^\s*{re.escape(attribute_name)}\s*=\s*[^\{{]"
 
         for line_num in range(start_line, min(end_line + 1, len(lines) + 1)):
-            if re.search(pattern, lines[line_num - 1]):
+            line = lines[line_num - 1]
+
+            if line.strip().startswith("#"):
+                continue
+
+            if re.search(pattern, line):
                 return line_num
 
         return None
 
     def _find_block_end(self, file_path: str, start_line: int) -> int:
-        """Find the closing brace of a block."""
+        """Find the closing brace '}' of a block using brace counting."""
         lines = self._get_file_lines(file_path)
 
         if start_line < 1 or start_line > len(lines):
@@ -657,9 +668,7 @@ class TerraformParser:
             return AttributeType.NUMBER
 
         if isinstance(value, str):
-            # Check for interpolation
             if "${" in value:
-                # Check if it's a function inside interpolation
                 interpolation_match = re.search(r"\$\{(.+)\}", value)
                 if interpolation_match:
                     inner_content = interpolation_match.group(1).strip()
@@ -667,11 +676,9 @@ class TerraformParser:
                         return AttributeType.FUNCTION
                 return AttributeType.INTERPOLATION
 
-            # Check for direct function call (without interpolation)
             if self._parse_function_call(value):
                 return AttributeType.FUNCTION
 
-            # Check for direct reference (without interpolation)
             refs = self._find_all_reference_patterns(value)
             if refs and len(refs) == 1 and refs[0] == value.strip():
                 return AttributeType.REFERENCE
@@ -742,30 +749,31 @@ class TerraformParser:
         """Parse a Terraform block with full metadata."""
         labels = labels or []
 
-        # Determine object type
+        # 1. Determine Type and Name
         obj_type = self._get_object_type(block_type)
-
-        # Extract resource type and name
         resource_type = None
         name = None
 
-        if obj_type in (TerraformObjectType.RESOURCE, TerraformObjectType.DATA_SOURCE):
-            if len(labels) >= 2:
-                resource_type = labels[0]
-                name = labels[1]
-        elif obj_type in (
-            TerraformObjectType.MODULE,
-            TerraformObjectType.VARIABLE,
-            TerraformObjectType.OUTPUT,
-            TerraformObjectType.LOCAL,
-        ):
-            if labels:
+        if labels:
+            if obj_type in (
+                TerraformObjectType.RESOURCE,
+                TerraformObjectType.DATA_SOURCE,
+            ):
+                if len(labels) >= 2:
+                    resource_type = labels[0]
+                    name = labels[1]
+            elif obj_type in (
+                TerraformObjectType.MODULE,
+                TerraformObjectType.VARIABLE,
+                TerraformObjectType.OUTPUT,
+                TerraformObjectType.PROVIDER,
+                TerraformObjectType.MOVED,
+                TerraformObjectType.IMPORT,
+            ):
                 name = labels[0]
 
-        # Find block line number
+        # 2. Determine Source Location
         block_line = self._find_block_line(file_path, block_type, labels)
-
-        # Create source location
         source_location = None
         if block_line:
             end_line = self._find_block_end(file_path, block_line)
@@ -773,49 +781,60 @@ class TerraformParser:
                 file_path=file_path, line_start=block_line, line_end=end_line
             )
 
-        # Parse attributes
         attributes = {}
         count_attr = None
         for_each_attr = None
         depends_on = []
         lifecycle = {}
+        explicit_provider_attr = None
+
+        META_ARG_MAP = {
+            "count": lambda val, attr_val: {"count": attr_val},
+            "for_each": lambda val, attr_val: {"for_each": attr_val},
+            "depends_on": lambda val, attr_val: {
+                "depends_on": val if isinstance(val, list) else [val]
+            },
+            "lifecycle": lambda val, attr_val: {
+                "lifecycle": val if isinstance(val, dict) else {}
+            },
+            "provider": lambda val, attr_val: {"provider": attr_val},
+        }
 
         for key, value in block_data.items():
-            # Find attribute line number
             attr_line = None
             if block_line:
-                attr_line = self._find_attribute_line(file_path, block_line, key)
+                attr_line = self._find_attribute_line(
+                    file_path, block_line, key, source_location.line_end
+                )
 
-            # Parse attribute value
             attr_value = self._parse_attribute_value(value, file_path, attr_line)
 
-            # Check for meta-arguments
-            if key == "count":
-                count_attr = attr_value
-                continue
-            elif key == "for_each":
-                for_each_attr = attr_value
-                continue
-            elif key == "depends_on":
-                depends_on = value if isinstance(value, list) else [value]
-                continue
-            elif key == "lifecycle":
-                lifecycle = value if isinstance(value, dict) else {}
-                continue
-            elif key == "provider":
+            if key in META_ARG_MAP:
+                updates = META_ARG_MAP[key](value, attr_value)
+
+                if "count" in updates:
+                    count_attr = updates["count"]
+                if "for_each" in updates:
+                    for_each_attr = updates["for_each"]
+                if "depends_on" in updates:
+                    depends_on = updates["depends_on"]
+                if "lifecycle" in updates:
+                    lifecycle = updates["lifecycle"]
+                if "provider" in updates:
+                    explicit_provider_attr = updates["provider"]
+
                 continue
 
-            # Create attribute
             attribute = TerraformAttribute(name=key, value=attr_value)
             attributes[key] = attribute
 
-        # Create block
         return TerraformBlock(
             block_type=obj_type,
             resource_type=resource_type,
             name=name,
             labels=labels,
             attributes=attributes,
+            explicit_provider=explicit_provider_attr,
             count=count_attr,
             for_each=for_each_attr,
             depends_on=depends_on,
@@ -844,10 +863,8 @@ class TerraformParser:
 
     def parse_file(self, file_path: str) -> TerraformFile:
         """Parse a Terraform file and extract all metadata."""
-        # Cache file for line number lookups
         self._cache_file(file_path)
 
-        # Parse file content
         if file_path.endswith(".tf.json"):
             parsed_data = self._parse_json_file(file_path)
         else:
