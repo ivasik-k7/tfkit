@@ -1,5 +1,5 @@
 """
-Enhanced Terraform Parser with comprehensive metadata extraction.
+Terraform Parser with comprehensive metadata extraction.
 """
 
 import json
@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from tfkit.inspector.models import (
     AttributeType,
     AttributeValue,
+    ReferenceScope,
     ReferenceType,
     SourceLocation,
     TerraformAttribute,
@@ -23,7 +24,7 @@ from tfkit.inspector.models import (
 
 
 class TerraformParser:
-    """Enhanced Terraform parser with full metadata extraction."""
+    """Terraform parser with full metadata extraction."""
 
     def __init__(self):
         self._file_cache: Dict[str, List[str]] = {}
@@ -220,45 +221,6 @@ class TerraformParser:
     #  REFERENCE EXTRACTION
     # ========================================================================
 
-    def _extract_references(self, value: Any) -> List[TerraformReference]:
-        """
-        extract all Terraform references from any value type.
-        This is the main entry point for reference extraction.
-        """
-        seen_refs = set()
-        references = []
-
-        def add_unique_ref(ref: TerraformReference):
-            if ref and ref.full_reference not in seen_refs:
-                seen_refs.add(ref.full_reference)
-                references.append(ref)
-
-        self._extract_references_recursive(value, add_unique_ref)
-
-        return references
-
-    def _extract_references_recursive(self, value: Any, add_ref_callback):
-        """Recursively extract references from any value type."""
-        if value is None:
-            return
-
-        if isinstance(value, str):
-            self._extract_from_string(value, add_ref_callback)
-
-        elif isinstance(value, dict):
-            for k, v in value.items():
-                # Keys can also contain references in Terraform
-                self._extract_references_recursive(k, add_ref_callback)
-                self._extract_references_recursive(v, add_ref_callback)
-
-        elif isinstance(value, (list, tuple)):
-            for item in value:
-                self._extract_references_recursive(item, add_ref_callback)
-
-        elif isinstance(value, set):
-            for item in value:
-                self._extract_references_recursive(item, add_ref_callback)
-
     def _extract_from_string(self, value: str, add_ref_callback):
         """Extract all references from a string value."""
         if not value or not isinstance(value, str):
@@ -414,7 +376,156 @@ class TerraformParser:
             # Recursively extract from nested structures in arguments
             self._extract_from_string(args_str, add_ref_callback)
 
-    def _parse_reference(self, ref_string: str) -> Optional[TerraformReference]:
+    def _extract_references(
+        self, value: Any, source_location: Optional[SourceLocation] = None
+    ) -> List[TerraformReference]:
+        """
+        Extract all Terraform references from any value type with metadata.
+        This is the main entry point for reference extraction.
+        """
+        seen_refs = set()
+        references = []
+
+        def add_unique_ref(ref: TerraformReference):
+            if ref and ref.full_reference not in seen_refs:
+                seen_refs.add(ref.full_reference)
+
+                # Enhance reference with source location and scope analysis
+                if source_location:
+                    ref.source_location = source_location
+
+                # Analyze scope based on reference type and context
+                ref.scope = self._determine_reference_scope(ref)
+
+                references.append(ref)
+
+        self._extract_references_recursive(value, add_unique_ref, source_location)
+        return references
+
+    def _extract_references_recursive(
+        self,
+        value: Any,
+        add_ref_callback,
+        source_location: Optional[SourceLocation] = None,
+    ):
+        """Recursively extract references from any value type with context."""
+        if value is None:
+            return
+
+        if isinstance(value, str):
+            self._extract_from_string(value, add_ref_callback, source_location)
+
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                # Keys can also contain references in Terraform
+                self._extract_references_recursive(k, add_ref_callback, source_location)
+                self._extract_references_recursive(v, add_ref_callback, source_location)
+
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                self._extract_references_recursive(
+                    item, add_ref_callback, source_location
+                )
+
+        elif isinstance(value, set):
+            for item in value:
+                self._extract_references_recursive(
+                    item, add_ref_callback, source_location
+                )
+
+    def _extract_from_string(
+        self,
+        value: str,
+        add_ref_callback,
+        source_location: Optional[SourceLocation] = None,
+    ):
+        """Extract all references from a string value with parsing."""
+        if not value or not isinstance(value, str):
+            return
+
+        # Track interpolation complexity for reference scoring
+        interpolation_depth = value.count("${")
+        has_complex_interpolation = interpolation_depth > 1
+
+        # 1. Extract direct references (no interpolation)
+        for ref_str in self._find_all_reference_patterns(value):
+            ref = self._parse_reference(ref_str, source_location)
+            if ref:
+                # Mark as conditional if in complex interpolation
+                if has_complex_interpolation:
+                    ref.is_conditional = True
+                add_ref_callback(ref)
+
+        # 2. Extract from interpolations: ${...}
+        interpolation_pattern = r"\$\{([^}]+)\}"
+        for match in re.finditer(interpolation_pattern, value):
+            interpolation_content = match.group(1).strip()
+
+            for ref_str in self._find_all_reference_patterns(interpolation_content):
+                ref = self._parse_reference(ref_str, source_location)
+                if ref:
+                    ref.is_conditional = True
+                    add_ref_callback(ref)
+
+            if "${" in interpolation_content:
+                self._extract_from_string(
+                    interpolation_content, add_ref_callback, source_location
+                )
+            else:
+                func_ref = self._parse_function_as_reference(
+                    interpolation_content, source_location
+                )
+                if func_ref:
+                    add_ref_callback(func_ref)
+
+        for_pattern = r"\bfor\s+(\w+)\s+in\s+([^:]+)\s*:\s*(.+)"
+        for match in re.finditer(for_pattern, value):
+            _iterator_var = match.group(1)
+            collection_expr = match.group(2).strip()
+            transform_expr = match.group(3).strip()
+
+            for ref_str in self._find_all_reference_patterns(collection_expr):
+                ref = self._parse_reference(ref_str, source_location)
+                if ref:
+                    ref.is_conditional = True
+                    add_ref_callback(ref)
+
+            for ref_str in self._find_all_reference_patterns(transform_expr):
+                ref = self._parse_reference(ref_str, source_location)
+                if ref:
+                    ref.is_conditional = True
+                    add_ref_callback(ref)
+
+        # 4. Extract from function calls as special references
+        self._extract_function_references(value, add_ref_callback, source_location)
+
+        # 5. Extract from conditional expressions: condition ? true_val : false_val
+        conditional_pattern = r"([^?]+)\?([^:]+):(.+)"
+        conditional_match = re.search(conditional_pattern, value)
+        if conditional_match:
+            condition_expr, true_expr, false_expr = conditional_match.groups()
+
+            for expr in [condition_expr, true_expr, false_expr]:
+                for ref_str in self._find_all_reference_patterns(expr):
+                    ref = self._parse_reference(ref_str, source_location)
+                    if ref:
+                        ref.is_conditional = True
+                        add_ref_callback(ref)
+
+        # 6. Extract from dynamic block references
+        dynamic_pattern = r"dynamic\s+[\"']([^\"']+)[\"']"
+        for match in re.finditer(dynamic_pattern, value):
+            # Dynamic blocks often reference collections
+            dynamic_content = match.group(0)
+            for ref_str in self._find_all_reference_patterns(dynamic_content):
+                ref = self._parse_reference(ref_str, source_location)
+                if ref:
+                    ref.is_computed = True  # Dynamic content is computed
+                    add_ref_callback(ref)
+
+    def _parse_reference(
+        self, ref_string: str, source_location: Optional[SourceLocation] = None
+    ) -> Optional[TerraformReference]:
         """
         Parse a Terraform reference string into TerraformReference object.
         """
@@ -427,89 +538,232 @@ class TerraformParser:
             return None
 
         prefix = parts[0]
+        base_reference = None
 
-        # Variable reference: var.name or var.name.attr
         if prefix == "var":
-            return TerraformReference(
+            base_reference = TerraformReference(
                 reference_type=ReferenceType.VARIABLE,
-                target=f"var.{parts[1]}",
+                target=parts[1],
                 attribute_path=parts[2:] if len(parts) > 2 else [],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=False,
             )
 
-        if prefix == "local":
-            return TerraformReference(
+        elif prefix == "local":
+            base_reference = TerraformReference(
                 reference_type=ReferenceType.LOCAL,
-                target=f"local.{parts[1]}",
+                target=parts[1],
                 attribute_path=parts[2:] if len(parts) > 2 else [],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=False,  # Locals are computed from expressions
             )
 
-        # Module reference: module.name.output
-        if prefix == "module":
-            return TerraformReference(
+        elif prefix == "module":
+            base_reference = TerraformReference(
                 reference_type=ReferenceType.MODULE,
-                target=f"module.{parts[1]}",
+                target=parts[1],
                 attribute_path=parts[2:] if len(parts) > 2 else [],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=True,  # Module outputs are computed
             )
 
-        # Data source reference: data.type.name.attr
-        if prefix == "data":
+        elif prefix == "data":
             if len(parts) >= 3:
-                return TerraformReference(
+                base_reference = TerraformReference(
                     reference_type=ReferenceType.DATA_SOURCE,
-                    target=f"data.{parts[1]}.{parts[2]}",
+                    target=f"{parts[1]}.{parts[2]}",
                     attribute_path=parts[3:] if len(parts) > 3 else [],
                     full_reference=ref_string,
+                    source_location=source_location,
+                    is_computed=True,  # Data sources are computed at plan/apply
                 )
 
-        # Path reference: path.module, path.root, path.cwd
-        if prefix == "path":
-            return TerraformReference(
+        elif prefix == "path":
+            base_reference = TerraformReference(
                 reference_type=ReferenceType.PATH,
                 target=ref_string,
                 attribute_path=[],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=False,  # Path references are static
             )
 
-        # Terraform reference: terraform.workspace
-        if prefix == "terraform":
-            return TerraformReference(
+        elif prefix == "terraform":
+            base_reference = TerraformReference(
                 reference_type=ReferenceType.TERRAFORM,
                 target=ref_string,
                 attribute_path=[],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=True,  # Workspace can change
             )
 
         # Count/each reference
-        if prefix in ("count", "each"):
+        elif prefix in ("count", "each"):
             ref_type = ReferenceType.COUNT if prefix == "count" else ReferenceType.EACH
-            return TerraformReference(
+            base_reference = TerraformReference(
                 reference_type=ref_type,
                 target=ref_string,
                 attribute_path=[],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=True,  # Count/each are runtime computed
             )
 
         # Self reference
-        if prefix == "self":
-            return TerraformReference(
+        elif prefix == "self":
+            base_reference = TerraformReference(
                 reference_type=ReferenceType.SELF,
                 target=ref_string,
-                attribute_path=[],
+                attribute_path=parts[1:] if len(parts) > 1 else [],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=True,  # Self refers to resource being created
             )
-
-        if "_" in prefix and len(parts) >= 2:
-            return TerraformReference(
+        # Resource reference: resource_type.name.attr
+        elif "_" in prefix and len(parts) >= 2:
+            base_reference = TerraformReference(
                 reference_type=ReferenceType.RESOURCE,
                 target=f"{parts[0]}.{parts[1]}",
                 attribute_path=parts[2:] if len(parts) > 2 else [],
                 full_reference=ref_string,
+                source_location=source_location,
+                is_computed=True,  # Resource attributes are computed
             )
 
-        return None
+        # Enhance the reference with additional intelligence
+        if base_reference:
+            base_reference = self._enhance_reference_metadata(base_reference)
+
+        return base_reference
+
+    def _enhance_reference_metadata(
+        self, reference: TerraformReference
+    ) -> TerraformReference:
+        """Add intelligent metadata to references based on type and context."""
+
+        # Set sensitivity based on common patterns
+        sensitive_attributes = {
+            "password",
+            "secret",
+            "key",
+            "token",
+            "private_key",
+            "certificate",
+        }
+        if any(
+            sensitive in ref_part.lower()
+            for ref_part in reference.attribute_path
+            for sensitive in sensitive_attributes
+        ):
+            reference.is_sensitive = True
+
+        # Mark as computed for certain reference types
+        computed_types = {
+            ReferenceType.RESOURCE,
+            ReferenceType.DATA_SOURCE,
+            ReferenceType.MODULE,
+            ReferenceType.SELF,
+            ReferenceType.TERRAFORM,
+            ReferenceType.COUNT,
+            ReferenceType.EACH,
+        }
+        if reference.reference_type in computed_types:
+            reference.is_computed = True
+
+        return reference
+
+    def _parse_function_as_reference(
+        self, expression: str, source_location: Optional[SourceLocation] = None
+    ) -> Optional[TerraformReference]:
+        """Parse function calls as special type of references."""
+        expression = expression.strip()
+
+        pattern = r"^([a-z][a-z0-9_]*)\s*\((.*)\)$"
+        match = re.match(pattern, expression, re.DOTALL)
+
+        if not match:
+            return None
+
+        func_name = match.group(1)
+
+        if func_name not in self.terraform_functions:
+            return None
+
+        func_reference = TerraformReference(
+            reference_type=ReferenceType.FUNCTION,
+            target=func_name,
+            attribute_path=[],
+            full_reference=expression,
+            source_location=source_location,
+            is_computed=True,
+            is_conditional=True,
+        )
+
+        args_str = match.group(2).strip()
+        for ref_str in self._find_all_reference_patterns(args_str):
+            arg_ref = self._parse_reference(ref_str, source_location)
+            if arg_ref:
+                func_reference.add_dependency(arg_ref)
+
+        return func_reference
+
+    def _extract_function_references(
+        self,
+        text: str,
+        add_ref_callback,
+        source_location: Optional[SourceLocation] = None,
+    ):
+        """Extract function calls as references."""
+        # Find all function calls: function_name(args)
+        function_pattern = r"([a-z_][a-z0-9_]*)\s*\(([^)]*(?:\([^)]*\))*[^)]*)\)"
+
+        for match in re.finditer(function_pattern, text, re.IGNORECASE | re.DOTALL):
+            func_name = match.group(1)
+            args_str = match.group(2)
+
+            if func_name not in self.terraform_functions:
+                continue
+
+            # Create function reference
+            func_ref = self._parse_function_as_reference(
+                match.group(0), source_location
+            )
+            if func_ref:
+                add_ref_callback(func_ref)
+
+            # Also extract references from function arguments as separate dependencies
+            for ref_str in self._find_all_reference_patterns(args_str):
+                arg_ref = self._parse_reference(ref_str, source_location)
+                if arg_ref:
+                    add_ref_callback(arg_ref)
+
+    def _determine_reference_scope(
+        self, reference: TerraformReference
+    ) -> ReferenceScope:
+        """Determine the scope of a reference."""
+        if reference.reference_type in [ReferenceType.LOCAL, ReferenceType.VARIABLE]:
+            return ReferenceScope.LOCAL
+        elif reference.reference_type in [
+            ReferenceType.RESOURCE,
+            ReferenceType.DATA_SOURCE,
+            ReferenceType.SELF,
+        ]:
+            return ReferenceScope.MODULE
+        elif reference.reference_type == ReferenceType.MODULE:
+            return ReferenceScope.CROSS_MODULE
+        elif reference.reference_type in [
+            ReferenceType.TERRAFORM,
+            ReferenceType.PATH,
+            ReferenceType.COUNT,
+            ReferenceType.EACH,
+        ]:
+            return ReferenceScope.MODULE
+        else:
+            return ReferenceScope.EXTERNAL
 
     # ========================================================================
     # FUNCTION PARSING
@@ -1014,91 +1268,96 @@ class TerraformParser:
 
     def parse_file(self, file_path: str) -> TerraformFile:
         """Parse a Terraform file and extract all metadata."""
-        self._cache_file(file_path)
+        try:
+            self._cache_file(file_path)
 
-        if file_path.endswith(".tf.json"):
-            parsed_data = self._parse_json_file(file_path)
-        else:
-            parsed_data = self._parse_hcl_file(file_path)
+            if file_path.endswith(".tf.json"):
+                parsed_data = self._parse_json_file(file_path)
+            else:
+                parsed_data = self._parse_hcl_file(file_path)
 
-        if not parsed_data:
-            return TerraformFile(file_path=file_path)
+            if not parsed_data:
+                return TerraformFile(file_path=file_path)
 
-        blocks = []
+            blocks = []
 
-        # Parse resources
-        for resource_item in parsed_data.get("resource", []):
-            for resource_type, resources in resource_item.items():
-                for resource_name, resource_data in resources.items():
+            # Parse resources
+            for resource_item in parsed_data.get("resource", []):
+                for resource_type, resources in resource_item.items():
+                    for resource_name, resource_data in resources.items():
+                        block = self._parse_block(
+                            "resource",
+                            resource_data,
+                            file_path,
+                            labels=[resource_type, resource_name],
+                        )
+                        blocks.append(block)
+
+            # Parse data sources
+            for data_item in parsed_data.get("data", []):
+                for data_type, data_sources in data_item.items():
+                    for data_name, data_data in data_sources.items():
+                        block = self._parse_block(
+                            "data",
+                            data_data,
+                            file_path,
+                            labels=[data_type, data_name],
+                        )
+                        blocks.append(block)
+
+            # Parse modules
+            for module_item in parsed_data.get("module", []):
+                for module_name, module_data in module_item.items():
                     block = self._parse_block(
-                        "resource",
-                        resource_data,
-                        file_path,
-                        labels=[resource_type, resource_name],
+                        "module", module_data, file_path, labels=[module_name]
                     )
                     blocks.append(block)
 
-        # Parse data sources
-        for data_item in parsed_data.get("data", []):
-            for data_type, data_sources in data_item.items():
-                for data_name, data_data in data_sources.items():
+            # Parse variables
+            for var_item in parsed_data.get("variable", []):
+                for var_name, var_data in var_item.items():
                     block = self._parse_block(
-                        "data",
-                        data_data,
-                        file_path,
-                        labels=[data_type, data_name],
+                        "variable", var_data, file_path, labels=[var_name]
                     )
                     blocks.append(block)
 
-        # Parse modules
-        for module_item in parsed_data.get("module", []):
-            for module_name, module_data in module_item.items():
+            # Parse outputs
+            for output_item in parsed_data.get("output", []):
+                for output_name, output_data in output_item.items():
+                    block = self._parse_block(
+                        "output", output_data, file_path, labels=[output_name]
+                    )
+                    blocks.append(block)
+
+            # Parse locals
+            for locals_data in parsed_data.get("locals", []):
+                local_blocks = self._parse_locals(locals_data, file_path)
+                leaf_blocks = [
+                    block
+                    for block in local_blocks
+                    if block.attributes.get("value")
+                    and block.attributes["value"].value.value_type
+                    not in (AttributeType.MAP, AttributeType.LIST, AttributeType.OBJECT)
+                ]
+                blocks.extend(leaf_blocks)
+
+            for provider_item in parsed_data.get("provider", []):
+                for provider_name, provider_data in provider_item.items():
+                    block = self._parse_block(
+                        "provider", provider_data, file_path, labels=[provider_name]
+                    )
+                    blocks.append(block)
+
+            # Parse terraform blocks
+            for terraform_item in parsed_data.get("terraform", []):
                 block = self._parse_block(
-                    "module", module_data, file_path, labels=[module_name]
+                    "terraform", terraform_item, file_path, labels=[]
                 )
                 blocks.append(block)
 
-        # Parse variables
-        for var_item in parsed_data.get("variable", []):
-            for var_name, var_data in var_item.items():
-                block = self._parse_block(
-                    "variable", var_data, file_path, labels=[var_name]
-                )
-                blocks.append(block)
-
-        # Parse outputs
-        for output_item in parsed_data.get("output", []):
-            for output_name, output_data in output_item.items():
-                block = self._parse_block(
-                    "output", output_data, file_path, labels=[output_name]
-                )
-                blocks.append(block)
-
-        # Parse locals
-        for locals_data in parsed_data.get("locals", []):
-            local_blocks = self._parse_locals(locals_data, file_path)
-            leaf_blocks = [
-                block
-                for block in local_blocks
-                if block.attributes.get("value")
-                and block.attributes["value"].value.value_type
-                not in (AttributeType.MAP, AttributeType.LIST, AttributeType.OBJECT)
-            ]
-            blocks.extend(leaf_blocks)
-
-        for provider_item in parsed_data.get("provider", []):
-            for provider_name, provider_data in provider_item.items():
-                block = self._parse_block(
-                    "provider", provider_data, file_path, labels=[provider_name]
-                )
-                blocks.append(block)
-
-        # Parse terraform blocks
-        for terraform_item in parsed_data.get("terraform", []):
-            block = self._parse_block("terraform", terraform_item, file_path, labels=[])
-            blocks.append(block)
-
-        return TerraformFile(file_path=file_path, blocks=blocks)
+            return TerraformFile(file_path=file_path, blocks=blocks)
+        except Exception:
+            return TerraformFile(file_path=file_path, blocks=[])
 
     def _parse_hcl_file(self, file_path: str) -> Optional[Dict[str, Any]]:
         """Parse HCL file using python-hcl2."""

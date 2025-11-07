@@ -2,6 +2,7 @@
 Enhanced Terraform Inspector with comprehensive metadata extraction and reference resolution.
 """
 
+import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set, Union
@@ -54,6 +55,7 @@ class ReferenceType(Enum):
     MODULE = "module"
     PATH = "path"
     TERRAFORM = "terraform"
+    FUNCTION = "function"
     COUNT = "count"
     EACH = "each"
     SELF = "self"
@@ -87,50 +89,516 @@ class SourceLocation:
         }
 
 
+class ReferenceResolutionState(Enum):
+    """State of reference resolution."""
+
+    UNRESOLVED = "unresolved"
+    RESOLVING = "resolving"  # Currently being resolved (for cycle detection)
+    RESOLVED = "resolved"
+    CIRCULAR = "circular"
+    UNRESOLVABLE = "unresolvable"  # External dependency or unknown target
+    PARTIALLY_RESOLVED = "partially_resolved"  # Some attributes resolved, others not
+
+
+class ReferenceScope(Enum):
+    """Scope of the reference."""
+
+    LOCAL = "local"  # Within same locals block
+    MODULE = "module"  # Within same module
+    CROSS_MODULE = "cross_module"  # Across module boundaries
+    EXTERNAL = "external"  # External to configuration (data sources, etc.)
+
+
+@dataclass
+class ResolutionContext:
+    """Context for reference resolution."""
+
+    current_depth: int = 0
+    max_depth: int = 50
+    visited_references: Set[str] = field(default_factory=set)
+    resolution_path: List[str] = field(default_factory=list)
+    module_context: Optional["TerraformModule"] = None
+
+
+@dataclass
+class ResolutionResult:
+    """Result of reference resolution attempt."""
+
+    value: Any = None
+    state: ReferenceResolutionState = ReferenceResolutionState.UNRESOLVED
+    resolution_path: List[str] = field(default_factory=list)
+    dependencies_used: Set[str] = field(default_factory=set)
+    partial_results: Dict[str, Any] = field(
+        default_factory=dict
+    )  # For partial resolution
+    error_message: Optional[str] = None
+    resolution_time_ms: float = 0.0
+
+    @property
+    def is_successful(self) -> bool:
+        return self.state in [
+            ReferenceResolutionState.RESOLVED,
+            ReferenceResolutionState.PARTIALLY_RESOLVED,
+        ]
+
+    @property
+    def is_fully_resolved(self) -> bool:
+        return self.state == ReferenceResolutionState.RESOLVED
+
+
+@dataclass
+class ReferenceDependencyGraph:
+    """Graph structure for reference dependencies."""
+
+    dependencies: Dict[str, Set[str]] = field(
+        default_factory=dict
+    )  # ref -> dependencies
+    dependents: Dict[str, Set[str]] = field(default_factory=dict)  # ref -> dependents
+    resolution_order: List[str] = field(
+        default_factory=list
+    )  # Optimal resolution order
+
+    def add_dependency(self, reference: str, depends_on: str) -> None:
+        """Add a dependency relationship."""
+        if reference not in self.dependencies:
+            self.dependencies[reference] = set()
+        self.dependencies[reference].add(depends_on)
+
+        if depends_on not in self.dependents:
+            self.dependents[depends_on] = set()
+        self.dependents[depends_on].add(reference)
+
+    def detect_cycles(self) -> List[List[str]]:
+        """Detect circular dependencies in the graph."""
+        visited = set()
+        recursion_stack = set()
+        cycles = []
+
+        def dfs(node: str, path: List[str]) -> None:
+            if node in recursion_stack:
+                cycle_start = path.index(node)
+                cycle = path[cycle_start:]
+                if cycle not in cycles:
+                    cycles.append(cycle)
+                return
+
+            if node in visited:
+                return
+
+            visited.add(node)
+            recursion_stack.add(node)
+
+            for neighbor in self.dependencies.get(node, set()):
+                dfs(neighbor, path + [neighbor])
+
+            recursion_stack.remove(node)
+
+        for node in self.dependencies:
+            if node not in visited:
+                dfs(node, [node])
+
+        return cycles
+
+    def calculate_resolution_order(self) -> List[str]:
+        """Calculate optimal resolution order using topological sort."""
+        in_degree = dict.fromkeys(self.dependencies, 0)
+
+        # Calculate in-degrees
+        for _node, deps in self.dependencies.items():
+            for dep in deps:
+                if dep in in_degree:
+                    in_degree[dep] += 1
+                else:
+                    in_degree[dep] = 1
+
+        # Initialize with nodes having no dependencies
+        queue = [node for node, degree in in_degree.items() if degree == 0]
+        order = []
+
+        while queue:
+            node = queue.pop(0)
+            order.append(node)
+
+            for dependent in self.dependents.get(node, set()):
+                in_degree[dependent] -= 1
+                if in_degree[dependent] == 0:
+                    queue.append(dependent)
+
+        # Add any remaining nodes (cycles)
+        remaining = [node for node, degree in in_degree.items() if degree > 0]
+        order.extend(remaining)
+
+        self.resolution_order = order
+        return order
+
+
 @dataclass
 class TerraformReference:
-    """Represents a reference to another Terraform object."""
+    """Representation of a Terraform reference with advanced resolution capabilities."""
 
     reference_type: ReferenceType
-    target: str  # e.g., "aws_vpc.main", "var.environment"
-    attribute_path: List[str] = field(
-        default_factory=list
-    )  # e.g., ["id"] or ["tags", "Name"]
+    target: str  # Full target address e.g., "aws_vpc.main", "var.environment"
+    attribute_path: List[str] = field(default_factory=list)  # Attribute access path
+
     full_reference: str = ""
-    is_resolvable: bool = False
-    resolved_value: Any = None
+    source_location: Optional[SourceLocation] = None
+    scope: ReferenceScope = ReferenceScope.MODULE
+
+    resolution_state: ReferenceResolutionState = ReferenceResolutionState.UNRESOLVED
+    resolution_result: Optional[ResolutionResult] = None
+
+    direct_dependencies: Set[str] = field(default_factory=set)
+    all_dependencies: Set[str] = field(default_factory=set)
+    dependents: Set[str] = field(default_factory=set)
+
+    resolution_attempts: int = 0
+    resolution_history: List[ResolutionResult] = field(default_factory=list)
+
+    is_sensitive: bool = False
+    is_computed: bool = False
+    is_conditional: bool = False
+    complexity_score: int = 0  # Estimated resolution complexity (0-100)
+
+    _resolved_value: Any = None
+    _dependency_graph: Optional[ReferenceDependencyGraph] = None
 
     def __post_init__(self):
         if not self.full_reference:
             self.full_reference = self._build_full_reference()
 
+        self.complexity_score = self._calculate_complexity()
+
     def _build_full_reference(self) -> str:
-        parts = [self.reference_type.value, self.target]
+        """Build the complete reference string."""
+        parts = [self.reference_type.value]
+
+        # Handle special cases
+        if self.reference_type == ReferenceType.DATA_SOURCE:
+            # data.aws_vpc.main -> data.aws_vpc.main
+            parts.extend(
+                self.target.split(".") if "." in self.target else [self.target]
+            )
+        elif self.reference_type == ReferenceType.RESOURCE:
+            # aws_vpc.main -> aws_vpc.main
+            parts.extend(
+                self.target.split(".") if "." in self.target else [self.target]
+            )
+        else:
+            # var.name -> var.name
+            parts.append(self.target)
+
+        # Add attribute path
         if self.attribute_path:
             parts.extend(self.attribute_path)
+
         return ".".join(parts)
 
-    def to_dict(self) -> Dict[str, Any]:
-        return {
+    def _calculate_complexity(self) -> int:
+        """Calculate resolution complexity score."""
+        score = 0
+
+        type_complexity = {
+            ReferenceType.LOCAL: 1,
+            ReferenceType.VARIABLE: 2,
+            ReferenceType.RESOURCE: 5,
+            ReferenceType.DATA_SOURCE: 8,
+            ReferenceType.MODULE: 10,
+            ReferenceType.FUNCTION: 15,
+            ReferenceType.PATH: 1,
+            ReferenceType.TERRAFORM: 3,
+            ReferenceType.COUNT: 2,
+            ReferenceType.EACH: 2,
+            ReferenceType.SELF: 4,
+        }
+
+        score += type_complexity.get(self.reference_type, 5)
+
+        score += len(self.attribute_path) * 2
+
+        if self.scope == ReferenceScope.CROSS_MODULE:
+            score += 10
+        elif self.scope == ReferenceScope.EXTERNAL:
+            score += 20
+
+        if self.is_conditional:
+            score += 5
+
+        if self.is_computed:
+            score += 3
+
+        if self.is_sensitive:
+            score += 2
+
+        return min(score, 100)
+
+    @property
+    def is_resolved(self) -> bool:
+        """Check if reference is successfully resolved."""
+        return self.resolution_state in [
+            ReferenceResolutionState.RESOLVED,
+            ReferenceResolutionState.PARTIALLY_RESOLVED,
+        ]
+
+    @property
+    def is_circular(self) -> bool:
+        """Check if reference is part of circular dependency."""
+        return self.resolution_state == ReferenceResolutionState.CIRCULAR
+
+    @property
+    def resolved_value(self) -> Any:
+        """Get resolved value with safety checks."""
+        if self.resolution_result and self.is_resolved:
+            return self.resolution_result.value
+        return self._resolved_value
+
+    @resolved_value.setter
+    def resolved_value(self, value: Any) -> None:
+        """Set resolved value with state management."""
+        self._resolved_value = value
+        if value is not None:
+            self.resolution_state = ReferenceResolutionState.RESOLVED
+        else:
+            self.resolution_state = ReferenceResolutionState.UNRESOLVED
+
+    def add_dependency(self, dependency: "TerraformReference") -> None:
+        """Add a dependency relationship."""
+        dep_string = dependency.full_reference
+        self.direct_dependencies.add(dep_string)
+
+        # Update transitive dependencies
+        self.all_dependencies.add(dep_string)
+        self.all_dependencies.update(dependency.all_dependencies)
+
+        # Update dependents of the dependency
+        dependency.dependents.add(self.full_reference)
+
+    def resolve(self, context: ResolutionContext) -> ResolutionResult:
+        """Attempt to resolve this reference."""
+        import time
+
+        start_time = time.time()
+
+        self.resolution_attempts += 1
+        context.current_depth += 1
+
+        # Check for circular reference
+        if self.full_reference in context.visited_references:
+            result = ResolutionResult(
+                state=ReferenceResolutionState.CIRCULAR,
+                resolution_path=context.resolution_path.copy(),
+                error_message=f"Circular reference detected: {' -> '.join(context.resolution_path + [self.full_reference])}",
+            )
+            self._record_resolution(result, start_time)
+            return result
+
+        # Check depth limit
+        if context.current_depth > context.max_depth:
+            result = ResolutionResult(
+                state=ReferenceResolutionState.UNRESOLVABLE,
+                resolution_path=context.resolution_path.copy(),
+                error_message=f"Maximum resolution depth ({context.max_depth}) exceeded",
+            )
+            self._record_resolution(result, start_time)
+            return result
+
+        # Update context
+        context.visited_references.add(self.full_reference)
+        context.resolution_path.append(self.full_reference)
+
+        try:
+            # Attempt resolution based on reference type
+            resolution_method = self._get_resolution_method()
+            result = resolution_method(context)
+
+        except Exception as e:
+            result = ResolutionResult(
+                state=ReferenceResolutionState.UNRESOLVABLE,
+                resolution_path=context.resolution_path.copy(),
+                error_message=f"Resolution error: {str(e)}",
+            )
+        finally:
+            # Cleanup context
+            context.visited_references.remove(self.full_reference)
+            context.resolution_path.pop()
+            context.current_depth -= 1
+
+        self._record_resolution(result, start_time)
+        return result
+
+    def _get_resolution_method(self):
+        """Get the appropriate resolution method for this reference type."""
+        resolution_methods = {
+            ReferenceType.LOCAL: self._resolve_local,
+            ReferenceType.VARIABLE: self._resolve_variable,
+            ReferenceType.RESOURCE: self._resolve_resource,
+            ReferenceType.DATA_SOURCE: self._resolve_data_source,
+            ReferenceType.MODULE: self._resolve_module,
+            ReferenceType.FUNCTION: self._resolve_function,
+        }
+        return resolution_methods.get(self.reference_type, self._resolve_generic)
+
+    def _resolve_local(self, context: ResolutionContext) -> ResolutionResult:
+        """Resolve local reference."""
+        if not context.module_context:
+            return ResolutionResult(
+                state=ReferenceResolutionState.UNRESOLVABLE,
+                error_message="No module context provided for local resolution",
+            )
+
+        local_block = context.module_context.get_local(self.target)
+        if not local_block:
+            return ResolutionResult(
+                state=ReferenceResolutionState.UNRESOLVABLE,
+                error_message=f"Local '{self.target}' not found",
+            )
+
+        value_attr = local_block.attributes.get("value")
+        if not value_attr:
+            return ResolutionResult(
+                state=ReferenceResolutionState.UNRESOLVABLE,
+                error_message=f"Local '{self.target}' has no value attribute",
+            )
+
+        return ResolutionResult(
+            value=value_attr.value.raw_value,
+            state=ReferenceResolutionState.RESOLVED,
+            dependencies_used={self.target},
+        )
+
+    def _resolve_variable(self, context: ResolutionContext) -> ResolutionResult:
+        """Resolve variable reference."""
+        # Similar implementation to _resolve_local but for variables
+        return ResolutionResult(
+            state=ReferenceResolutionState.UNRESOLVED,  # Variables often need external input
+            error_message="Variable resolution requires external input",
+        )
+
+    def _resolve_resource(self, context: ResolutionContext) -> ResolutionResult:
+        """Resolve resource reference."""
+        # Implementation for resource attribute resolution
+        return ResolutionResult(
+            state=ReferenceResolutionState.UNRESOLVABLE,  # Resources often computed
+            error_message="Resource attributes are computed at apply time",
+        )
+
+    def _resolve_data_source(self, context: ResolutionContext) -> ResolutionResult:
+        """Resolve data source reference."""
+        return ResolutionResult(
+            state=ReferenceResolutionState.UNRESOLVABLE,  # Data sources need provider
+            error_message="Data source resolution requires provider configuration",
+        )
+
+    def _resolve_module(self, context: ResolutionContext) -> ResolutionResult:
+        """Resolve module reference."""
+        return ResolutionResult(
+            state=ReferenceResolutionState.UNRESOLVABLE,  # Modules need full resolution
+            error_message="Module output resolution requires module instantiation",
+        )
+
+    def _resolve_function(self, context: ResolutionContext) -> ResolutionResult:
+        """Resolve function call."""
+        return ResolutionResult(
+            state=ReferenceResolutionState.UNRESOLVABLE,  # Functions need evaluation
+            error_message="Function evaluation requires runtime context",
+        )
+
+    def _resolve_generic(self, context: ResolutionContext) -> ResolutionResult:
+        """Generic resolution fallback."""
+        return ResolutionResult(
+            state=ReferenceResolutionState.UNRESOLVABLE,
+            error_message=f"No resolution method for reference type: {self.reference_type}",
+        )
+
+    def _record_resolution(self, result: ResolutionResult, start_time: float) -> None:
+        """Record resolution attempt and update state."""
+        result.resolution_time_ms = (time.time() - start_time) * 1000
+        self.resolution_history.append(result)
+        self.resolution_state = result.state
+        self.resolution_result = result
+
+        if result.is_successful:
+            self._resolved_value = result.value
+
+    def get_resolution_tree(self) -> Dict[str, Any]:
+        """Get tree representation of resolution dependencies."""
+        tree = {
+            "reference": self.full_reference,
+            "state": self.resolution_state.value,
+            "resolved_value": self._serialize_value(self.resolved_value),
+            "dependencies": [],
+        }
+
+        for dep in sorted(self.direct_dependencies):
+            tree["dependencies"].append(dep)
+
+        return tree
+
+    def to_dict(self, include_resolution_history: bool = False) -> Dict[str, Any]:
+        """Convert to comprehensive dictionary representation."""
+        result = {
             "type": self.reference_type.value,
             "target": self.target,
             "attribute_path": self.attribute_path,
             "full_reference": self.full_reference,
-            "is_resolvable": self.is_resolvable,
-            "resolved_value": self._serialize_value(self.resolved_value)
-            if self.resolved_value
-            else None,
+            "scope": self.scope.value,
+            "resolution_state": self.resolution_state.value,
+            "is_resolved": self.is_resolved,
+            "is_circular": self.is_circular,
+            "direct_dependencies": sorted(self.direct_dependencies),
+            "all_dependencies": sorted(self.all_dependencies),
+            "dependents": sorted(self.dependents),
+            "resolution_attempts": self.resolution_attempts,
+            "complexity_score": self.complexity_score,
+            "is_sensitive": self.is_sensitive,
+            "is_computed": self.is_computed,
+            "is_conditional": self.is_conditional,
         }
+
+        if self.source_location:
+            result["source_location"] = self.source_location.to_dict()
+
+        if self.resolution_result:
+            result["resolution_result"] = {
+                "value": self._serialize_value(self.resolution_result.value),
+                "state": self.resolution_result.state.value,
+                "resolution_path": self.resolution_result.resolution_path,
+                "dependencies_used": sorted(self.resolution_result.dependencies_used),
+                "error_message": self.resolution_result.error_message,
+                "resolution_time_ms": self.resolution_result.resolution_time_ms,
+            }
+
+        if include_resolution_history and self.resolution_history:
+            result["resolution_history"] = [
+                {
+                    "value": self._serialize_value(hist.value),
+                    "state": hist.state.value,
+                    "resolution_path": hist.resolution_path,
+                    "error_message": hist.error_message,
+                    "resolution_time_ms": hist.resolution_time_ms,
+                }
+                for hist in self.resolution_history
+            ]
+
+        return result
 
     @staticmethod
     def _serialize_value(value: Any) -> Any:
-        if isinstance(value, (str, int, float, bool, type(None))):
+        """Safely serialize any value for JSON output."""
+        if value is None or isinstance(value, (str, int, float, bool)):
             return value
         if isinstance(value, (list, tuple)):
             return [TerraformReference._serialize_value(v) for v in value]
         if isinstance(value, dict):
             return {k: TerraformReference._serialize_value(v) for k, v in value.items()}
+        if isinstance(value, set):
+            return [TerraformReference._serialize_value(v) for v in sorted(value)]
         return str(value)
+
+    def __str__(self) -> str:
+        return f"TerraformReference({self.full_reference}, state={self.resolution_state.value})"
+
+    def __repr__(self) -> str:
+        return f"TerraformReference(type={self.reference_type.value}, target={self.target}, state={self.resolution_state.value})"
 
 
 @dataclass
@@ -640,9 +1108,9 @@ class TerraformModule:
     ) -> Optional[Dict[str, TerraformBlock]]:
         if "." not in address:
             if address == "terraform":
-                return self._terraform_index
+                return self._global_terraform_index
             elif address == "locals":
-                return self._local_index
+                return self._global_local_index
             else:
                 return None
 

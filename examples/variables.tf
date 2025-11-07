@@ -72,12 +72,14 @@ variable "azure_subscription_id" {
   description = "Azure subscription ID"
   type        = string
   default     = ""
+  sensitive   = true
 }
 
 variable "azure_tenant_id" {
   description = "Azure tenant ID"
   type        = string
   default     = ""
+  sensitive   = true
 }
 
 variable "unused_variable" {
