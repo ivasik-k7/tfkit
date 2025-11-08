@@ -368,7 +368,7 @@ def _analyze_terraform_project(
         # Load from .tfvars file if provided
         if terraform_vars and terraform_vars.exists():
             try:
-                with open(terraform_vars, "r") as f:
+                with open(terraform_vars) as f:
                     # Simple .tfvars parsing (basic key=value format)
                     for line in f:
                         line = line.strip()

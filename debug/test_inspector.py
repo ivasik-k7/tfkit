@@ -40,7 +40,6 @@ def run_complete_test():
     import json
     import traceback
 
-    from tfkit.inspector.builder import TerraformGraphBuilder
     from tfkit.inspector.models import (
         TerraformObjectType,
     )
@@ -51,7 +50,7 @@ def run_complete_test():
     print("TERRAFORM INSPECTOR - COMPLETE TEST")
     print("=" * 80)
 
-    examples_path = Path("./examples")
+    examples_path = Path("./examples/simple")
 
     print("\n[1] Parsing Terraform module...")
     parser = TerraformParser()
@@ -228,9 +227,9 @@ def run_complete_test():
             {
                 "address": block.address,
                 "type": block.resource_type,
-                "location": block.source_location.to_dict()
-                if block.source_location
-                else None,
+                "location": (
+                    block.source_location.to_dict() if block.source_location else None
+                ),
                 "dependencies": list(block.dependencies),
                 "attribute_count": len(block.attributes),
                 "meta_args_detected": [
@@ -249,9 +248,11 @@ def run_complete_test():
             {
                 "name": block.name,
                 "raw_value": block.attributes["value"].value.raw_value,
-                "resolved_value": block.attributes["value"].value.resolved_value
-                if hasattr(block.attributes["value"].value, "resolved_value")
-                else None,
+                "resolved_value": (
+                    block.attributes["value"].value.resolved_value
+                    if hasattr(block.attributes["value"].value, "resolved_value")
+                    else None
+                ),
             }
             for block in module._global_local_index.values()
             if "value" in block.attributes
@@ -294,20 +295,14 @@ def run_complete_test():
         f"    Functions evaluated: {sum(len(a.value.functions) for f in module.files for b in f.blocks for a in b.attributes.values() if hasattr(a.value, 'functions'))}"
     )
 
-    print("[11] Graph")
-    graph_builder = TerraformGraphBuilder()
-    graph = graph_builder.build_graph(module)
+    # print("[11] Graph")
+    # builder = GraphNodeBuilder()
 
-    graph_data = graph.to_dict()
+    # graph_data = builder.build_graph_from_module(module)
 
-    resource_id = "aws_vpc.main"
-    dependencies = graph.get_edges_from(resource_id)
-    print(f"Dependencies of {resource_id}:")
-    for dep in dependencies:
-        print(f"  - {dep.target_id} ({dep.edge_type.value})")
+    # print(graph_data)
 
-    print(f"Graph built with {len(graph.nodes)} nodes and {len(graph.edges)} edges")
-    print("Node types:", graph_data["summary"]["node_types"])
+    # with
 
     print("\n" + "=" * 80)
     print("TEST COMPLETED SUCCESSFULLY!")

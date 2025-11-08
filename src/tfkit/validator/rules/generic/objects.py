@@ -1,7 +1,7 @@
 """Terraform Configuration Rules"""
 
 import re
-from typing import Any, Dict, List
+from typing import Any, List
 
 from tfkit.validator.models import (
     ValidationCategory,

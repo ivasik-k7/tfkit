@@ -670,13 +670,13 @@ class AttributeValue:
             "references": [ref.to_dict() for ref in self.references],
             "functions": [func.to_dict() for func in self.functions],
             "has_interpolation": self.has_interpolation,
-            "resolved_value": self._serialize(self.resolved_value)
-            if self.resolved_value
-            else None,
+            "resolved_value": (
+                self._serialize(self.resolved_value) if self.resolved_value else None
+            ),
             "is_fully_resolved": self.is_fully_resolved,
-            "source_location": self.source_location.to_dict()
-            if self.source_location
-            else None,
+            "source_location": (
+                self.source_location.to_dict() if self.source_location else None
+            ),
         }
 
     @staticmethod

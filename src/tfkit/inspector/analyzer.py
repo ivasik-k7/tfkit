@@ -198,8 +198,8 @@ class MermaidExportStrategy(ExportStrategy):
                 for i, cycle in enumerate(analysis.circular_dependencies):
                     f.write(f"    %% Cycle {i + 1}\n")
                     for j in range(len(cycle)):
-                        from_node = self._sanitize_id(cycle[j])
-                        to_node = self._sanitize_id(cycle[(j + 1) % len(cycle)])
+                        # from_node = self._sanitize_id(cycle[j])
+                        # to_node = self._sanitize_id(cycle[(j + 1) % len(cycle)])
                         f.write(
                             f"    linkStyle {self._get_edge_index(analysis, cycle[j], cycle[(j + 1) % len(cycle)])} stroke:#ff0000,stroke-width:3px,stroke-dasharray:0\n"
                         )

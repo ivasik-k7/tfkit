@@ -327,7 +327,7 @@ class TerraformToGraphModelConverter:
         self, block: "TerraformBlock", source_id: int
     ):
         """Build implicit edges from attribute references."""
-        for attr_name, attribute in block.attributes.items():
+        for _attr_name, attribute in block.attributes.items():
             attr_value = attribute.value
             if attr_value.references:
                 for ref in attr_value.references:
@@ -536,9 +536,9 @@ class TerraformToGraphModelConverter:
         )
 
         details = {
-            "required_providers": list(providers.keys())
-            if isinstance(providers, dict)
-            else []
+            "required_providers": (
+                list(providers.keys()) if isinstance(providers, dict) else []
+            )
         }
 
         if block.source_location:

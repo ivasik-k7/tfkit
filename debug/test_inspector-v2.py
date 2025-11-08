@@ -22,7 +22,6 @@ def test_reference_extraction(module_path: str):
     print(f"Files: {len(module.files)}")
     print(f"Total blocks: {sum(len(f.blocks) for f in module.files)}")
 
-    # Test reference extraction for each block
     print("\n" + "-" * 80)
     print("REFERENCE EXTRACTION BY BLOCK")
     print("-" * 80)
@@ -312,13 +311,15 @@ def main():
 
     module_path = sys.argv[1]
 
-    print("""
+    print(
+        """
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║                                                                            ║
 ║         TERRAFORM INSPECTOR - REFERENCE EXTRACTION TEST           ║
 ║                                                                            ║
 ╚════════════════════════════════════════════════════════════════════════════╝
-    """)
+    """
+    )
 
     # Test 1: Reference extraction
     module = test_reference_extraction(module_path)
