@@ -153,9 +153,251 @@ resource "random_pet" "bucket_suffix" {
   length = 2
 }
 
+resource "aws_instance" "secondary_instance" {
+  provider = aws.secondary
+  ami      = ""
+}
+
 resource "null_resource" "example" {
   triggers = {
     instance_count = var.instance_count
     environment    = var.environment
   }
+}
+
+# resources.tf - Additional resources with meta arguments
+
+# 1. Count meta-argument with conditional creation
+resource "aws_s3_bucket" "primary_buckets" {
+  count = var.environment == "prod" ? 3 : 1
+
+  bucket = "${local.bucket_name}-${count.index}"
+  tags = merge(local.common_tags, {
+    BucketIndex = count.index
+    Region      = var.aws_region
+  })
+}
+
+# 2. For_each meta-argument with map
+resource "aws_iam_user" "deployment_users" {
+  for_each = {
+    ci_cd      = "continuous-integration"
+    backup     = "backup-process"
+    monitoring = "monitoring-system"
+  }
+
+  name = "${local.naming.prefix}-${each.key}-user"
+  tags = merge(local.common_tags, {
+    Role = each.value
+  })
+}
+
+# 3. Multiple providers with aliases
+resource "aws_s3_bucket" "cross_region_buckets" {
+  for_each = {
+    primary   = aws
+    secondary = aws.secondary
+  }
+
+  provider = each.value
+  bucket   = "${local.bucket_name}-${each.key}-${random_pet.bucket_suffix.id}"
+
+  tags = merge(local.common_tags, {
+    Region = each.key
+  })
+}
+
+# 4. Depends_on meta-argument
+resource "aws_iam_user_policy" "bucket_access_policies" {
+  for_each = aws_iam_user.deployment_users
+
+  # Explicit dependency on S3 buckets
+  depends_on = [aws_s3_bucket.primary_buckets]
+
+  name = "${each.value.name}-s3-access"
+  user = each.value.name
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action   = ["s3:*"]
+        Effect   = "Allow"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# 5. Lifecycle meta-argument with ignore_changes and prevent_destroy
+resource "aws_security_group" "instance_security_group" {
+  name        = "${local.instance_name}-sg"
+  description = "Security group for EC2 instances"
+
+  # Lifecycle configuration
+  lifecycle {
+    prevent_destroy = var.environment == "prod" ? true : false
+    ignore_changes  = [description]
+  }
+
+  tags = local.common_tags
+}
+
+# 6. Count with conditional and lifecycle create_before_destroy
+resource "aws_cloudwatch_log_group" "app_logs" {
+  count = var.instance_count > 0 ? 1 : 0
+
+  name = "/aws/ec2/${local.instance_name}"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = local.common_tags
+}
+
+# 7. Complex for_each with nested structure
+resource "aws_ssm_parameter" "application_config" {
+  for_each = {
+    for idx, config in local.application_configs :
+    config.name => config
+  }
+
+  name  = each.value.name
+  type  = each.value.type
+  value = each.value.value
+
+  tags = local.common_tags
+}
+
+resource "aws_vpc" "secondary_vpc" {
+  provider = aws.secondary
+
+  depends_on = [aws_s3_bucket.cross_region_buckets["secondary"]]
+
+  cidr_block = local.config.networking.cidr_blocks.secondary
+  tags = merge(local.common_tags, {
+    Name = "${local.naming.prefix}-secondary-vpc"
+  })
+}
+
+# 9. Multiple resources with count and element() function
+resource "aws_subnet" "primary_subnets" {
+  count = length(data.aws_availability_zones.available.names)
+
+  vpc_id            = aws_vpc.primary_vpc.id
+  cidr_block        = cidrsubnet(local.config.networking.cidr_blocks.primary, 8, count.index)
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+
+  tags = merge(local.common_tags, {
+    Name = "${local.naming.prefix}-subnet-${count.index}"
+    AZ   = data.aws_availability_zones.available.names[count.index]
+  })
+}
+
+# 10. Null resource with triggers and depends_on
+resource "null_resource" "deployment_trigger" {
+  depends_on = [
+    aws_s3_bucket.primary_buckets
+  ]
+
+  triggers = {
+    instance_count = var.instance_count
+    bucket_count   = length(aws_s3_bucket.primary_buckets)
+    timestamp      = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "echo 'Deployment completed with ${var.instance_count} instances and ${length(aws_s3_bucket.primary_buckets)} buckets'"
+  }
+}
+
+# Additional supporting resources and locals
+
+# Primary VPC resource
+resource "aws_vpc" "primary_vpc" {
+  cidr_block = local.config.networking.cidr_blocks.primary
+  tags = merge(local.common_tags, {
+    Name = "${local.naming.prefix}-primary-vpc"
+  })
+}
+
+# EC2 instances with count
+resource "aws_instance" "primary_instances" {
+  count = var.instance_count
+
+  ami           = local.config.instances.ami[var.aws_region]
+  instance_type = local.config.instances.type
+
+  # Using element() to distribute across AZs
+  availability_zone = element(data.aws_availability_zones.available.names, count.index)
+
+  vpc_security_group_ids = [aws_security_group.instance_security_group.id]
+
+  tags = merge(local.common_tags, {
+    Name = "${local.instance_name}-${count.index}"
+    AZ   = element(data.aws_availability_zones.available.names, count.index)
+  })
+
+  lifecycle {
+    ignore_changes = [ami]
+  }
+}
+
+# Additional locals for complex configurations
+locals {
+  application_configs = [
+    {
+      name  = "/${var.environment}/database/host"
+      type  = "String"
+      value = "localhost"
+    },
+    {
+      name  = "/${var.environment}/database/port"
+      type  = "String"
+      value = "5432"
+    },
+    {
+      name  = "/${var.environment}/app/version"
+      type  = "String"
+      value = "1.0.0"
+    }
+  ]
+
+  # Dynamic naming based on count
+  instance_names = [
+    for i in range(var.instance_count) :
+    "${local.instance_name}-${i}"
+  ]
+}
+
+# Additional outputs to showcase the meta-arguments results
+output "s3_buckets" {
+  description = "Created S3 buckets"
+  value       = { for k, v in aws_s3_bucket.primary_buckets : k => v.bucket }
+}
+
+output "iam_users" {
+  description = "Created IAM users"
+  value       = { for k, v in aws_iam_user.deployment_users : k => v.name }
+}
+
+output "cross_region_buckets_info" {
+  description = "Cross-region buckets information"
+  value       = { for k, v in aws_s3_bucket.cross_region_buckets : k => { bucket = v.bucket, region = v.tags_all.Region } }
+}
+
+output "subnet_configuration" {
+  description = "Subnet configuration details"
+  value = [
+    for subnet in aws_subnet.primary_subnets : {
+      id                = subnet.id
+      cidr_block        = subnet.cidr_block
+      availability_zone = subnet.availability_zone
+    }
+  ]
+}
+
+output "ssm_parameters" {
+  description = "SSM parameter details"
+  value       = { for k, v in aws_ssm_parameter.application_config : k => v.name }
 }

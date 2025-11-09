@@ -87,6 +87,12 @@ resource "google_compute_network" "vpc" {
   auto_create_subnetworks = false
 }
 
+resource "google_compute_network" "vpc_g2" {
+  provider                = google.g2
+  name                    = local.naming.gcp.network_name
+  auto_create_subnetworks = false
+}
+
 resource "google_compute_subnetwork" "subnet" {
   count = local.network_config.subnet_count
 

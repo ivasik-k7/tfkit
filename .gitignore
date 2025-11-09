@@ -171,3 +171,8 @@ uv.lock
 
 # scripts related
 publish.sh
+
+# exported diagrams extensions
+out/*
+*.mmd
+*.dot
