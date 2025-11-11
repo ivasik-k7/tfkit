@@ -9,7 +9,9 @@ def main():
     config = ParsingConfig()
     parser = TerraformParser(config)
 
-    module = parser.parse_directory(test_path)
+    catalog = parser.parse_directory(test_path)
+    catalog.to_yaml(Path("out/catalog.yaml"))
+    catalog.to_json(Path("out/catalog.json"))
     print("Hello")
 
 

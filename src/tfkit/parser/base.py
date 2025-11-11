@@ -15,8 +15,14 @@ from typing import Any, Dict, List, Optional
 import hcl2
 import lark
 
+from tfkit.parser.data_sources import DataSourceParsingStrategy
+from tfkit.parser.locals import LocalsParsingStrategy
 from tfkit.parser.models import BlockParsingStrategy, TerraformCatalog
+from tfkit.parser.modules import ModuleParsingStrategy
+from tfkit.parser.moved import MovedParsingStrategy
 from tfkit.parser.outputs import OutputParsingStrategy
+from tfkit.parser.providers import ProviderParsingStrategy
+from tfkit.parser.resources import ResourceParsingStrategy
 from tfkit.parser.terraform_block import TerraformRootConfigParsingStrategy
 from tfkit.parser.variables import VariableParsingStrategy
 
@@ -140,12 +146,12 @@ class TerraformParser:
                 OutputParsingStrategy(),
                 TerraformRootConfigParsingStrategy(),
                 # Uncomment when the other strategies are ready:
-                # ResourceParsingStrategy(),
-                # DataSourceParsingStrategy(),
-                # LocalsParsingStrategy(),
-                # ProviderParsingStrategy(),
-                # ModuleParsingStrategy(),
-                # MovedParsingStrategy(),
+                ResourceParsingStrategy(),
+                DataSourceParsingStrategy(),
+                LocalsParsingStrategy(),
+                ProviderParsingStrategy(),
+                ModuleParsingStrategy(),
+                MovedParsingStrategy(),
             ]
         )
         self._build_strategy_map()
@@ -376,7 +382,17 @@ class TerraformParser:
         )
 
         # ---------- PROCESS BLOCKS ----------
-        for block_type, block_data in parsed_hcl.items():
+        self._process_blocks(parsed_hcl, file_path, raw_content, catalog)
+
+    def _process_blocks(
+        self,
+        parsed_hcl: Dict[str, Any],
+        file_path: Path,
+        raw_content: str,
+        catalog: TerraformCatalog,
+    ) -> None:
+        """Process all blocks from parsed HCL."""
+        for block_type, block_list in parsed_hcl.items():
             strategy = self._find_strategy_optimized(block_type)
             if not strategy:
                 logger.debug(
@@ -384,27 +400,66 @@ class TerraformParser:
                 )
                 continue
 
-            try:
-                objects = strategy.parse(
-                    block_type=block_type,
-                    block_data=block_data,
-                    file_path=file_path,
-                    raw_content=raw_content,
-                )
-                for obj in objects:
-                    if obj.validate():
-                        catalog.add(obj)  # <-- new fluent method
-                    else:
-                        err = (
-                            f"Validation failed for {obj.object_type.value} "
-                            f"'{obj.name}' in {file_path}"
-                        )
-                        catalog.errors.append(err)
-                        logger.warning(err)
-            except Exception as e:
-                err = f"Error parsing {block_type} in {file_path}: {e}"
-                catalog.errors.append(err)
-                logger.error(err, exc_info=True)
+            # HCL2 returns blocks as a list of dictionaries
+            if not isinstance(block_list, list):
+                block_list = [block_list]
+
+            for block_item in block_list:
+                try:
+                    # Extract block name based on block type
+                    block_name = self._extract_block_name(block_type, block_item)
+
+                    # Parse the block
+                    objects = strategy.parse(
+                        block_type=block_type,
+                        block_name=block_name,
+                        block_data=block_item,
+                        file_path=file_path,
+                        raw_content=raw_content,
+                    )
+
+                    # Add parsed objects to catalog
+                    for obj in objects:
+                        if obj.validate():
+                            catalog.add_object(obj)
+                        else:
+                            err = (
+                                f"Validation failed for {obj.object_type.value} "
+                                f"'{obj.name}' in {file_path}"
+                            )
+                            catalog.errors.append(err)
+                            logger.warning(err)
+                except Exception as e:
+                    err = f"Error parsing {block_type} in {file_path}: {e}"
+                    catalog.errors.append(err)
+                    logger.error(err, exc_info=True)
+
+    def _extract_block_name(self, block_type: str, block_item: Dict[str, Any]) -> str:
+        """Extract the name of a block from its data."""
+        # For variables and outputs, the key is the name
+        if block_type in ("variable", "output"):
+            # HCL2 structure: {"variable": [{"var_name": {...}}]}
+            if isinstance(block_item, dict) and len(block_item) > 0:
+                return list(block_item.keys())[0]
+
+        # For resources and data sources: {"resource": [{"aws_instance": {"my_instance": {...}}}]}
+        elif block_type in ("resource", "data"):
+            if isinstance(block_item, dict) and len(block_item) > 0:
+                resource_type = list(block_item.keys())[0]
+                resource_data = block_item[resource_type]
+                if isinstance(resource_data, dict) and len(resource_data) > 0:
+                    return list(resource_data.keys())[0]
+
+        # For modules: {"module": [{"module_name": {...}}]}
+        elif block_type == "module":
+            if isinstance(block_item, dict) and len(block_item) > 0:
+                return list(block_item.keys())[0]
+
+        # For terraform, locals, provider blocks, use block type as name
+        elif block_type in ("terraform", "locals", "provider"):
+            return block_type
+
+        return block_type
 
     # ------------------------------------------------------------------
     # HCL / JSON parsers
@@ -460,38 +515,14 @@ class TerraformParser:
         catalog: TerraformCatalog,
         file_path: Path,
     ) -> None:
+        """Restore parsed objects from cache."""
         parsed_hcl = cached_data.get("parsed_hcl")
         raw_content = cached_data.get("raw_content", "")
 
         if parsed_hcl is None:
             raise ValueError(f"Invalid cache data for {file_path}")
 
-        for block_type, block_data in parsed_hcl.items():
-            strategy = self._find_strategy_optimized(block_type)
-            if not strategy:
-                continue
-            try:
-                objects = strategy.parse(
-                    block_name=block_type,
-                    block_data=block_data,
-                    file_path=file_path,
-                    raw_content=raw_content,
-                )
-
-                for obj in objects:
-                    if obj.validate():
-                        catalog.add_object(obj)
-                    else:
-                        err = (
-                            f"Validation failed for {obj.object_type.value} "
-                            f"'{obj.name}' in {file_path}"
-                        )
-                        catalog.errors.append(err)
-                        logger.warning(err)
-            except Exception as e:
-                err = f"Error parsing {block_type} in {file_path}: {e}"
-                catalog.errors.append(err)
-                logger.error(err, exc_info=True)
+        self._process_blocks(parsed_hcl, file_path, raw_content, catalog)
 
     # ------------------------------------------------------------------
     # Cache control

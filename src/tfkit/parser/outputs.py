@@ -26,8 +26,18 @@ logger = logging.getLogger(__name__)
 class OutputParsingStrategy(BlockParsingStrategy):
     """
     Strategy for parsing 'output' blocks.
-    Fixes the 'list object has no attribute items' error and ensures robust
-    extraction of value, description, sensitive, and depends_on.
+
+    Example Terraform outputs:
+        output "instance_ip" {
+          description = "The public IP of the instance"
+          value       = aws_instance.main.public_ip
+          sensitive   = false
+        }
+
+        output "vpc_id" {
+          value = module.vpc.vpc_id
+          depends_on = [module.vpc]
+        }
     """
 
     def can_parse(self, block_type: str) -> bool:
@@ -36,32 +46,39 @@ class OutputParsingStrategy(BlockParsingStrategy):
 
     def parse(
         self,
+        block_type: str,
         block_name: str,
-        block_data: Union[Dict[str, Any], List[Dict[str, Any]]],
+        block_data: Dict[str, Any],
         file_path: Path,
         raw_content: str,
     ) -> List["TerraformOutput"]:
-        # --- FIX: Normalize block_data from List[Dict] to Dict ---
-        normalized_data: Dict[str, Any]
-        if isinstance(block_data, list):
-            if not block_data or not isinstance(block_data[0], dict):
-                logger.error(
-                    f"Malformed 'output' block data in {file_path}: Expected Dict, got {type(block_data)}"
-                )
-                return []
+        """
+        Parse an output block.
 
-            # The output block is implicitly singular
-            normalized_data = block_data[0]
-        elif isinstance(block_data, dict):
-            normalized_data = block_data
-        else:
+        HCL2 structure: {"output_name": {"value": "...", "description": "..."}}
+        block_name = output name (e.g., "instance_ip")
+        block_data = {"instance_ip": {"value": "...", "description": "..."}}
+        """
+        if not isinstance(block_data, dict):
             logger.error(
                 f"Unexpected data type for 'output' block in {file_path}: {type(block_data)}"
             )
             return []
-        # --- End Fix ---
 
-        # 1. Determine Source Location and Raw Code
+        if len(block_data) == 0:
+            logger.error(f"Empty output block data in {file_path}")
+            return []
+
+        # Extract output attributes
+        output_attrs = block_data.get(block_name, {})
+
+        if not isinstance(output_attrs, dict):
+            logger.error(
+                f"Malformed output '{block_name}' in {file_path}: attributes not a dict"
+            )
+            return []
+
+        # Extract source location
         source_location = self.extract_source_location(
             file_path=file_path,
             block_name=f'output "{block_name}"',
@@ -69,58 +86,31 @@ class OutputParsingStrategy(BlockParsingStrategy):
         )
         raw_code = self.extract_raw_code(raw_content, source_location)
 
-        # 2. Initialize core attributes
-        value: Any = None
-        description: Optional[str] = None
-        sensitive: Any = False  # Keep as Any to preserve HCL expression if present
-        depends_on: List[str] = []
+        # Extract specific output attributes
+        value = output_attrs.get("value")
+        description = output_attrs.get("description")
+        if description is not None:
+            description = str(description)
 
-        remaining_attributes: Dict[str, Any] = {}
+        sensitive = output_attrs.get("sensitive", False)
+        depends_on = output_attrs.get("depends_on", [])
 
-        # 3. Extract and map specific output arguments
-        for key, attr_value in normalized_data.items():
-            if key == "value":
-                # MANDATORY: The output value. Stored as Any (can be string, number, expression, map, etc.)
-                value = attr_value
+        # Ensure depends_on is a list
+        if not isinstance(depends_on, list):
+            depends_on = [depends_on] if depends_on else []
 
-            elif key == "description":
-                # Ensure description is a string
-                description = str(attr_value) if attr_value is not None else None
+        # Collect remaining attributes
+        remaining_attrs = {}
+        for key, val in output_attrs.items():
+            if key not in ("value", "description", "sensitive", "depends_on"):
+                remaining_attrs[key] = val
 
-            elif key == "sensitive":
-                # Store the value directly. Can be True/False, or an expression (string)
-                sensitive = attr_value
-
-            elif key == "depends_on":
-                # Depends_on is officially an array of strings in Terraform
-                # but HCL parsers might flatten a single element.
-                if isinstance(attr_value, list):
-                    depends_on = [str(d) for d in attr_value]
-                elif isinstance(attr_value, str):
-                    depends_on = [attr_value]
-                else:
-                    logger.warning(
-                        f"'depends_on' for output '{block_name}' must be string or list of strings. Got {type(attr_value)}"
-                    )
-
-            else:
-                # Capture any other unrecognized attributes
-                remaining_attributes[key] = attr_value
-
-        # 4. Mandatory Field Check (Optional: For strict validation)
-        if value is None:
-            logger.warning(
-                f"Output '{block_name}' in {file_path} is missing the required 'value' argument."
-            )
-
-        # 5. Create and return the TerraformOutput object
         output_object = TerraformOutput(
             object_type=TerraformObjectType.OUTPUT,
             name=block_name,
             source_location=source_location,
             raw_code=raw_code,
-            attributes=remaining_attributes,
-            # Output-specific fields
+            attributes=remaining_attrs,
             value=value,
             description=description,
             sensitive=sensitive,

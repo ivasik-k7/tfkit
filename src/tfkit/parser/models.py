@@ -25,6 +25,16 @@ class TerraformObjectType(Enum):
     CHECK = "check"
 
 
+class ModuleSourceType(Enum):
+    REGISTRY = "registry"
+    GIT = "git"
+    LOCAL = "local"
+    GITHUB = "github"
+    S3 = "s3"
+    HTTP = "http"
+    UNKNOWN = "unknown"
+
+
 @dataclass
 class SourceLocation:
     """Represents the location of an object in source code."""
@@ -149,10 +159,15 @@ class BaseTerraformObject(ABC):
         """Validate the parsed object structure."""
         pass
 
-    @abstractmethod
     def to_dict(self) -> Dict[str, Any]:
         """Convert object to dictionary representation."""
-        pass
+        return {
+            "type": self.object_type.value,
+            "name": self.name,
+            "source_location": str(self.source_location),
+            "raw_code": self.raw_code,
+            "attributes": self.attributes,
+        }
 
 
 @dataclass
@@ -175,19 +190,19 @@ class TerraformResource(BaseTerraformObject):
         return bool(self.resource_type and self.name)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "resource_type": self.resource_type,
-            "name": self.name,
-            "provider": self.provider,
-            "attributes": self.attributes,
-            "depends_on": self.depends_on,
-            "count": self.count,
-            "for_each": self.for_each,
-            "lifecycle": self.lifecycle,
-            "provisioners": self.provisioners,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "resource_type": self.resource_type,
+                "provider": self.provider,
+                "depends_on": self.depends_on,
+                "count": self.count,
+                "for_each": self.for_each,
+                "lifecycle": self.lifecycle,
+                "provisioners": self.provisioners,
+            }
+        )
+        return base_dict
 
 
 @dataclass
@@ -208,17 +223,17 @@ class TerraformDataSource(BaseTerraformObject):
         return bool(self.data_type and self.name)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "data_type": self.data_type,
-            "name": self.name,
-            "provider": self.provider,
-            "attributes": self.attributes,
-            "depends_on": self.depends_on,
-            "count": self.count,
-            "for_each": self.for_each,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "data_type": self.data_type,
+                "provider": self.provider,
+                "depends_on": self.depends_on,
+                "count": self.count,
+                "for_each": self.for_each,
+            }
+        )
+        return base_dict
 
 
 @dataclass
@@ -240,18 +255,18 @@ class TerraformVariable(BaseTerraformObject):
         return bool(self.name)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "name": self.name,
-            "variable_type": self.variable_type,
-            "default": self.default,
-            "description": self.description,
-            "sensitive": self.sensitive,
-            "nullable": self.nullable,
-            "validation": self.validation,
-            "attributes": self.attributes,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "variable_type": self.variable_type,
+                "default": self.default,
+                "description": self.description,
+                "sensitive": self.sensitive,
+                "nullable": self.nullable,
+                "validation": self.validation,
+            }
+        )
+        return base_dict
 
 
 @dataclass
@@ -271,22 +286,23 @@ class TerraformOutput(BaseTerraformObject):
         return bool(self.name and self.value is not None)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "name": self.name,
-            "value": self.value,
-            "description": self.description,
-            "sensitive": self.sensitive,
-            "depends_on": self.depends_on,
-            "attributes": self.attributes,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "value": self.value,
+                "description": self.description,
+                "sensitive": self.sensitive,
+                "depends_on": self.depends_on,
+            }
+        )
+        return base_dict
 
 
+@dataclass
 class TerraformLocal(BaseTerraformObject):
     """Represents a Terraform local value block."""
 
-    value: Any
+    value: Optional[Any] = None
 
     def __post_init__(self):
         self.object_type = TerraformObjectType.LOCAL
@@ -295,13 +311,13 @@ class TerraformLocal(BaseTerraformObject):
         return bool(self.name)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "name": self.name,
-            "value": self.value,
-            "attributes": self.attributes,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "value": self.value,
+            }
+        )
+        return base_dict
 
 
 @dataclass
@@ -321,14 +337,15 @@ class TerraformProvider(BaseTerraformObject):
         return bool(self.provider_name)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "provider_name": self.provider_name,
-            "alias": self.alias,
-            "version": self.version,
-            "attributes": self.attributes,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "alias": self.alias,
+                "version": self.version,
+                "provider_name": getattr(self, "provider_name", self.name),
+            }
+        )
+        return base_dict
 
 
 @dataclass
@@ -349,16 +366,17 @@ class TerraformRootConfig(BaseTerraformObject):
         return True
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "required_version": self.required_version,
-            "required_providers": self.required_providers,
-            "backend": self.backend,
-            "cloud": self.cloud,
-            "experiments": self.experiments,
-            "attributes": self.attributes,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "required_version": self.required_version,
+                "required_providers": self.required_providers,
+                "backend": self.backend,
+                "cloud": self.cloud,
+                "experiments": self.experiments,
+            }
+        )
+        return base_dict
 
 
 @dataclass
@@ -367,7 +385,13 @@ class TerraformModule(BaseTerraformObject):
 
     source: Optional[str] = None
     version: Optional[str] = None
-    # Meta-arguments (valid for module calls)
+    source_type: ModuleSourceType = ModuleSourceType.UNKNOWN
+
+    # Registry-specific fields
+    namespace: Optional[str] = None
+    provider_name: Optional[str] = None
+    module_name: Optional[str] = None
+
     depends_on: List[str] = field(default_factory=list)
     count: Optional[Union[int, str]] = None
     for_each: Optional[Any] = None
@@ -375,24 +399,116 @@ class TerraformModule(BaseTerraformObject):
 
     def __post_init__(self):
         self.object_type = TerraformObjectType.MODULE
+        self._parse_source()
+
+    def _parse_source(self) -> None:
+        """Parse module source to extract registry components."""
+        if not self.source:
+            return
+
+        if self.source.startswith("terraform-aws-modules/"):
+            self.source_type = ModuleSourceType.REGISTRY
+            parts = self.source.split("/")
+            if len(parts) >= 2:
+                self.namespace = parts[0]
+                self.module_name = parts[1]
+                self.provider_name = "aws"
+        elif self.source.startswith("Azure/"):
+            self.source_type = ModuleSourceType.REGISTRY
+            parts = self.source.split("/")
+            if len(parts) >= 2:
+                self.namespace = parts[0]
+                self.module_name = parts[1]
+                self.provider_name = "azurerm"
+        elif self.source.startswith("terraform-google-modules/"):
+            self.source_type = ModuleSourceType.REGISTRY
+            parts = self.source.split("/")
+            if len(parts) >= 2:
+                self.namespace = parts[0]
+                self.module_name = parts[1]
+                self.provider_name = "google"
+        elif self.source.startswith("git::"):
+            self.source_type = ModuleSourceType.GIT
+        elif self.source.startswith("github.com/"):
+            self.source_type = ModuleSourceType.GITHUB
+        elif self.source.startswith("./") or self.source.startswith("../"):
+            self.source_type = ModuleSourceType.LOCAL
+        elif self.source.startswith("s3://"):
+            self.source_type = ModuleSourceType.S3
+        elif self.source.startswith("http://") or self.source.startswith("https://"):
+            self.source_type = ModuleSourceType.HTTP
 
     def validate(self) -> bool:
-        """Validate module call has required fields (name and source)."""
-        return bool(self.name and self.source)
+        """Validate module call has required fields and structure."""
+        if not self.name:
+            return False
+        if not self.source:
+            return False
 
-    def to_dict(self) -> Dict[str, Any]:
+        if self.source_type == ModuleSourceType.REGISTRY:
+            if not all([self.namespace, self.module_name]):
+                return False
+
+        if self.version and self.source_type == ModuleSourceType.REGISTRY:
+            if not self._is_valid_version_format(self.version):
+                return False
+
+        return True
+
+    def _is_valid_version_format(self, version: str) -> bool:
+        """Check if version follows semantic versioning or constraint syntax."""
+        import re
+
+        pattern = r"^[\d]+\.[\d]+\.[\d]+$|^[~>=<^]*\s*[\d]+\.[\d]+(\.[\d]+)?$"
+        return bool(re.match(pattern, version))
+
+    def get_registry_url(self) -> Optional[str]:
+        """Generate Terraform Registry URL for this module."""
+        if self.source_type != ModuleSourceType.REGISTRY:
+            return None
+
+        base_url = "https://registry.terraform.io/modules"
+        return f"{base_url}/{self.namespace}/{self.module_name}/{self.provider_name}"
+
+    def get_meta_arguments(self) -> Dict[str, Any]:
+        """Get all meta-arguments used by the module."""
         return {
-            "type": self.object_type.value,
-            "name": self.name,
-            "source": self.source,
-            "version": self.version,
-            "attributes": self.attributes,
             "depends_on": self.depends_on,
             "count": self.count,
             "for_each": self.for_each,
             "providers": self.providers,
-            "source_location": str(self.source_location),
+            "version": self.version,
         }
+
+    def to_dict(self) -> Dict[str, Any]:
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "source": self.source,
+                "version": self.version,
+                "source_type": self.source_type.value,
+                "namespace": self.namespace,
+                "module_name": self.module_name,
+                "provider_name": self.provider_name,
+                "depends_on": self.depends_on,
+                "count": self.count,
+                "for_each": self.for_each,
+                "providers": self.providers,
+            }
+        )
+
+        registry_url = self.get_registry_url()
+        if registry_url:
+            base_dict["registry_url"] = registry_url
+
+        return base_dict
+
+    def __str__(self) -> str:
+        """String representation of the module."""
+        source_info = f"{self.source}"
+        if self.version:
+            source_info += f"@{self.version}"
+        return f"Module({self.name} -> {source_info})"
 
 
 @dataclass
@@ -411,20 +527,21 @@ class TerraformMoved(BaseTerraformObject):
         return bool(self.from_address and self.to_address)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "type": self.object_type.value,
-            "from": self.from_address,
-            "to": self.to_address,
-            "attributes": self.attributes,
-            "source_location": str(self.source_location),
-        }
+        base_dict = super().to_dict()
+        base_dict.update(
+            {
+                "from": self.from_address,
+                "to": self.to_address,
+            }
+        )
+        return base_dict
 
 
 @dataclass
 class TerraformCatalog:
     """
     Represents the complete parsed structure of a Terraform configuration
-    (a root module or child module), providing powerful lookup methods.
+    (a root module or child module), providing lookup methods.
     """
 
     root_path: Path
@@ -533,8 +650,6 @@ class TerraformCatalog:
         """Get all parsed objects as a flat list."""
         # Use the internal map to ensure consistency and avoid direct list manipulation complexity
         return list(self._address_map.values())
-
-    # --- New/Reworked Powerful Methods ---
 
     def get_by_address(self, address: str) -> Optional["BaseTerraformObject"]:
         """
@@ -647,3 +762,17 @@ class TerraformCatalog:
             return [obj for obj in temp_objects if condition(obj)]
         else:
             return temp_objects
+
+    def to_json(
+        self, file_path: Optional[Path] = None, indent: int = 2
+    ) -> Optional[str]:
+        """Serialize to JSON using the serializer module."""
+        from tfkit.parser.serializers import serialize_to_json
+
+        return serialize_to_json(self, file_path, indent)
+
+    def to_yaml(self, file_path: Optional[Path] = None) -> Optional[str]:
+        """Serialize to YAML using the serializer module."""
+        from tfkit.parser.serializers import serialize_to_yaml
+
+        return serialize_to_yaml(self, file_path)

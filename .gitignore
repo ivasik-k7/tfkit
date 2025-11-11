@@ -149,6 +149,7 @@ graph_data.*.*
 .terraform/
 .terraform.lock.hcl
 terraform.tfvars.json
+.tfcache/*
 
 # Test outputs
 test_reports/

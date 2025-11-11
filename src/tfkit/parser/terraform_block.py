@@ -59,6 +59,7 @@ class TerraformRootConfigParsingStrategy(BlockParsingStrategy):
 
     def parse(
         self,
+        block_type: str,  # nullable
         block_name: str,
         block_data: Union[Dict[str, Any], List[Dict[str, Any]]],
         file_path: Path,
