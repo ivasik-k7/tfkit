@@ -133,9 +133,6 @@ class ModuleParsingStrategy(BlockParsingStrategy):
 
         raw_code = self.extract_raw_code(raw_content, source_location)
 
-        # Extract outputs consumed by this module (references to other modules)
-        outputs_consumed = self._extract_consumed_outputs(module_config, raw_content)
-
         # Create the module object
         module_object = TerraformModule(
             object_type=TerraformObjectType.MODULE,
@@ -230,7 +227,8 @@ class ModuleParsingStrategy(BlockParsingStrategy):
             # Extract git URL and ref from source
             source_parts = module.source.split("//")
             if len(source_parts) > 1:
-                git_url_part = source_parts[1]
+                # ???
+                # git_url_part = source_parts[1]
 
                 # Look for ?ref= parameter in raw content
                 import re

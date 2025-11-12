@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 class TerraformObjectType(Enum):
@@ -556,11 +556,10 @@ class TerraformCatalog:
     moved_blocks: List[Any] = field(default_factory=list)
     errors: List[str] = field(default_factory=list)
 
-    # Internal map for quick lookup: {address: BaseTerraformObject}
-    # Using the full address (e.g., 'resource.aws_s3_bucket.main') as the key is the most robust approach.
-    _address_map: Dict[str, "BaseTerraformObject"] = field(default_factory=dict)
+    # Internal address map: {terraform_address: object}
+    _address_map: Dict[str, Any] = field(default_factory=dict)
 
-    # Map to hold block classes for filtering (requires explicit import/definition)
+    # Type to list attribute mapping
     _type_to_list_map: Dict[TerraformObjectType, str] = field(
         init=False, default_factory=dict
     )
@@ -578,190 +577,272 @@ class TerraformCatalog:
             TerraformObjectType.MOVED: "moved_blocks",
         }
 
-        # Repopulate the map if objects were passed initially
-        for obj in self.get_all_objects():
-            self._add_to_map(obj)
+        self._rebuild_address_map()
 
-    def _generate_address_key(self, obj: "BaseTerraformObject") -> str:
+    def _rebuild_address_map(self) -> None:
+        """Rebuild the entire address map from scratch"""
+        self._address_map.clear()
+
+        for obj in self._get_all_objects_from_lists():
+            try:
+                address = self._build_address(obj)
+                if address:
+                    self._address_map[address] = obj
+            except Exception as e:
+                error_msg = f"Failed to build address for object {getattr(obj, 'name', 'unknown')}: {str(e)}"
+                if error_msg not in self.errors:
+                    self.errors.append(error_msg)
+
+    def _get_all_objects_from_lists(self) -> List[Any]:
+        """Get all objects from internal lists"""
+        all_objects = []
+        for list_name in self._type_to_list_map.values():
+            all_objects.extend(getattr(self, list_name, []))
+        return all_objects
+
+    def _build_address(self, obj: Any) -> Optional[str]:
         """
-        Helper to create a consistent, unique key for the address map, reflecting
-        the block's primary canonical address in the configuration.
+        Build Terraform-native address for an object.
+
+        Address formats:
+        - Variables: var.variable_name
+        - Locals: local.local_name (single property in locals block)
+        - Outputs: output.output_name (not used in references, but for catalog)
+        - Resources: resource_type.resource_name (e.g., aws_s3_bucket.main)
+        - Data Sources: data.data_type.data_name (e.g., data.aws_ami.latest)
+        - Modules: module.module_name
+        - Providers: type or type.alias
+        - Terraform blocks: terraform
+        - Special blocks: moved, import, check (use unique identifier)
+
+        Args:
+            obj: The Terraform object to build an address for
+
+        Returns:
+            The Terraform-native address string, or None if cannot be built
         """
-        obj_type_value = obj.object_type.value
+        if not hasattr(obj, "object_type"):
+            return None
 
-        if obj_type_value == TerraformObjectType.TERRAFORM_BLOCK.value:
-            return obj_type_value  # 'terraform'
+        obj_type = obj.object_type
 
-        if obj_type_value in (
-            TerraformObjectType.MOVED.value,
-            TerraformObjectType.IMPORT.value,
-            TerraformObjectType.CHECK.value,
+        if obj_type == TerraformObjectType.TERRAFORM_BLOCK:
+            return "terraform"
+
+        # i'd try special blocks that need unique identifiers
+        if obj_type in (
+            TerraformObjectType.MOVED,
+            TerraformObjectType.IMPORT,
+            TerraformObjectType.CHECK,
         ):
-            return f"{obj_type_value}::{str(obj.source_location)}"
+            source_loc = getattr(obj, "source_location", None)
+            if source_loc:
+                return f"{obj_type.value}::{str(source_loc)}"
+            return f"{obj_type.value}::{id(obj)}"
 
-        if obj_type_value == TerraformObjectType.PROVIDER.value:
-            # Providers are accessed via provider.type or provider.type.alias.
-            # We use the type + alias (if present) to ensure uniqueness of the block definition.
-            # Assuming the TerraformProvider class has 'provider_name' and 'alias'.
-            provider_type = getattr(obj, "provider_name", obj.name)  # e.g., 'aws'
+        name = getattr(obj, "name", None)
+        if not name:
+            return None
+
+        # var.variable_name
+        if obj_type == TerraformObjectType.VARIABLE:
+            return f"var.{name}"
+
+        # local.local_name
+        if obj_type == TerraformObjectType.LOCAL:
+            return f"local.{name}"
+
+        # output.output_name (for catalog purposes)
+        if obj_type == TerraformObjectType.OUTPUT:
+            return f"output.{name}"
+
+        #  module.module_name
+        if obj_type == TerraformObjectType.MODULE:
+            return f"module.{name}"
+
+        # For catalog: aws, aws.secondary
+        if obj_type == TerraformObjectType.PROVIDER:
             alias = getattr(obj, "alias", None)
 
             if alias:
-                # Canonical address for aliased provider is provider.type.alias
-                return f"{obj_type_value}.{provider_type}.{alias}"
+                return f"{name}.{alias}"
+            return f"{name}"
 
-            # Canonical address for non-aliased provider is provider.type
-            return f"{obj_type_value}.{provider_type}"
+        # resource_type.resource_name (e.g., aws_s3_bucket.main)
+        if obj_type == TerraformObjectType.RESOURCE:
+            resource_type = getattr(obj, "resource_type", None)
+            if resource_type:
+                return f"{resource_type}.{name}"
+            return None
 
-        # Local Blocks (Handles Properties within the block)
-        if obj_type_value == TerraformObjectType.LOCAL.value:
-            # Here, 'obj.name' is the property name (e.g., 'vpc_id') inside the 'locals {}' block.
-            return f"{obj_type_value}.{obj.name}"
-
-        # Resource/Data Blocks (e.g., resource.aws_s3_bucket.main)
-        block_type_name = getattr(obj, "resource_type", getattr(obj, "data_type", None))
-
-        if block_type_name:
-            # Structure: block_type.resource_type.name (e.g., resource.aws_s3_bucket.main)
-            return f"{obj_type_value}.{block_type_name}.{obj.name}"
-
-        # Simple Types (e.g., variable.name, output.name, module.name)
-        # Structure: block_type.name (e.g., variable.region, module.vpc)
-        return f"{obj_type_value}.{obj.name}"
-
-    def _add_to_map(self, obj: "BaseTerraformObject") -> None:
-        """Helper to populate the internal address map."""
-        key = self._generate_address_key(obj)
-        self._address_map[key] = obj
-
-    def add_object(self, obj: "BaseTerraformObject") -> None:
-        """
-        Add a parsed object to the appropriate list and update the internal map.
-        """
-        list_name = self._type_to_list_map.get(obj.object_type)
-        if list_name:
-            getattr(self, list_name).append(obj)
-            self._add_to_map(obj)
-        else:
-            # Handle unmapped types if necessary
-            pass
-
-    def get_all_objects(self) -> List["BaseTerraformObject"]:
-        """Get all parsed objects as a flat list."""
-        # Use the internal map to ensure consistency and avoid direct list manipulation complexity
-        return list(self._address_map.values())
-
-    def get_by_address(self, address: str) -> Optional["BaseTerraformObject"]:
-        """
-        Reworked to retrieve a block using a simplified/canonical address format.
-
-        Args:
-            address: The full resource or block address (e.g., 'aws_s3_bucket.main', 'variable.vpc_cidr').
-
-        Returns:
-            The matching BaseTerraformObject or None.
-        """
-        # This implementation requires a more complex check because user-provided addresses
-        # often omit the top-level block type (resource. or data.).
-
-        # 1. Check for full internal address key match (e.g., 'resource.aws_s3_bucket.main')
-        if address in self._address_map:
-            return self._address_map[address]
-
-        # 2. Heuristic check for common short formats (e.g., 'aws_s3_bucket.main')
-        parts = address.split(".")
-
-        if len(parts) >= 2:
-            name = parts[-1]
-            resource_type_name = parts[-2]
-
-            # Check Resource format: aws_s3_bucket.main (type.name)
-            # Must check all possible prefixes: 'resource.aws_s3_bucket.main'
-            for obj in self.resources:
-                if (
-                    getattr(obj, "resource_type", "") == resource_type_name
-                    and obj.name == name
-                ):
-                    return obj
-
-            # Check Data Source format: aws_ami.latest (type.name)
-            # Must check all possible prefixes: 'data.aws_ami.latest'
-            for obj in self.data_sources:
-                if (
-                    getattr(obj, "data_type", "") == resource_type_name
-                    and obj.name == name
-                ):
-                    return obj
-
-            # Check simple types: variable.name, output.name, module.name
-            # The structure is blocktype.name, so we can check against all types
-            for obj_list in [
-                self.variables,
-                self.outputs,
-                self.locals,
-                self.modules,
-                self.providers,
-            ]:
-                for obj in obj_list:
-                    if obj.object_type.value == resource_type_name and obj.name == name:
-                        return obj
+        # data.data_type.data_name
+        if obj_type == TerraformObjectType.DATA_SOURCE:
+            data_type = getattr(obj, "data_type", None)
+            if data_type:
+                return f"data.{data_type}.{name}"
+            return None
 
         return None
 
-    def filter_objects(
-        self,
-        object_types: Optional[
-            Union[
-                TerraformObjectType,
-                List[TerraformObjectType],
-                Type["BaseTerraformObject"],
-                List[Type["BaseTerraformObject"]],
-            ]
-        ] = None,
-        condition: Optional[Callable[["BaseTerraformObject"], bool]] = None,
-    ) -> List["BaseTerraformObject"]:
+    def add_object(self, obj: Any) -> None:
         """
-        Retrieve a list of objects filtered by type (Enum or class) and/or a custom condition.
+        Add a parsed object to the appropriate list and update the address map.
+
+        Args:
+            obj: The Terraform object to add
         """
+        if not hasattr(obj, "object_type"):
+            return
 
-        temp_objects = self.get_all_objects()
+        # Add to appropriate list
+        list_name = self._type_to_list_map.get(obj.object_type)
+        if list_name:
+            target_list = getattr(self, list_name)
+            if obj not in target_list:  # Avoid duplicates
+                target_list.append(obj)
 
-        # 1. Type filtering (Handles both Enum and Class types)
-        if object_types:
-            if not isinstance(object_types, list):
-                object_types = [object_types]
+                # Update address map
+                try:
+                    address = self._build_address(obj)
+                    if address:
+                        self._address_map[address] = obj
+                except Exception as e:
+                    error_msg = f"Failed to add object {getattr(obj, 'name', 'unknown')}: {str(e)}"
+                    if error_msg not in self.errors:
+                        self.errors.append(error_msg)
 
-            filter_enums = []
+    def get_by_address(self, address: str) -> Optional[Any]:
+        """
+        Retrieve an object by its Terraform address.
 
-            for t in object_types:
-                if isinstance(t, TerraformObjectType):
-                    filter_enums.append(t)
-                elif hasattr(t, "object_type") and isinstance(
-                    t.object_type, TerraformObjectType
+        Supports multiple address formats:
+        - var.variable_name
+        - local.local_name
+        - output.output_name
+        - module.module_name
+        - provider.type or provider.type.alias
+        - resource_type.resource_name (e.g., aws_s3_bucket.main)
+        - data.data_type.data_name (e.g., data.aws_ami.latest)
+        - terraform (singleton block)
+
+        Args:
+            address: The Terraform address string
+
+        Returns:
+            The matching object or None if not found
+        """
+        if not address:
+            return None
+
+        # Direct lookup (fastest path)
+        if address in self._address_map:
+            return self._address_map[address]
+
+        # Normalize address and try common variations
+        address = address.strip()
+
+        # Try with normalized address
+        if address in self._address_map:
+            return self._address_map[address]
+
+        # Handle resource shorthand: If user provides "aws_s3_bucket.main"
+        # try to find it as a resource
+        parts = address.split(".")
+
+        if len(parts) == 2:
+            type_or_name, name = parts
+
+            # Could be resource_type.name format (shorthand for resource)
+            # Check if it matches any resource
+            for resource in self.resources:
+                if (
+                    getattr(resource, "resource_type", None) == type_or_name
+                    and getattr(resource, "name", None) == name
                 ):
-                    # Use the object_type attribute from the class itself
-                    filter_enums.append(t.object_type)
+                    return resource
 
-            if filter_enums:
-                type_values = {t.value for t in filter_enums}
-                temp_objects = [
-                    obj for obj in temp_objects if obj.object_type.value in type_values
-                ]
-            else:
-                # If only block classes were passed, use isinstance() as a fallback
-                temp_objects = [
-                    obj
-                    for obj in temp_objects
-                    if any(
-                        isinstance(obj, t) for t in object_types if isinstance(t, type)
-                    )
-                ]
+            # Could be module.name, var.name, local.name, output.name
+            # These should already be in the map, but check lists as fallback
+            if type_or_name == "var":
+                for var in self.variables:
+                    if getattr(var, "name", None) == name:
+                        return var
 
-        # 2. Condition filtering
-        if condition:
-            return [obj for obj in temp_objects if condition(obj)]
-        else:
-            return temp_objects
+            elif type_or_name == "local":
+                for local in self.locals:
+                    if getattr(local, "name", None) == name:
+                        return local
+
+            elif type_or_name == "output":
+                for output in self.outputs:
+                    if getattr(output, "name", None) == name:
+                        return output
+
+            elif type_or_name == "module":
+                for module in self.modules:
+                    if getattr(module, "name", None) == name:
+                        return module
+
+            elif type_or_name == "provider":
+                for provider in self.providers:
+                    if (
+                        getattr(provider, "provider_name", None) == name
+                        or getattr(provider, "name", None) == name
+                    ):
+                        return provider
+
+        elif len(parts) == 3:
+            # Could be data.type.name or provider.type.alias
+            prefix, type_name, name = parts
+
+            if prefix == "data":
+                for data_source in self.data_sources:
+                    if (
+                        getattr(data_source, "data_type", None) == type_name
+                        and getattr(data_source, "name", None) == name
+                    ):
+                        return data_source
+
+            elif prefix == "provider":
+                for provider in self.providers:
+                    if (
+                        getattr(provider, "provider_name", None) == type_name
+                        and getattr(provider, "alias", None) == name
+                    ):
+                        return provider
+
+        # Not found
+        return None
+
+    def get_all_objects(self) -> List[Any]:
+        """
+        Get all parsed objects as a flat list.
+
+        Returns:
+            List of all Terraform objects in the catalog
+        """
+        return list(self._address_map.values())
+
+    def get_all_addresses(self) -> List[str]:
+        """
+        Get all addresses in the catalog.
+
+        Returns:
+            List of all valid Terraform addresses
+        """
+        return list(self._address_map.keys())
+
+    def has_address(self, address: str) -> bool:
+        """
+        Check if an address exists in the catalog.
+
+        Args:
+            address: The Terraform address to check
+
+        Returns:
+            True if the address exists, False otherwise
+        """
+        return self.get_by_address(address) is not None
 
     def to_json(
         self, file_path: Optional[Path] = None, indent: int = 2

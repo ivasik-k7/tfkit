@@ -15,16 +15,18 @@ from typing import Any, Dict, List, Optional
 import hcl2
 import lark
 
-from tfkit.parser.data_sources import DataSourceParsingStrategy
-from tfkit.parser.locals import LocalsParsingStrategy
 from tfkit.parser.models import BlockParsingStrategy, TerraformCatalog
-from tfkit.parser.modules import ModuleParsingStrategy
-from tfkit.parser.moved import MovedParsingStrategy
-from tfkit.parser.outputs import OutputParsingStrategy
-from tfkit.parser.providers import ProviderParsingStrategy
-from tfkit.parser.resources import ResourceParsingStrategy
-from tfkit.parser.terraform_block import TerraformRootConfigParsingStrategy
-from tfkit.parser.variables import VariableParsingStrategy
+from tfkit.parser.strategies import (
+    DataSourceParsingStrategy,
+    LocalsParsingStrategy,
+    ModuleParsingStrategy,
+    MovedParsingStrategy,
+    OutputParsingStrategy,
+    ProviderParsingStrategy,
+    ResourceParsingStrategy,
+    TerraformRootConfigParsingStrategy,
+    VariableParsingStrategy,
+)
 
 ParsedTerraformModule = TerraformCatalog
 
