@@ -1,4 +1,5 @@
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Set
@@ -40,30 +41,23 @@ class TerraformDependency:
 
 @dataclass
 class ObjectDependencies:
-    """Container for all dependencies of a single object"""
-
     address: str
     depends_on: Set[TerraformDependency] = field(default_factory=set)
     referenced_by: Set[TerraformDependency] = field(default_factory=set)
 
     def add_dependency(self, dependency: TerraformDependency):
-        """Add an outgoing dependency"""
         self.depends_on.add(dependency)
 
     def add_reference(self, dependency: TerraformDependency):
-        """Add an incoming reference"""
         self.referenced_by.add(dependency)
 
     def get_all_dependencies(self) -> Set[str]:
-        """Get all target addresses this object depends on"""
         return {dep.target_address for dep in self.depends_on}
 
     def get_all_references(self) -> Set[str]:
-        """Get all source addresses that reference this object"""
         return {dep.source_address for dep in self.referenced_by}
 
     def get_dependencies_by_type(self, dep_type: DependencyType) -> Set[str]:
-        """Get dependencies filtered by type"""
         return {
             dep.target_address
             for dep in self.depends_on
@@ -71,7 +65,6 @@ class ObjectDependencies:
         }
 
     def get_references_by_type(self, dep_type: DependencyType) -> Set[str]:
-        """Get references filtered by type"""
         return {
             dep.source_address
             for dep in self.referenced_by
@@ -84,24 +77,11 @@ class TerraformDependencyBuilder:
     Service to build dependency relationships between Terraform objects.
     Analyzes attributes, raw_code, and other fields to find references.
     Handles implicit provider relationships based on resource types.
+    Automatically detects provider prefixes from resources.
     """
 
     # Terraform interpolation patterns
     INTERPOLATION_PATTERN = re.compile(r"\$\{([^}]+)\}")
-
-    # Provider prefixes for common cloud providers
-    PROVIDER_PREFIXES = {
-        "aws": ["aws_"],
-        "google": ["google_"],
-        "azurerm": ["azurerm_"],
-        "kubernetes": ["kubernetes_"],
-        "helm": ["helm_"],
-        "random": ["random_"],
-        "null": ["null_"],
-        "local": ["local_"],
-        "tls": ["tls_"],
-        "time": ["time_"],
-    }
 
     def __init__(self, catalog: "TerraformCatalog"):
         """
@@ -112,10 +92,17 @@ class TerraformDependencyBuilder:
         """
         self.catalog = catalog
         self.dependencies: Dict[str, ObjectDependencies] = {}
-        self._provider_map: Dict[str, str] = {}  # Maps provider type to default address
-        self._aliased_providers: Dict[
-            str, List[str]
-        ] = {}  # Maps provider type to list of aliased addresses
+
+        # Provider maps
+        self._provider_map: Dict[str, str] = {}  # {provider_type: default_address}
+        self._aliased_providers: Dict[str, List[str]] = defaultdict(
+            list
+        )  # {provider_type: [aliased_addresses]}
+
+        # Auto-detected provider prefixes from resources
+        self._provider_prefixes: Dict[str, List[str]] = defaultdict(
+            list
+        )  # {provider_type: [prefixes]}
 
     def build_dependencies(self) -> Dict[str, ObjectDependencies]:
         """
@@ -130,8 +117,9 @@ class TerraformDependencyBuilder:
         for address in self.catalog.get_all_addresses():
             self.dependencies[address] = ObjectDependencies(address=address)
 
-        # Build provider maps first
+        # Build provider maps and auto-detect prefixes
         self._build_provider_maps()
+        self._detect_provider_prefixes()
 
         # Build dependencies for each object
         all_objects = self.catalog.get_all_objects()
@@ -144,7 +132,7 @@ class TerraformDependencyBuilder:
             # Extract explicit dependencies
             found_deps = self._extract_dependencies(obj, source_address)
 
-            # Add implicit provider dependencies
+            # Add provider dependencies (explicit and implicit)
             provider_deps = self._extract_provider_dependencies(obj, source_address)
             found_deps.extend(provider_deps)
 
@@ -170,16 +158,49 @@ class TerraformDependencyBuilder:
             if not provider_name:
                 continue
 
-            # Build the address
+            # Build the address based on catalog's addressing scheme
             if alias:
+                # Aliased provider: provider_name.alias
                 address = f"{provider_name}.{alias}"
-                if provider_name not in self._aliased_providers:
-                    self._aliased_providers[provider_name] = []
                 self._aliased_providers[provider_name].append(address)
             else:
-                # Default provider (no alias)
+                # Default provider (no alias): just provider_name
                 address = provider_name
                 self._provider_map[provider_name] = address
+
+    def _detect_provider_prefixes(self):
+        """
+        Auto-detect provider prefixes from existing resources and data sources.
+        This builds a mapping of provider types to their resource prefixes.
+        """
+        self._provider_prefixes.clear()
+
+        # Collect all resource and data source types
+        resource_types = set()
+
+        for resource in self.catalog.resources:
+            resource_type = getattr(resource, "resource_type", None)
+            if resource_type:
+                resource_types.add(resource_type)
+
+        for data_source in self.catalog.data_sources:
+            data_type = getattr(data_source, "data_type", None)
+            if data_type:
+                resource_types.add(data_type)
+
+        # Extract prefixes (everything before first underscore)
+        prefix_counts = defaultdict(int)
+        for resource_type in resource_types:
+            parts = resource_type.split("_", 1)
+            if len(parts) > 1:
+                prefix = parts[0]
+                prefix_counts[prefix] += 1
+
+        # Map prefixes to known providers
+        for prefix, _ in prefix_counts.items():
+            # Check if this prefix matches a known provider
+            if prefix in self._provider_map or prefix in self._aliased_providers:
+                self._provider_prefixes[prefix].append(f"{prefix}_")
 
     def _get_provider_type_from_resource(self, resource_type: str) -> Optional[str]:
         """
@@ -191,14 +212,14 @@ class TerraformDependencyBuilder:
         Returns:
             Provider type or None
         """
-        # Check known provider prefixes
-        for provider_type, prefixes in self.PROVIDER_PREFIXES.items():
+        # Check auto-detected provider prefixes first
+        for provider_type, prefixes in self._provider_prefixes.items():
             for prefix in prefixes:
                 if resource_type.startswith(prefix):
                     return provider_type
 
         # Fallback: extract prefix before first underscore
-        parts = resource_type.split("_")
+        parts = resource_type.split("_", 1)
         if len(parts) > 1:
             potential_provider = parts[0]
             # Check if this provider exists in catalog
@@ -207,6 +228,46 @@ class TerraformDependencyBuilder:
                 or potential_provider in self._aliased_providers
             ):
                 return potential_provider
+
+        return None
+
+    def _resolve_provider_reference(self, provider_ref: str) -> Optional[str]:
+        """
+        Resolve a provider reference to its catalog address.
+
+        Handles various formats:
+        - "aws" -> "aws" (default provider)
+        - "aws.secondary" -> "aws.secondary" (aliased provider)
+
+        Args:
+            provider_ref: Provider reference string
+
+        Returns:
+            Resolved provider address or None
+        """
+        if not provider_ref:
+            return None
+
+        # Remove any interpolation syntax
+        provider_ref = provider_ref.strip()
+        provider_ref = re.sub(r"^\$\{|}$", "", provider_ref)
+
+        # Check if it exists in catalog directly
+        if self.catalog.has_address(provider_ref):
+            return provider_ref
+
+        # Parse provider.alias format
+        parts = provider_ref.split(".")
+        if len(parts) == 2:
+            provider_type, alias = parts
+            # Check if this aliased provider exists
+            aliased_address = f"{provider_type}.{alias}"
+            if self.catalog.has_address(aliased_address):
+                return aliased_address
+        elif len(parts) == 1:
+            # Just provider type, no alias
+            if provider_ref in self._provider_map:
+                return self._provider_map[provider_ref]
 
         return None
 
@@ -230,16 +291,22 @@ class TerraformDependencyBuilder:
         if not obj_type or obj_type.value not in ("resource", "data"):
             return dependencies
 
+        # Get resource/data type
+        resource_type = getattr(obj, "resource_type", None) or getattr(
+            obj, "data_type", None
+        )
+
+        if not resource_type:
+            return dependencies
+
         # Check for explicit provider attribute
         explicit_provider = getattr(obj, "provider", None)
 
         if explicit_provider:
-            # Explicit provider reference (e.g., "aws.secondary")
-            # Try to find this provider in catalog
-            provider_address = explicit_provider
+            # Explicit provider reference (e.g., "aws.secondary" or just "aws")
+            provider_address = self._resolve_provider_reference(explicit_provider)
 
-            # Handle different formats: "aws.secondary" or just "aws"
-            if self.catalog.has_address(provider_address):
+            if provider_address:
                 dependencies.append(
                     TerraformDependency(
                         source_address=source_address,
@@ -248,27 +315,27 @@ class TerraformDependencyBuilder:
                         attribute_path="provider",
                     )
                 )
+            else:
+                # Log warning - provider reference not found
+                error_msg = f"Provider reference '{explicit_provider}' not found in catalog for {source_address}"
+                if error_msg not in self.catalog.errors:
+                    self.catalog.errors.append(error_msg)
         else:
             # Implicit provider based on resource/data type
-            resource_type = getattr(obj, "resource_type", None) or getattr(
-                obj, "data_type", None
-            )
+            provider_type = self._get_provider_type_from_resource(resource_type)
 
-            if resource_type:
-                provider_type = self._get_provider_type_from_resource(resource_type)
+            if provider_type and provider_type in self._provider_map:
+                # Use default provider
+                provider_address = self._provider_map[provider_type]
 
-                if provider_type and provider_type in self._provider_map:
-                    # Use default provider
-                    provider_address = self._provider_map[provider_type]
-
-                    dependencies.append(
-                        TerraformDependency(
-                            source_address=source_address,
-                            target_address=provider_address,
-                            dependency_type=DependencyType.IMPLICIT,
-                            attribute_path="provider (implicit)",
-                        )
+                dependencies.append(
+                    TerraformDependency(
+                        source_address=source_address,
+                        target_address=provider_address,
+                        dependency_type=DependencyType.IMPLICIT,
+                        attribute_path="provider (implicit)",
                     )
+                )
 
         return dependencies
 
@@ -287,10 +354,17 @@ class TerraformDependencyBuilder:
         """
         dependencies = []
 
-        # Extract from attributes
+        # Extract from attributes (skip 'provider' attribute as it's handled separately)
         if hasattr(obj, "attributes") and obj.attributes:
-            deps = self._extract_from_dict(obj.attributes, source_address, "attributes")
-            dependencies.extend(deps)
+            # Filter out provider attribute to avoid double-processing
+            filtered_attrs = {
+                k: v for k, v in obj.attributes.items() if k != "provider"
+            }
+            if filtered_attrs:
+                deps = self._extract_from_dict(
+                    filtered_attrs, source_address, "attributes"
+                )
+                dependencies.extend(deps)
 
         # Extract from raw_code
         if hasattr(obj, "raw_code") and obj.raw_code:
@@ -347,11 +421,45 @@ class TerraformDependencyBuilder:
         for attr_name in ["for_each", "count"]:
             if hasattr(obj, attr_name):
                 attr_value = getattr(obj, attr_name)
-                if attr_value and isinstance(attr_value, str):
-                    deps = self._extract_from_string(
-                        attr_value, source_address, attr_name
-                    )
-                    dependencies.extend(deps)
+                if attr_value:
+                    if isinstance(attr_value, str):
+                        deps = self._extract_from_string(
+                            attr_value, source_address, attr_name
+                        )
+                        dependencies.extend(deps)
+                    elif isinstance(attr_value, dict):
+                        deps = self._extract_from_dict(
+                            attr_value, source_address, attr_name
+                        )
+                        dependencies.extend(deps)
+
+        # Extract from module source (for module blocks)
+        if hasattr(obj, "source") and obj.source:
+            source_value = getattr(obj, "source")  # noqa: B009
+            if isinstance(source_value, str):
+                # Module sources can reference local paths or registries
+                # Only extract if it contains references
+                deps = self._extract_from_string(source_value, source_address, "source")
+                dependencies.extend(deps)
+
+        # Extract from lifecycle blocks
+        if hasattr(obj, "lifecycle") and obj.lifecycle:
+            lifecycle = getattr(obj, "lifecycle")  # noqa: B009
+            if isinstance(lifecycle, dict):
+                # Check for replace_triggered_by, ignore_changes, etc.
+                deps = self._extract_from_dict(lifecycle, source_address, "lifecycle")
+                dependencies.extend(deps)
+
+        # Extract from provisioner blocks (if present in attributes)
+        if hasattr(obj, "provisioners") and obj.provisioners:
+            provisioners = getattr(obj, "provisioners")  # noqa: B009
+            if isinstance(provisioners, list):
+                for idx, provisioner in enumerate(provisioners):
+                    if isinstance(provisioner, dict):
+                        deps = self._extract_from_dict(
+                            provisioner, source_address, f"provisioner[{idx}]"
+                        )
+                        dependencies.extend(deps)
 
         # Remove duplicates
         return list(set(dependencies))
@@ -490,14 +598,18 @@ class TerraformDependencyBuilder:
             references.add(f"data.{data_type}.{data_name}")
 
         # resource_type.name (excluding keywords)
+        # Enhanced pattern to avoid false positives
         resource_matches = re.findall(
-            r"\b(?!(?:var|local|module|data|provider|terraform|each|count|path|self)\.)([a-z][a-z0-9_]+)\.([a-zA-Z_][a-zA-Z0-9_-]*)",
+            r"\b(?!(?:var|local|module|data|provider|terraform|each|count|path|self|for|if|true|false|null)\b)([a-z][a-z0-9_]+)\.([a-zA-Z_][a-zA-Z0-9_-]*)",
             expr,
         )
         for resource_type, resource_name in resource_matches:
-            # Basic validation: resource types typically have underscores
-            if "_" in resource_type:
-                references.add(f"{resource_type}.{resource_name}")
+            # Validation: resource types must have underscores
+            # and shouldn't be common keywords or functions
+            if "_" in resource_type and not resource_type.startswith("_"):
+                # Additional check: avoid Terraform built-in functions
+                if resource_type not in {"try", "can", "merge", "concat", "lookup"}:
+                    references.add(f"{resource_type}.{resource_name}")
 
         return references
 
@@ -724,6 +836,7 @@ class TerraformDependencyBuilder:
             "total_objects": total_objects,
             "total_dependencies": total_dependencies,
             "dependencies_by_type": dep_type_counts,
+            "auto_detected_providers": dict(self._provider_prefixes),
             "most_dependent_objects": [
                 {"address": addr, "dependency_count": len(deps.depends_on)}
                 for addr, deps in most_dependent

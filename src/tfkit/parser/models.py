@@ -662,11 +662,7 @@ class TerraformCatalog:
 
         # For catalog: aws, aws.secondary
         if obj_type == TerraformObjectType.PROVIDER:
-            alias = getattr(obj, "alias", None)
-
-            if alias:
-                return f"{name}.{alias}"
-            return f"{name}"
+            return getattr(obj, "provider_name", None)
 
         # resource_type.resource_name (e.g., aws_s3_bucket.main)
         if obj_type == TerraformObjectType.RESOURCE:
