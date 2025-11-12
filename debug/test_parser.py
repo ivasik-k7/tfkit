@@ -6,7 +6,7 @@ from tfkit.parser.dependency import TerraformDependencyBuilder
 
 
 def main():
-    test_path = Path("./examples/simple")
+    test_path = Path("./examples/main")
 
     config = ParsingConfig()
     parser = TerraformParser(config)

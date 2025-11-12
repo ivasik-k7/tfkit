@@ -79,15 +79,16 @@ class NodeState(Enum):
 class LinkType(Enum):
     """Types of relationships between nodes in the dependency graph."""
 
-    DIRECT = "direct"  # Explicit dependency via depends_on
-    IMPLICIT = "implicit"  # Implicit dependency through variable reference
-    DATA_FLOW = "data_flow"  # Data flows from source to consumer
-    MODULE_CALL = "module_call"  # Module to module invocation
-    PROVIDER_CONFIG = "provider_config"  # Provider configuration relationship
-    LIFECYCLE = "lifecycle"  # Lifecycle dependency (create_before_destroy, etc.)
-    INHERITANCE = "inheritance"  # Resource inheritance (base → derived)
-    CROSS_STACK = "cross_stack"  # Cross-stack or remote state reference
-    CONDITIONAL = "conditional"  # Conditional dependency based on count/for_each
+    DIRECT = "direct"
+    IMPLICIT = "implicit"
+    EXPLICIT = "explicit"  # Explicit depends_on
+    PROVIDER_CONFIG = "provider_config"
+    PROVIDER_RELATIONSHIP = "provider_relationship"  # Provider-to-provider
+    MODULE_CALL = "module_call"
+    LIFECYCLE = "lifecycle"
+    CONFIGURATION = "configuration"  # Variable usage
+    EXPORT = "export"  # Output exports
+    DATA_REFERENCE = "data_reference"  # Data source references
 
 
 @dataclass

@@ -330,15 +330,18 @@ class TerraformParser:
     ) -> None:
         """Append everything from *source* into *target*."""
         target.resources.extend(source.resources)
-        target.data.extend(source.data)
+        target.data_sources.extend(source.data_sources)
         target.variables.extend(source.variables)
         target.outputs.extend(source.outputs)
         target.locals.extend(source.locals)
         target.providers.extend(source.providers)
-        target.terraform.extend(source.terraform)
+        target.terraform_blocks.extend(source.terraform_blocks)
         target.modules.extend(source.modules)
-        target.moved.extend(source.moved)
+        target.moved_blocks.extend(source.moved_blocks)
         target.errors.extend(source.errors)
+
+        # Merge the address maps
+        target._address_map.update(source._address_map)
 
     # ------------------------------------------------------------------
     # Core file parsing

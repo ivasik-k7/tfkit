@@ -12,9 +12,12 @@ class DependencyType(Enum):
 
     DIRECT = "direct"  # Direct reference in attributes
     IMPLICIT = "implicit"  # Implicit dependency (e.g., provider)
+    EXPLICIT = "explicit"
     MODULE = "module"  # Module relationship
     PROVIDER = "provider"  # Provider configuration
     MOVED = "moved"  # Moved block reference
+    CONFIGURATION = "configuration"
+    DATA_REFERENCE = "data_reference"
 
 
 @dataclass
