@@ -1,6 +1,10 @@
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
+from tfkit.dependency import (
+    DependencyType,
+    ObjectDependencies,
+)
 from tfkit.graph.models import (
     GraphData,
     Link,
@@ -9,10 +13,6 @@ from tfkit.graph.models import (
     NodeData,
     NodeState,
     NodeType,
-)
-from tfkit.parser.dependency import (
-    DependencyType,
-    ObjectDependencies,
 )
 from tfkit.parser.models import TerraformCatalog
 

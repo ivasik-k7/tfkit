@@ -1,8 +1,10 @@
 from pathlib import Path
 
+from tfkit.dependency import TerraformDependencyBuilder
 from tfkit.graph.builder import TerraformGraphBuilder
 from tfkit.parser.base import ParsingConfig, TerraformParser
-from tfkit.parser.dependency import TerraformDependencyBuilder
+
+# from tfkit.parser.dependency import TerraformDependencyBuilder
 
 
 def main():

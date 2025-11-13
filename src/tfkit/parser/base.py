@@ -340,7 +340,6 @@ class TerraformParser:
         target.moved_blocks.extend(source.moved_blocks)
         target.errors.extend(source.errors)
 
-        # Merge the address maps
         target._address_map.update(source._address_map)
 
     # ------------------------------------------------------------------
