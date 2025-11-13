@@ -56,6 +56,22 @@ class TerraformDependency:
         }
         return mapping.get(self.dependency_type, LinkType.IMPLICIT)
 
+    def calculate_strength(self) -> float:
+        strength_map = {
+            DependencyType.EXPLICIT: 1.0,
+            DependencyType.DIRECT: 0.9,
+            DependencyType.PROVIDER: 0.8,
+            DependencyType.MODULE: 0.85,
+            DependencyType.PROVIDER_CONFIG: 0.75,
+            DependencyType.CONFIGURATION: 0.7,
+            DependencyType.DATA_REFERENCE: 0.8,
+            DependencyType.OUTPUT: 0.6,
+            DependencyType.IMPLICIT: 0.5,
+            DependencyType.TERRAFORM_BLOCK: 0.9,
+            DependencyType.MOVED: 0.4,
+        }
+        return strength_map.get(self.dependency_type, 0.5)
+
 
 @dataclass
 class ObjectDependencies:
