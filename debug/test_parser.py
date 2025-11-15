@@ -1,5 +1,4 @@
 import json
-from datetime import datetime
 from pathlib import Path
 
 from tfkit.dependency.base import TerraformDependencyBuilder
@@ -20,27 +19,22 @@ def main():
     dependencies = dependency_builder.build_dependencies()
 
     graph_builder = TerraformGraphBuilder(catalog)
-    graph_data = graph_builder.build_graph(dependencies)  # noqa
+    graph_data = graph_builder.build_graph(dependencies)
 
     try:
         from tfkit import __version__
     except ImportError:
         __version__ = "Unknown"
 
-    theme = "solarized-light"
+    theme = "github-dark"
     layout = "graph"
 
     json_string = json.dumps(graph_data.to_dict())
 
-    # 2. Define the output path
     output_path = Path("./out/data.json")
 
-    # 3. Ensure the parent directory exists
-    # 'parents=True' creates any necessary parent directories (like 'out/').
-    # 'exist_ok=True' prevents an error if the directory already exists.
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # 4. Write the JSON string to the file
     try:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(json_string)
@@ -54,6 +48,7 @@ def main():
         theme=theme,
         title="Terraform Test Visualization",
         dataset=json.dumps(graph_data.to_dict()),
+        config_data=[],
         theme_name=theme,
         theme_colors=ThemeManager.get_theme_colors(theme),
         version=__version__,
