@@ -9,7 +9,7 @@ from tfkit.templates.theme_manager import ThemeManager
 
 
 def main():
-    test_path = Path("./examples/simple")
+    test_path = Path("./examples/main")
 
     config = ParsingConfig()
     parser = TerraformParser(config)

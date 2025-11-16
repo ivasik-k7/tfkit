@@ -2364,7 +2364,15 @@
                 });
             }
 
-            show(data, position = null) {
+            calculatePositionFromElement(element) {
+                const rect = element.getBoundingClientRect();
+                return {
+                    x: rect.right + 10,
+                    y: rect.top
+                };
+            }
+
+            show(data, position = null, targetElement = null) {
                 this.clearTimers();
 
                 if (this.state.isVisible && this.state.currentData?.id === data.id) {
@@ -2374,17 +2382,21 @@
                 this.state.currentData = data;
                 this.state.isVisible = true;
 
+                if (!position && targetElement) {
+                    position = this.calculatePositionFromElement(targetElement);
+                }
+
                 this.calculatePosition(position);
                 this.renderContent(data);
 
                 this.elements.container.classList.add('tov-visible');
             }
 
-            showWithDelay(data, position = null) {
+            showWithDelay(data, position = null, targetElement = null) {
                 this.clearTimers();
                 
                 this.state.hoverTimer = setTimeout(() => {
-                    this.show(data, position);
+                    this.show(data, position, targetElement);
                 }, this.config.hoverDelay);
             }
 
@@ -2393,12 +2405,46 @@
                     position = { x: 20, y: 20 };
                 }
 
-                this.state.position = position;
                 const tooltip = this.elements.container.querySelector('.tov-tooltip');
-                if (tooltip) {
-                    tooltip.style.left = `${position.x}px`;
-                    tooltip.style.top = `${position.y}px`;
+                if (!tooltip) return;
+
+                const wasVisible = this.state.isVisible;
+                tooltip.style.visibility = 'hidden';
+                tooltip.style.display = 'block';
+                this.elements.container.classList.add('tov-visible');
+
+                const tooltipRect = tooltip.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+
+                let adjustedX = position.x;
+                let adjustedY = position.y;
+
+                if (adjustedX + tooltipRect.width > viewportWidth) {
+                    adjustedX = viewportWidth - tooltipRect.width - 10;
                 }
+
+                if (adjustedX < 10) {
+                    adjustedX = 10;
+                }
+
+                if (adjustedY + tooltipRect.height > viewportHeight) {
+                    adjustedY = viewportHeight - tooltipRect.height - 10;
+                }
+
+                if (adjustedY < 10) {
+                    adjustedY = 10;
+                }
+
+                if (!wasVisible) {
+                    this.elements.container.classList.remove('tov-visible');
+                }
+                tooltip.style.visibility = '';
+                tooltip.style.display = '';
+
+                this.state.position = { x: adjustedX, y: adjustedY };
+                tooltip.style.left = `${adjustedX}px`;
+                tooltip.style.top = `${adjustedY}px`;
             }
 
             renderContent(data) {
@@ -2642,8 +2688,50 @@
 
             createProviderSection(data) {
                 const details = data.details || {};
-                const attributes = details.attributes || {};
+                const attributes = data.data?.attributes || details.attributes || {};
+                const providerData = data.data || {};
                 
+                // Common provider attributes to display
+                const providerAttributes = {
+                    // Core provider info
+                    'Provider': attributes.provider || data.provider || providerData.provider,
+                    'Alias': attributes.alias,
+                    'Region': attributes.region || details.region || providerData.region,
+                    'Version': attributes.version || details.version || providerData.version,
+                    'Source': data.source || attributes.source || providerData.source,
+                    
+                    // AWS specific
+                    'Account ID': attributes.account_id || attributes.aws_account_id,
+                    'Profile': attributes.profile,
+                    'Role ARN': attributes.role_arn,
+                    'Assume Role': attributes.assume_role,
+                    
+                    // Azure specific
+                    'Subscription ID': attributes.subscription_id,
+                    'Client ID': attributes.client_id,
+                    'Tenant ID': attributes.tenant_id,
+                    
+                    // GCP specific
+                    'Project': attributes.project || attributes.gcp_project,
+                    'Zone': attributes.zone,
+                    
+                    // Generic cloud
+                    'Endpoint': attributes.endpoint,
+                    'Skip Credentials Validation': attributes.skip_credentials_validation,
+                    'Skip Region Validation': attributes.skip_region_validation,
+                    
+                    // Configuration
+                    'Insecure': attributes.insecure,
+                    'Use HTTP': attributes.use_http,
+                    
+                    // Additional metadata
+                    'Config Name': attributes.config_name,
+                    'Shared Credentials File': attributes.shared_credentials_file,
+                };
+
+                const attributeEntries = Object.entries(providerAttributes)
+                    .filter(([key, value]) => value !== undefined && value !== null && value !== '');
+
                 return `
                     <div class="tooltip-section">
                         <div class="tooltip-label">
@@ -2654,33 +2742,76 @@
                             <span>ID:</span>
                             <span class="tov-code">${data.id || 'N/A'}</span>
                         </div>
-       
-                        ${attributes.alias ? `
+
+                        ${attributeEntries.map(([key, value]) => `
+                            <div class="tooltip-stat">
+                                <span>${this.formatProviderKey(key)}:</span>
+                                <span class="tov-code">${this.formatProviderValue(key, value)}</span>
+                            </div>
+                        `).join('')}
+
+                        <!-- Additional provider metadata -->
+                        ${providerData.source_file ? `
                         <div class="tooltip-stat">
-                            <span>Alias:</span>
-                            <span class="tov-code">${attributes.alias}</span>
+                            <span>Source File:</span>
+                            <span class="tov-code">${providerData.source_file}</span>
                         </div>
                         ` : ''}
-                        ${attributes.region || details.region ? `
+                        
+                        ${providerData.line_number ? `
                         <div class="tooltip-stat">
-                            <span>Region:</span>
-                            <span class="tov-code">${attributes.region || details.region}</span>
+                            <span>Line Number:</span>
+                            <span class="tov-code">${providerData.line_number}</span>
                         </div>
                         ` : ''}
-                        ${attributes.version || details.version ? `
-                        <div class="tooltip-stat">
-                            <span>Version:</span>
-                            <span class="tov-code">${attributes.version || details.version}</span>
-                        </div>
-                        ` : ''}
-                        ${data.source || attributes.source ? `
-                        <div class="tooltip-stat">
-                            <span>Source:</span>
-                            <span class="tov-code">${data.source || attributes.source}</span>
-                        </div>
-                        ` : ''}
+
                     </div>
                 `;
+            }
+
+            formatProviderKey(key) {
+                return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            }
+
+            formatProviderValue(key, value) {
+                if (typeof value === 'boolean') {
+                    return value ? 'Yes' : 'No';
+                }
+                
+                if (value === null || value === undefined) {
+                    return 'N/A';
+                }
+                
+                if (typeof value === 'object') {
+                    return JSON.stringify(value);
+                }
+                
+                return value;
+            }
+
+            // Method to display any additional attributes not in the predefined list
+            renderAdditionalAttributes(attributes, excludedKeys) {
+                if (!attributes || typeof attributes !== 'object') {
+                    return '';
+                }
+
+                const additionalAttrs = Object.entries(attributes)
+                    .filter(([key, value]) => 
+                        !excludedKeys.includes(key) && 
+                        value !== undefined && 
+                        value !== null && 
+                        value !== '' &&
+                        !key.startsWith('_') // Skip internal/metadata attributes
+                    )
+                    .map(([key, value]) => `
+                        <div class="tooltip-stat">
+                            <span>${this.formatProviderKey(key)}:</span>
+                            <span class="tov-code">${this.formatProviderValue(key, value)}</span>
+                        </div>
+                    `)
+                    .join('');
+
+                return additionalAttrs;
             }
 
             createVariableSection(data) {

@@ -91,9 +91,9 @@ class LocalsParsingStrategy(BlockParsingStrategy):
             raw_content=raw_content,
             block_start=block_loc.start_line,
             block_end=block_loc.end_line,
+            file_path=file_path,
         )
 
-        # Raw code snippet
         raw_code = self.extract_raw_code(raw_content, loc)
 
         # Create TerraformLocal
@@ -107,7 +107,6 @@ class LocalsParsingStrategy(BlockParsingStrategy):
         )
         local_objects.append(local_obj)
 
-        # ---- ONLY recurse into dicts (skip lists entirely) ----
         if isinstance(value, dict):
             for k, v in value.items():
                 self._walk_local(
@@ -118,10 +117,9 @@ class LocalsParsingStrategy(BlockParsingStrategy):
                     block_loc=block_loc,
                     local_objects=local_objects,
                 )
-        # Lists are intentionally ignored – no `.[index]` entries
 
     # --------------------------------------------------------------------- #
-    # Source location finder (unchanged)
+    # Source location finder (FIXED)
     # --------------------------------------------------------------------- #
     def _locate_key_value(
         self,
@@ -129,6 +127,7 @@ class LocalsParsingStrategy(BlockParsingStrategy):
         raw_content: str,
         block_start: int,
         block_end: int,
+        file_path: Path,
     ) -> SourceLocation:
         from tfkit.parser.models import SourceLocation
 
@@ -144,7 +143,7 @@ class LocalsParsingStrategy(BlockParsingStrategy):
 
         if assignment_line == -1:
             return SourceLocation(
-                file_path=Path(raw_content[:0]),
+                file_path=file_path,
                 start_line=block_start,
                 end_line=block_end,
             )
@@ -169,7 +168,7 @@ class LocalsParsingStrategy(BlockParsingStrategy):
                     break
 
         return SourceLocation(
-            file_path=Path(raw_content[:0]),
+            file_path=file_path,
             start_line=start_line,
             end_line=end_line,
         )
