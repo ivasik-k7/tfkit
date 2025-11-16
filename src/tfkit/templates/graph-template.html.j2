@@ -1321,17 +1321,187 @@
         background: {{ colors.accent }}50;
     }
 
+    .tooltip-stat-compact {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .dep-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        flex: 1;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+    }
+
+    .dep-active {
+        background: linear-gradient(135deg, {{ colors.bg_primary }}20, {{ colors.bg_secondary }}15);
+        border-color: {{ colors.border }}30;
+    }
+
+    .dep-inactive {
+        background: {{ colors.bg_primary }}10;
+        border-color: {{ colors.border }}20;
+        opacity: 0.6;
+    }
+
+    .dep-item i {
+        width: 12px;
+        text-align: center;
+    }
+
+    .dep-active i {
+        color: {{ colors.accent }};
+    }
+
+    .dep-inactive i {
+        color: {{ colors.text_secondary }};
+    }
+
+    .dep-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: {{ colors.text_secondary }};
+        flex: 1;
+    }
+
+    .dep-count {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 6px;
+        min-width: 20px;
+        text-align: center;
+        font-family: 'Exo 2', monospace;
+    }
+
+    .dep-count-active {
+        background: {{ colors.accent }};
+        color: {{ colors.bg_primary }};
+        box-shadow: 0 2px 4px {{ colors.accent }}30;
+    }
+
+    .dep-inactive .dep-count {
+        background: {{ colors.bg_primary }}40;
+        color: {{ colors.text_secondary }};
+    }
+
+    /* Dependency status */
+    .dep-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        border: 1px solid;
+    }
+
+    .dep-isolated {
+        background: {{ colors.warning }}15;
+        border-color: {{ colors.warning }}30;
+        color: {{ colors.warning }};
+    }
+
+    .dep-terminal {
+        background: {{ colors.success }}15;
+        border-color: {{ colors.success }}30;
+        color: {{ colors.success }};
+    }
+
+    .dep-source {
+        background: {{ colors.info }}15;
+        border-color: {{ colors.info }}30;
+        color: {{ colors.info }};
+    }
+
+    .dep-connected {
+        background: {{ colors.accent }}15;
+        border-color: {{ colors.accent }}30;
+        color: {{ colors.accent }};
+    }
+
+    /* Badge count in label */
+
+    .tov-badge {
+        font-size: 10px;
+        padding: 3px 6px;
+        border-radius: 6px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        border: 1px solid;
+        font-family: 'Exo 2', sans-serif;
+    }
+
+    .dep-badge {
+        color: #3b82f6;
+        border-color: #3b82f640;
+        background: #3b82f615;
+    }
+
+    .sensitive-badge {
+        color: #f59e0b;
+        border-color: #f59e0b40;
+        background: #f59e0b15;
+    }
+
+    .count-badge {
+        color: #8b5cf6;
+        border-color: #8b5cf640;
+        background: #8b5cf615;
+    }
+
+    .depth-badge {
+        color: #06b6d4;
+        border-color: #06b6d440;
+        background: #06b6d415;
+    }
+
+    .tov-badge-count {
+        background: {{ colors.accent }};
+        color: {{ colors.bg_primary }};
+        font-size: 10px;
+        font-weight: 700;
+        padding: 1px 6px;
+        border-radius: 8px;
+        margin-left: 6px;
+        font-family: 'Exo 2', monospace;
+    }
+
+    /* Enhanced icon spacing in labels */
+    .tooltip-label i {
+        width: 14px;
+        text-align: center;
+        opacity: 0.8;
+    }
+        
+    /* Hover effects */
+    .dep-item:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .dep-active:hover {
+        border-color: {{ colors.accent }}50;
+    }
+
     /* Compact tooltip sections for better space usage */
     .tooltip-section {
-        margin-top: 10px;
-        padding-top: 10px;
-        border-top: 1px solid {{ colors.border }}30;
+        margin-top: 12px;
+        padding-top: 12px;
     }
 
     .tooltip-section:first-child {
         margin-top: 0;
         padding-top: 0;
-        border-top: none;
     }
 
     .node-info-title {
@@ -1345,18 +1515,6 @@
         letter-spacing: 0.5px;
     }
 
-    .node-state {
-        font-size: 0.75em;
-        padding: 4px 8px;
-        border-radius: 6px;
-        margin-top: 8px;
-        display: inline-block;
-        width: fit-content;
-        font-weight: 600;
-        border: 1px solid;
-        background: {{ colors.bg_primary }}20;
-        text-transform: capitalize;
-    }
 
     .tooltip-label {
         font-size: 0.75em;
@@ -1472,6 +1630,358 @@
             padding: 12px;
         }
     }
+
+    .terraform-object-viewer {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 10000;
+        display: none;
+        font-family: 'Exo 2', monospace;
+        pointer-events: none;
+    }
+
+    .terraform-object-viewer.tov-visible {
+        display: block;
+        pointer-events: auto;
+    }
+
+    .tov-tooltip {
+        position: absolute;
+        background: linear-gradient(135deg, {{ colors.bg_secondary }} 0%, {{ colors.bg_tertiary }} 100%);
+        border: 1.5px solid {{ colors.accent }}80;
+        backdrop-filter: blur(16px) saturate(200%);
+        box-shadow:
+            0 0 35px {{ colors.accent }}30,
+            0 12px 60px rgba(0,0,0,0.4),
+            inset 0 1px 0 {{ colors.accent }}20,
+            inset 0 -1px 0 {{ colors.border }}20;
+        border-radius: 16px;
+        max-width: 480px;
+        min-width: 380px;
+        overflow: hidden;
+        transform: scale(0.92);
+        opacity: 0;
+        transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .terraform-object-viewer.tov-visible .tov-tooltip {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    .tov-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px;
+        border-bottom: 1px solid {{ colors.border }}30;
+        background: {{ colors.bg_primary }}20;
+    }
+
+    .tov-icon {
+        font-size: 16px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .tov-title-group {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .tov-subtitle {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 10px
+    }
+
+    /* Title truncation */
+    .tov-title {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 100%;
+    }
+
+    .tov-content {
+        padding: 12px;
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .tov-content::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .tov-content::-webkit-scrollbar-track {
+        background: {{ colors.bg_primary }}15;
+        border-radius: 2px;
+    }
+
+    .tov-content::-webkit-scrollbar-thumb {
+        background: {{ colors.accent }}30;
+        border-radius: 2px;
+    }
+
+    .tov-footer {
+        padding: 8px 12px;
+        border-top: 1px solid {{ colors.border }}30;
+        background: {{ colors.bg_primary }}20;
+    }
+
+    .tov-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
+    .tov-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: 1px solid {{ colors.text_secondary }}40;
+        border-radius: 6px;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: transparent;
+        color: {{ colors.text_secondary }};
+    }
+
+    .tov-btn:hover {
+        background: {{ colors.accent }};
+        border-color: {{ colors.accent }};
+        color: {{ colors.bg_primary }};
+        transform: translateY(-1px);
+    }
+
+    /* Use your existing tooltip styles */
+    .tooltip-section {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid {{ colors.border }}30;
+    }
+
+    .tooltip-section:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .tooltip-label {
+        font-size: 11px;
+        color: {{ colors.text_secondary }};
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .tooltip-stat {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 6px;
+        padding-top: 6px;
+        border-top: 1px solid {{ colors.border }}20;
+        font-size: 12px;
+    }
+
+    .tooltip-stat:first-child {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .tooltip-stat span:first-child {
+        color: {{ colors.text_secondary }};
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+    }
+
+    .tooltip-stat span:last-child {
+        color: {{ colors.text_primary }};
+        font-weight: 600;
+        font-family: 'Exo 2', monospace;
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .tov-code {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        background: linear-gradient(135deg, {{ colors.bg_primary }}50, {{ colors.bg_secondary }}30);
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        color: {{ colors.text_primary }};
+        border: 1px solid {{ colors.border }}30;
+        font-weight: 600;
+    }
+
+
+    /* Use your existing badge and state styles */
+    .badge-incoming, .badge-outgoing {
+        font-size: 10px;
+        padding: 1px 6px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-family: 'Exo 2', sans-serif;
+    }
+
+    .badge-incoming {
+        background: {{ colors.success }}20;
+        color: {{ colors.success }};
+    }
+
+    .badge-outgoing {
+        background: {{ colors.warning }}20;
+        color: {{ colors.warning }};
+    }
+
+    .source-file {
+        font-family: 'Exo 2', monospace;
+        font-size: 10px;
+        color: {{ colors.accent }};
+    }
+
+    .source-line {
+        font-family: monospace;
+        background: {{ colors.bg_primary }}40;
+        padding: 1px 4px;
+        border-radius: 3px;
+        color: {{ colors.text_primary }};
+        font-size: 10px;
+    }
+
+    .node-state {
+        font-size: 11px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        display: inline-block;
+        font-weight: 700;
+        border: 1.5px solid;
+        background: {{ colors.bg_primary }}30;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .tov-type {
+        font-size: 11px;
+        padding: 5px 10px;
+        border-radius: 8px;
+        display: inline-block;
+        font-weight: 700;
+        border: 1.5px solid;
+        background: {{ colors.bg_primary }}30;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Terraform Object Type Color Definitions */
+    .tov-type.terraform { color: #7c3aed; border-color: #7c3aed60; background: #7c3aed20; }
+    .tov-type.provider { color: #06b6d4; border-color: #06b6d460; background: #06b6d420; }
+    .tov-type.variable { color: #f59e0b; border-color: #f59e0b60; background: #f59e0b20; }
+    .tov-type.local { color: #10b981; border-color: #10b98160; background: #10b98120; }
+    .tov-type.module { color: #8b5cf6; border-color: #8b5cf660; background: #8b5cf620; }
+    .tov-type.data { color: #3b82f6; border-color: #3b82f660; background: #3b82f620; }
+    .tov-type.resource { color: #ef4444; border-color: #ef444460; background: #ef444420; }
+    .tov-type.output { color: #84cc16; border-color: #84cc1660; background: #84cc1620; }
+    .tov-type.input { color: #f97316; border-color: #f9731660; background: #f9731620; }
+    .tov-type.import { color: #a855f7; border-color: #a855f760; background: #a855f720; }
+    .tov-type.check { color: #ec4899; border-color: #ec489960; background: #ec489920; }
+    .tov-type.assertion { color: #d946ef; border-color: #d946ef60; background: #d946ef20; }
+
+    /* Provider-specific types */
+    .tov-type.aws { color: #ff9900; border-color: #ff990060; background: #ff990020; }
+    .tov-type.azure { color: #0078d4; border-color: #0078d460; background: #0078d420; }
+    .tov-type.google { color: #4285f4; border-color: #4285f460; background: #4285f420; }
+    .tov-type.kubernetes { color: #326ce5; border-color: #326ce560; background: #326ce520; }
+    .tov-type.docker { color: #2496ed; border-color: #2496ed60; background: #2496ed20; }
+    .tov-type.null { color: #6b7280; border-color: #6b728060; background: #6b728020; }
+    .tov-type.random { color: #8b5cf6; border-color: #8b5cf660; background: #8b5cf620; }
+    .tov-type.tls { color: #10b981; border-color: #10b98160; background: #10b98120; }
+    .tov-type.time { color: #f59e0b; border-color: #f59e0b60; background: #f59e0b20; }
+
+    /* Resource category types */
+    .tov-type.compute { color: #ef4444; border-color: #ef444460; background: #ef444420; }
+    .tov-type.storage { color: #3b82f6; border-color: #3b82f660; background: #3b82f620; }
+    .tov-type.network { color: #8b5cf6; border-color: #8b5cf660; background: #8b5cf620; }
+    .tov-type.database { color: #10b981; border-color: #10b98160; background: #10b98120; }
+    .tov-type.security { color: #f59e0b; border-color: #f59e0b60; background: #f59e0b20; }
+    .tov-type.iam { color: #ec4899; border-color: #ec489960; background: #ec489920; }
+    .tov-type.monitoring { color: #06b6d4; border-color: #06b6d460; background: #06b6d420; }
+    .tov-type.container { color: #84cc16; border-color: #84cc1660; background: #84cc1620; }
+
+    /* Special types */
+    .tov-type.root { color: #7c3aed; border-color: #7c3aed60; background: #7c3aed20; }
+    .tov-type.child { color: #06b6d4; border-color: #06b6d460; background: #06b6d420; }
+    .tov-type.nested { color: #8b5cf6; border-color: #8b5cf660; background: #8b5cf620; }
+    .tov-type.external { color: #f59e0b; border-color: #f59e0b60; background: #f59e0b20; }
+    .tov-type.deprecated { color: #6b7280; border-color: #6b728060; background: #6b728020; }
+    .tov-type.experimental { color: #ec4899; border-color: #ec489960; background: #ec489920; }
+
+    /* Your existing state color definitions (updated to match new styling) */
+    .node-state.active { color: #22c55e; border-color: #22c55e60; background: #22c55e20; }
+    .node-state.hub { color: #3b82f6; border-color: #3b82f660; background: #3b82f620; }
+    .node-state.bridge { color: #06b6d4; border-color: #06b6d460; background: #06b6d420; }
+    .node-state.aggregator { color: #8b5cf6; border-color: #8b5cf660; background: #8b5cf620; }
+    .node-state.configuration { color: #6b7280; border-color: #6b728060; background: #6b728020; }
+    .node-state.config_provider { color: #84cc16; border-color: #84cc1660; background: #84cc1620; }
+    .node-state.config_consumer { color: #10b981; border-color: #10b98160; background: #10b98120; }
+    .node-state.external { color: #a855f7; border-color: #a855f760; background: #a855f720; }
+    .node-state.dependency { color: #3b82f6; border-color: #3b82f660; background: #3b82f620; }
+    .node-state.derived { color: #06b6d4; border-color: #06b6d460; background: #06b6d420; }
+    .node-state.leaf { color: #10b981; border-color: #10b98160; background: #10b98120; }
+    .node-state.orphan { color: #f59e0b; border-color: #f59e0b60; background: #f59e0b20; }
+    .node-state.unused { color: #6b7280; border-color: #6b728060; background: #6b728020; }
+    .node-state.obsolete { color: #9ca3af; border-color: #9ca3af60; background: #9ca3af20; }
+    .node-state.stale { color: #f59e0b; border-color: #f59e0b60; background: #f59e0b20; }
+    .node-state.invalid { color: #ef4444; border-color: #ef444460; background: #ef444420; }
+    .node-state.unresolved { color: #f87171; border-color: #f8717160; background: #f8717120; }
+    .node-state.transient { color: #a78bfa; border-color: #a78bfa60; background: #a78bfa20; }
+    .node-state.ephemeral { color: #c4b5fd; border-color: #c4b5fd60; background: #c4b5fd20; }
+    .node-state.shared { color: #06b6d4; border-color: #06b6d460; background: #06b6d420; }
+    .node-state.unknown { color: #9ca3af; border-color: #9ca3af60; background: #9ca3af20; }
+
+    .node-state:hover, .tov-type:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: all 0.2s ease;
+    }
+
+    /* Compact version for tight spaces */
+    .tov-type.compact, .node-state.compact {
+        font-size: 9px;
+        padding: 3px 6px;
+        border-radius: 6px;
+        letter-spacing: 0.3px;
+    }
+
+    /* Large version for emphasis */
+    .tov-type.large, .node-state.large {
+        font-size: 13px;
+        padding: 6px 12px;
+        border-radius: 10px;
+        letter-spacing: 0.8px;
+    }
+
     /* Performance optimizations */
     .performance-optimized {
         transform: translate3d(0, 0, 0);
@@ -1781,7 +2291,867 @@
     </div>
     <div class="node-tooltip" id="node-tooltip"></div>
     <script>
-        // Process the graph data from new structure
+        class TerraformObjectViewer {
+            constructor(options = {}) {
+                this.config = {
+                    container: options.container || '#terraform-object-viewer',
+                    animationDuration: options.animationDuration || 200,
+                    hoverDelay: options.hoverDelay || 150,
+                    hideDelay: options.hideDelay || 200,
+                    ...options
+                };
+
+                this.state = {
+                    isVisible: false,
+                    currentData: null,
+                    position: { x: 0, y: 0 },
+                    hoverTimer: null,
+                    hideTimer: null
+                };
+
+                this.elements = {};
+                this.init();
+            }
+
+            init() {
+                this.createContainer();
+                this.bindEvents();
+            }
+
+            createContainer() {
+                let container = document.querySelector(this.config.container);
+                
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = this.config.container.replace('#', '');
+                    container.className = 'terraform-object-viewer';
+                    document.body.appendChild(container);
+                }
+
+                this.elements.container = container;
+                container.innerHTML = this.getTemplate();
+                
+                this.elements.content = container.querySelector('.tov-content');
+                this.elements.title = container.querySelector('.tov-title');
+                this.elements.subtitle = container.querySelector('.tov-subtitle');
+                this.elements.icon = container.querySelector('.tov-icon');
+            }
+
+            getTemplate() {
+                return `
+                    <div class="tov-tooltip">
+                        <div class="tov-header">
+                            <div class="tov-icon"></div>
+                            <div class="tov-title-group">
+                                <h3 class="tov-title">Object Details</h3>
+                                <div class="tov-subtitle"></div>
+                            </div>
+                        </div>
+                        <div class="tov-content"></div>
+                    </div>
+                `;
+            }
+
+            bindEvents() {
+                // Close when clicking outside
+                document.addEventListener('click', () => {
+                    this.hide();
+                });
+
+                // Prevent tooltip from closing when clicking inside
+                this.elements.container?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+
+            show(data, position = null) {
+                this.clearTimers();
+
+                if (this.state.isVisible && this.state.currentData?.id === data.id) {
+                    return;
+                }
+
+                this.state.currentData = data;
+                this.state.isVisible = true;
+
+                this.calculatePosition(position);
+                this.renderContent(data);
+
+                this.elements.container.classList.add('tov-visible');
+            }
+
+            showWithDelay(data, position = null) {
+                this.clearTimers();
+                
+                this.state.hoverTimer = setTimeout(() => {
+                    this.show(data, position);
+                }, this.config.hoverDelay);
+            }
+
+            calculatePosition(position) {
+                if (!position) {
+                    position = { x: 20, y: 20 };
+                }
+
+                this.state.position = position;
+                const tooltip = this.elements.container.querySelector('.tov-tooltip');
+                if (tooltip) {
+                    tooltip.style.left = `${position.x}px`;
+                    tooltip.style.top = `${position.y}px`;
+                }
+            }
+
+            renderContent(data) {
+                if (!this.elements.content) return;
+
+                const content = this.generateContent(data);
+                this.elements.content.innerHTML = content;
+
+                this.updateHeader(data);
+            }
+
+            updateHeader(data) {
+                const nodeConfig = getNodeConfig(data);
+                const stateConfig = getStateConfig(data.state);
+
+                if (this.elements.icon) {
+                    this.elements.icon.innerHTML = `<i class="${nodeConfig.icon}"></i>`;
+                    this.elements.icon.style.color = nodeConfig.color;
+                    
+                    // Add enhanced icon styling
+                    this.elements.icon.style.background = `${nodeConfig.color}15`;
+                    this.elements.icon.style.border = `1px solid ${nodeConfig.color}30`;
+                    this.elements.icon.style.borderRadius = '8px';
+                    this.elements.icon.style.padding = '6px';
+                }
+
+                if (this.elements.title) {
+                    const titleText = data.label || data.name || data.id || 'Unnamed Resource';
+                    this.elements.title.textContent = titleText;
+                    
+                    this.elements.title.title = titleText;
+                }
+
+                if (this.elements.subtitle) {
+                    const state = data.state || 'unknown';
+                    const type = data.type || data.subtype || 'unknown';
+                    
+                    this.elements.subtitle.innerHTML = `
+                        <span class="node-state ${state}">${this.formatStateLabel(state)}</span>
+                        <span class="tov-type ${type}">${this.formatTypeLabel(type)}</span>
+                    `;
+                }
+            }
+
+            formatStateLabel(state) {
+                const stateLabels = {
+                    'active': 'Active',
+                    'hub': 'Hub',
+                    'bridge': 'Bridge',
+                    'aggregator': 'Aggregator',
+                    'configuration': 'Config',
+                    'config_provider': 'Config Provider',
+                    'config_consumer': 'Config Consumer',
+                    'external': 'External',
+                    'dependency': 'Dependency',
+                    'derived': 'Derived',
+                    'leaf': 'Leaf',
+                    'orphan': 'Orphan',
+                    'unused': 'Unused',
+                    'obsolete': 'Obsolete',
+                    'stale': 'Stale',
+                    'invalid': 'Invalid',
+                    'unresolved': 'Unresolved',
+                    'transient': 'Transient',
+                    'ephemeral': 'Ephemeral',
+                    'shared': 'Shared',
+                    'unknown': 'Unknown'
+                };
+                return stateLabels[state] || this.capitalizeFirst(state) || 'Unknown';
+            }
+
+            formatTypeLabel(type) {
+                const typeLabels = {
+                    'terraform': 'Terraform',
+                    'provider': 'Provider',
+                    'variable': 'Variable',
+                    'local': 'Local',
+                    'module': 'Module',
+                    'data': 'Data',
+                    'resource': 'Resource',
+                    'output': 'Output',
+                    'input': 'Input',
+                    'import': 'Import',
+                    'check': 'Check',
+                    'assertion': 'Assertion',
+                    'aws': 'AWS',
+                    'azure': 'Azure',
+                    'google': 'Google',
+                    'kubernetes': 'K8s',
+                    'docker': 'Docker',
+                    'null': 'Null',
+                    'random': 'Random',
+                    'tls': 'TLS',
+                    'time': 'Time'
+                };
+                return typeLabels[type] || this.capitalizeFirst(type) || 'Unknown';
+            }
+
+            capitalizeFirst(str) {
+                if (!str) return '';
+                return str.charAt(0).toUpperCase() + str.slice(1);
+            }
+
+            generateContent(data) {
+                const sections = [];
+
+                // Common sections for all types
+                sections.push(this.createDependenciesSection(data));
+
+                // Type-specific content generation
+                switch (data.type) {
+                    case 'terraform':
+                        sections.push(this.createTerraformSection(data));
+                        break;
+                    case 'provider':
+                        sections.push(this.createProviderSection(data));
+                        break;
+                    case 'variable':
+                        sections.push(this.createVariableSection(data));
+                        break;
+                    case 'local':
+                        sections.push(this.createLocalSection(data));
+                        break;
+                    case 'module':
+                        sections.push(this.createModuleSection(data));
+                        break;
+                    case 'data':
+                        sections.push(this.createDataSection(data));
+                        break;
+                    case 'output':
+                        sections.push(this.createOutputSection(data));
+                        break;
+                    case 'resource':
+                        sections.push(this.createResourceSection(data));
+                        break;
+                    default:
+                        sections.push(this.createBasicInfoSection(data));
+                }
+
+
+                
+                if (data.details?.source_file || data.details?.line_number) {
+                    sections.push(this.createLocationSection(data));
+                }
+
+                return sections.join('');
+            }
+
+            createTerraformSection(data) {
+                const details = data.details || {};
+                const attributes = details.attributes || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-sitemap"></i>
+                            Terraform Configuration
+                        </div>
+                        ${attributes.required_version ? `
+                        <div class="tooltip-stat">
+                            <span>Required Version:</span>
+                            <span class="tov-code">${attributes.required_version}</span>
+                        </div>
+                        ` : ''}
+                        ${this.createRequiredProvidersSection(attributes.required_providers)}
+                        ${this.createBackendSection(attributes.backend)}
+                        ${this.createCloudSection(attributes.cloud)}
+                    </div>
+                `;
+            }
+
+            createRequiredProvidersSection(requiredProviders) {
+                if (!requiredProviders || Object.keys(requiredProviders).length === 0) return '';
+                
+                const providers = Object.entries(requiredProviders).map(([name, config]) => `
+                    <div class="tooltip-stat nested">
+                        <span>${name}:</span>
+                        <span class="tov-code">${config.source}@${config.version}</span>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="tooltip-stat">
+                        <span><i class="fas fa-plug"></i> Providers:</span>
+                        <span>${Object.keys(requiredProviders).length}</span>
+                    </div>
+                    <div class="nested-section">
+                        ${providers}
+                    </div>
+                `;
+            }
+
+            createBackendSection(backend) {
+                if (!backend) return '';
+                
+                const backendType = Object.keys(backend)[0];
+                const config = backend[backendType];
+                
+                return `
+                    <div class="tooltip-stat">
+                        <span><i class="fas fa-database"></i> Backend:</span>
+                        <span class="tov-code">${backendType}</span>
+                    </div>
+                    ${config ? `
+                    <div class="nested-section">
+                        ${Object.entries(config).map(([key, value]) => `
+                            <div class="tooltip-stat nested">
+                                <span>${key}:</span>
+                                <span class="tov-code">${value}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ` : ''}
+                `;
+            }
+
+            createCloudSection(cloud) {
+                if (!cloud) return '';
+                
+                return `
+                    <div class="tooltip-stat">
+                        <span><i class="fas fa-cloud"></i> Cloud:</span>
+                        <span>Terraform Cloud</span>
+                    </div>
+                    ${cloud.organization ? `
+                    <div class="nested-section">
+                        <div class="tooltip-stat nested">
+                            <span>Organization:</span>
+                            <span class="tov-code">${cloud.organization}</span>
+                        </div>
+                        ${cloud.workspaces ? `
+                        <div class="tooltip-stat nested">
+                            <span>Workspace:</span>
+                            <span class="tov-code">${cloud.workspaces[0]?.name || 'N/A'}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                `;
+            }
+
+            createProviderSection(data) {
+                const details = data.details || {};
+                const attributes = details.attributes || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-cog"></i>
+                            Provider Configuration
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${data.id || 'N/A'}</span>
+                        </div>
+       
+                        ${attributes.alias ? `
+                        <div class="tooltip-stat">
+                            <span>Alias:</span>
+                            <span class="tov-code">${attributes.alias}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.region || details.region ? `
+                        <div class="tooltip-stat">
+                            <span>Region:</span>
+                            <span class="tov-code">${attributes.region || details.region}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.version || details.version ? `
+                        <div class="tooltip-stat">
+                            <span>Version:</span>
+                            <span class="tov-code">${attributes.version || details.version}</span>
+                        </div>
+                        ` : ''}
+                        ${data.source || attributes.source ? `
+                        <div class="tooltip-stat">
+                            <span>Source:</span>
+                            <span class="tov-code">${data.source || attributes.source}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            createVariableSection(data) {
+                const details = data.details || {};
+                const attributes = details.attributes || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-code"></i>
+                            Variable Configuration
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${data.id || 'N/A'}</span>
+                        </div>
+                        ${attributes.type || data.type ? `
+                        <div class="tooltip-stat">
+                            <span>Type:</span>
+                            <span class="tov-code">${attributes.type || data.type}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.default !== undefined && attributes.default !== null ? `
+                        <div class="tooltip-stat">
+                            <span>Default:</span>
+                            <span class="tov-code">${this.formatValue(attributes.default)}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.description ? `
+                        <div class="tooltip-stat">
+                            <span>Description:</span>
+                            <span class="tov-code">${attributes.description}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.sensitive !== undefined ? `
+                        <div class="tooltip-stat">
+                            <span>Sensitive:</span>
+                            <span class="tov-code">${attributes.sensitive ? 'Yes' : 'No'}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.nullable !== undefined ? `
+                        <div class="tooltip-stat">
+                            <span>Nullable:</span>
+                            <span class="tov-code">${attributes.nullable ? 'Yes' : 'No'}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            createLocalSection(data) {
+                const details = data.details || {};
+                const attributes = details.attributes || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-terminal"></i>
+                            Local Value
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${data.id || 'N/A'}</span>
+                        </div>
+          
+                        ${attributes.value !== undefined ? `
+                        <div class="tooltip-stat">
+                            <span>Value:</span>
+                            <span class="tov-code">${this.formatLocalValue(attributes.value)}</span>
+                        </div>
+                        ` : ''}
+                        ${data.expression ? `
+                        <div class="tooltip-stat">
+                            <span>Expression:</span>
+                            <span class="tov-code">${data.expression}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            createModuleSection(data) {
+                const details = data.details || {};
+                const attributes = data.data?.attributes || details.attributes || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-cubes"></i>
+                            Module Configuration
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${data.id || 'N/A'}</span>
+                        </div>
+
+                        ${attributes.module_source || data.source ? `
+                        <div class="tooltip-stat">
+                            <span>Source:</span>
+                            <span class="tov-code">${attributes.module_source || data.source}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.module_version || data.version ? `
+                        <div class="tooltip-stat">
+                            <span>Version:</span>
+                            <span class="tov-code">${attributes.module_version || data.version}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.namespace ? `
+                        <div class="tooltip-stat">
+                            <span>Namespace:</span>
+                            <span class="tov-code">${attributes.namespace}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.module_name ? `
+                        <div class="tooltip-stat">
+                            <span>Module Name:</span>
+                            <span class="tov-code">${attributes.module_name}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.source_type ? `
+                        <div class="tooltip-stat">
+                            <span>Source Type:</span>
+                            <span class="tov-code">${attributes.source_type}</span>
+                        </div>
+                        ` : ''}
+                        ${data.data?.module_path ? `
+                        <div class="tooltip-stat">
+                            <span>Path:</span>
+                            <span class="tov-code">${Array.isArray(data.data.module_path) ? data.data.module_path.join(' → ') : data.data.module_path}</span>
+                        </div>
+                        ` : ''}
+                        ${data.data?.source_file ? `
+                        <div class="tooltip-stat">
+                            <span>Source File:</span>
+                            <span class="tov-code">${data.data.source_file}</span>
+                        </div>
+                        ` : ''}
+                        ${data.data?.line_number ? `
+                        <div class="tooltip-stat">
+                            <span>Line Number:</span>
+                            <span class="tov-code">${data.data.line_number}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            createDataSection(data) {
+                const details = data.details || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-database"></i>
+                            Data Source
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${data.id || 'N/A'}</span>
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>Type:</span>
+                            <span class="tov-code">${data.subtype || details.resource_type || 'N/A'}</span>
+                        </div>
+           
+                        ${details.provider ? `
+                        <div class="tooltip-stat">
+                            <span>Provider:</span>
+                            <span class="tov-code">${details.provider}</span>
+                        </div>
+                        ` : ''}
+                        ${data.mode ? `
+                        <div class="tooltip-stat">
+                            <span>Mode:</span>
+                            <span class="tov-code">${data.mode}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            createOutputSection(data) {
+                const details = data.details || {};
+                const attributes = details.attributes || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-arrow-right"></i>
+                            Output Configuration
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${data.id || 'N/A'}</span>
+                        </div>
+        
+                        ${attributes.description || data.description ? `
+                        <div class="tooltip-stat">
+                            <span>Description:</span>
+                            <span class="tov-code">${attributes.description || data.description}</span>
+                        </div>
+                        ` : ''}
+                        ${attributes.sensitive !== undefined ? `
+                        <div class="tooltip-stat">
+                            <span>Sensitive:</span>
+                            <span class="tov-code">${attributes.sensitive ? 'Yes' : 'No'}</span>
+                        </div>
+                        ` : ''}
+                        ${data.value !== undefined ? `
+                        <div class="tooltip-stat">
+                            <span>Value:</span>
+                            <span class="tov-code">${this.formatValue(data.value)}</span>
+                        </div>
+                        ` : ''}
+                        ${data.depends_on ? `
+                        <div class="tooltip-stat">
+                            <span>Depends On:</span>
+                            <span class="tov-code">${Array.isArray(data.depends_on) ? data.depends_on.length : 0} resources</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            createResourceSection(data) {
+                const details = data.details || {};
+                const attributes = details.attributes || {};
+                
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-cube"></i>
+                            Resource Configuration
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${data.id || 'N/A'}</span>
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>Type:</span>
+                            <span class="tov-code">${data.subtype || details.resource_type || 'N/A'}</span>
+                        </div>
+     
+                        ${details.provider || data.provider ? `
+                        <div class="tooltip-stat">
+                            <span>Provider:</span>
+                            <span class="tov-code">${details.provider || data.provider}</span>
+                        </div>
+                        ` : ''}
+                        ${data.mode ? `
+                        <div class="tooltip-stat">
+                            <span>Mode:</span>
+                            <span class="tov-code">${data.mode}</span>
+                        </div>
+                        ` : ''}
+                        ${data.instances !== undefined ? `
+                        <div class="tooltip-stat">
+                            <span>Instances:</span>
+                            <span class="tov-code">${data.instances}</span>
+                        </div>
+                        ` : ''}
+                        ${this.createResourceConfigSection(details)}
+                    </div>
+                `;
+            }
+            
+            createResourceConfigSection(details) {
+                const items = [];
+
+                if (details.count !== null && details.count !== undefined) {
+                    items.push(`
+                        <div class="tooltip-stat">
+                            <span><i class="fas fa-hashtag"></i> Count:</span>
+                            <span class="tov-code">${details.count}</span>
+                        </div>
+                    `);
+                }
+
+                if (details.for_each && Object.keys(details.for_each).length > 0) {
+                    items.push(`
+                        <div class="tooltip-stat">
+                            <span><i class="fas fa-repeat"></i> For Each:</span>
+                            <span>${Object.keys(details.for_each).length} items</span>
+                        </div>
+                    `);
+                }
+
+                if (details.lifecycle_rules && Object.keys(details.lifecycle_rules).length > 0) {
+                    items.push(`
+                        <div class="tooltip-stat">
+                            <span><i class="fas fa-recycle"></i> Lifecycle:</span>
+                            <span>${Object.keys(details.lifecycle_rules).length} rules</span>
+                        </div>
+                    `);
+                }
+
+                if (details.depends_on && details.depends_on.length > 0) {
+                    items.push(`
+                        <div class="tooltip-stat">
+                            <span><i class="fas fa-link"></i> Depends On:</span>
+                            <span>${details.depends_on.length} resources</span>
+                        </div>
+                    `);
+                }
+
+                return items.join('');
+            }
+
+            createBasicInfoSection(data) {
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-info-circle"></i>
+                            Basic Information
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>ID:</span>
+                            <span class="tov-code">${this.truncateText(data.id, 30)}</span>
+                        </div>
+                        <div class="tooltip-stat">
+                            <span>Type:</span>
+                            <span>${data.type}</span>
+                        </div>
+                        ${data.subtype ? `
+                        <div class="tooltip-stat">
+                            <span>Resource:</span>
+                            <span>${data.subtype}</span>
+                        </div>
+                        ` : ''}
+                        ${data.details?.provider ? `
+                        <div class="tooltip-stat">
+                            <span>Provider:</span>
+                            <span>${data.details.provider}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            createDependenciesSection(data) {
+                const hasIncoming = (data.dependencies_in || 0) > 0;
+                const hasOutgoing = (data.dependencies_out || 0) > 0;
+                const totalDeps = (data.dependencies_in || 0) + (data.dependencies_out || 0);
+                
+                return `
+                        <div class="tooltip-section">
+                            <div class="tooltip-label">
+                                <i class="fas fa-code-branch fa-sm"></i>
+                                Connections
+                            </div>
+                            <div class="tooltip-stat-compact">
+                                <div class="dep-item ${hasIncoming ? 'dep-active' : 'dep-inactive'}">
+                                    <i class="fas fa-sign-in-alt fa-xs"></i>
+                                    <span class="dep-label">Inbound</span>
+                                    <span class="dep-count ${hasIncoming ? 'dep-count-active' : ''}">${data.dependencies_in || 0}</span>
+                                </div>
+                                <div class="dep-item ${hasOutgoing ? 'dep-active' : 'dep-inactive'}">
+                                    <i class="fas fa-sign-out-alt fa-xs"></i>
+                                    <span class="dep-label">Outbound</span>
+                                    <span class="dep-count ${hasOutgoing ? 'dep-count-active' : ''}">${data.dependencies_out || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+            }
+
+            createLocationSection(data) {
+                const details = data.details;
+                return `
+                    <div class="tooltip-section">
+                        <div class="tooltip-label">
+                            <i class="fas fa-file-code"></i>
+                            Source
+                        </div>
+                        ${details.source_file ? `
+                        <div class="tooltip-stat">
+                            <span>File:</span>
+                            <span class="source-file">${details.source_file.split('/').pop()}</span>
+                        </div>
+                        ` : ''}
+                        ${details.line_number ? `
+                        <div class="tooltip-stat">
+                            <span>Line:</span>
+                            <span class="source-line">${details.line_number}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            formatValue(value) {
+                if (value === null || value === undefined) return 'null';
+                if (typeof value === 'boolean') return value ? 'true' : 'false';
+                if (Array.isArray(value)) return `[${value.map(v => this.formatValue(v)).join(', ')}]`;
+                if (typeof value === 'object') return JSON.stringify(value);
+                return String(value);
+            }
+
+            formatLocalValue(value) {
+                if (value === null || value === undefined) return 'null';
+                if (typeof value === 'string' && value.length > 50) {
+                    return value.substring(0, 50) + '...';
+                }
+                return this.formatValue(value);
+            }
+
+            formatComplexValue(value, depth) {
+                if (depth > 2) return '...';
+                if (Array.isArray(value)) {
+                    return `[${value.map(v => this.formatComplexValue(v, depth + 1)).join(', ')}]`;
+                }
+                if (typeof value === 'object' && value !== null) {
+                    const entries = Object.entries(value).slice(0, 3);
+                    const items = entries.map(([k, v]) => 
+                        `${k}: ${this.formatComplexValue(v, depth + 1)}`
+                    ).join(', ');
+                    return `{${items}${Object.keys(value).length > 3 ? ', ...' : ''}}`;
+                }
+                return this.truncateText(String(value), 20);
+            }
+
+            truncateText(text, maxLength) {
+                if (text.length <= maxLength) return text;
+                return text.substring(0, maxLength) + '...';
+            }
+
+            formatStateLabel(state) {
+                return state.replace(/_/g, ' ')
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+            }
+
+            hide() {
+                if (!this.state.isVisible) return;
+                
+                this.clearTimers();
+                this.elements.container.classList.remove('tov-visible');
+                this.state.isVisible = false;
+                this.state.currentData = null;
+            }
+
+            hideWithDelay() {
+                this.clearTimers();
+                this.state.hideTimer = setTimeout(() => {
+                    this.hide();
+                }, this.config.hideDelay);
+            }
+
+            clearTimers() {
+                if (this.state.hoverTimer) {
+                    clearTimeout(this.state.hoverTimer);
+                    this.state.hoverTimer = null;
+                }
+                if (this.state.hideTimer) {
+                    clearTimeout(this.state.hideTimer);
+                    this.state.hideTimer = null;
+                }
+            }
+
+            cancelHide() {
+                this.clearTimers();
+            }
+
+            destroy() {
+                this.clearTimers();
+                this.elements.container?.remove();
+            }
+        }
+
         const rawDataset = {{ dataset|safe }};
         
         // Transform dataset to expected format with enhanced data processing and safety checks
@@ -2522,182 +3892,16 @@
             }
         }
 
-        // Enhanced tooltip functions
         function showTooltip(event, d) {
-            if (hoveredNode) hideTooltip(null, hoveredNode);
-            hoveredNode = d;
+            // Calculate position near cursor
+            const rect = event.currentTarget.getBoundingClientRect();
+            const position = {
+                x: rect.right + 15,
+                y: rect.top
+            };
 
-            const tooltip = document.getElementById('node-tooltip');
-            if (!tooltip) return;
-
-            // Generate tooltip content first
-            let content = `<div class="node-info-title">${d.label || d.name || 'Unknown'}</div>`;
-            
-            // State badge
-            const stateLabel = (d.state || 'unknown').replace(/_/g, ' ')
-                .split(' ')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' ');
-            content += `<div class="node-state ${d.state}">${stateLabel}</div>`;
-
-            const details = d.details || {};
-
-            // Type and Provider info
-            content += `<div class="tooltip-section">`;
-            content += `<div class="tooltip-label">Resource Info</div>`;
-            content += `<div class="tooltip-stat"><span>Type:</span><span>${d.type || 'unknown'}</span></div>`;
-            if (details.resource_type) {
-                content += `<div class="tooltip-stat"><span>Resource:</span><span>${details.resource_type}</span></div>`;
-            }
-            if (details.provider) {
-                content += `<div class="tooltip-stat"><span>Provider:</span><span>${details.provider}</span></div>`;
-            }
-            content += `</div>`;
-
-            // Location information
-            if (details.source_file || details.line_number) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-file-code"></i> Source</div>`;
-                if (details.source_file) {
-                    const fileName = details.source_file.split('/').pop();
-                    content += `<div class="tooltip-stat">
-                        <span>File:</span>
-                        <span class="source-file" title="${details.source_file}">${fileName}</span>
-                    </div>`;
-                }
-                if (details.line_number) {
-                    content += `<div class="tooltip-stat">
-                        <span>Line:</span>
-                        <span class="source-line">${details.line_number}</span>
-                    </div>`;
-                }
-                content += `</div>`;
-            }
-
-            // Dependencies information
-            content += `<div class="tooltip-section">`;
-            content += `<div class="tooltip-label">Dependencies</div>`;
-            content += `<div class="tooltip-stat">
-                <span><i class="fas fa-arrow-down"></i> Incoming:</span>
-                <span class="badge-incoming">${d.dependencies_in || 0}</span>
-            </div>`;
-            content += `<div class="tooltip-stat">
-                <span><i class="fas fa-arrow-up"></i> Outgoing:</span>
-                <span class="badge-outgoing">${d.dependencies_out || 0}</span>
-            </div>`;
-            content += `</div>`;
-
-            // Module path
-            if (details.module_path && details.module_path.length > 0) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-sitemap"></i> Module Path</div>`;
-                content += `<div class="tooltip-value">${details.module_path.join(' > ')}</div>`;
-                content += `</div>`;
-            }
-
-            // Count and for_each
-            if (details.count !== null && details.count !== undefined) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-hashtag"></i> Count</div>`;
-                content += `<div class="tooltip-value">${details.count}</div>`;
-                content += `</div>`;
-            }
-
-            if (details.for_each && Object.keys(details.for_each).length > 0) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-repeat"></i> For Each</div>`;
-                const forEachKeys = Object.keys(details.for_each);
-                content += `<div class="tooltip-value">${forEachKeys.length} items: ${forEachKeys.slice(0, 3).join(', ')}${forEachKeys.length > 3 ? '...' : ''}</div>`;
-                content += `</div>`;
-            }
-
-            // Lifecycle rules
-            if (details.lifecycle_rules && Object.keys(details.lifecycle_rules).length > 0) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-recycle"></i> Lifecycle</div>`;
-                Object.entries(details.lifecycle_rules).forEach(([key, value]) => {
-                    content += `<div class="tooltip-stat"><span>${key}:</span><span>${value}</span></div>`;
-                });
-                content += `</div>`;
-            }
-
-            // Tags
-            if (details.tags && Object.keys(details.tags).length > 0) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-tags"></i> Tags</div>`;
-                const tagCount = Object.keys(details.tags).length;
-                content += `<div class="tooltip-value">${tagCount} tag${tagCount !== 1 ? 's' : ''}</div>`;
-                content += `</div>`;
-            }
-
-            // Depends on
-            if (details.depends_on && details.depends_on.length > 0) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-link"></i> Explicit Dependencies</div>`;
-                content += `<div class="tooltip-value">${details.depends_on.length} explicit</div>`;
-                content += `</div>`;
-            }
-
-            // Key attributes
-            if (details.attributes && Object.keys(details.attributes).length > 0) {
-                content += `<div class="tooltip-section">`;
-                content += `<div class="tooltip-label"><i class="fas fa-info-circle"></i> Attributes</div>`;
-                const attrCount = Object.keys(details.attributes).length;
-                content += `<div class="tooltip-value">${attrCount} attribute${attrCount !== 1 ? 's' : ''}</div>`;
-                content += `</div>`;
-            }
-
-            tooltip.innerHTML = content;
-
-            // Reset tooltip styles
-            tooltip.style.maxHeight = '';
-            tooltip.style.overflowY = '';
-            tooltip.classList.remove('scrollable');
-
-            // Smart positioning logic
-            const tooltipRect = tooltip.getBoundingClientRect();
-            const viewportHeight = window.innerHeight;
-            const viewportWidth = window.innerWidth;
-            
-            let left = event.pageX + 15;
-            let top = event.pageY + 15;
-
-            // Check right boundary
-            if (left + tooltipRect.width > viewportWidth - 20) {
-                left = event.pageX - tooltipRect.width - 15;
-            }
-
-            // Check bottom boundary
-            if (top + tooltipRect.height > viewportHeight - 20) {
-                // Try to position above the cursor
-                top = event.pageY - tooltipRect.height - 15;
-                
-                // If still doesn't fit, position at the top of the viewport
-                if (top < 20) {
-                    top = 20;
-                    
-                    // If tooltip is too tall for viewport, enable scrolling
-                    if (tooltipRect.height > viewportHeight - 40) {
-                        tooltip.style.maxHeight = (viewportHeight - 40) + 'px';
-                        tooltip.style.overflowY = 'auto';
-                        tooltip.classList.add('scrollable');
-                    }
-                }
-            }
-
-            // Check left boundary
-            if (left < 20) {
-                left = 20;
-            }
-
-            // Check top boundary
-            if (top < 20) {
-                top = 20;
-            }
-
-            tooltip.style.left = left + 'px';
-            tooltip.style.top = top + 'px';
-            tooltip.classList.add('show');
+            // Show with delay
+            terraformViewer.showWithDelay(d, position);
 
             // Enhanced hover effect
             const state = getStateConfig(d.state);
@@ -2706,18 +3910,29 @@
         }
 
         function hideTooltip(event, d) {
-            const tooltip = document.getElementById('node-tooltip');
-            if (tooltip) {
-                tooltip.classList.remove('show');
-            }
-
+            // Hide with delay
+            terraformViewer.hideWithDelay();
+            
+            // Reset node styling
             if (d && !highlightedNodes.has(d.id)) {
                 const state = getStateConfig(d.state);
-                const selector = event ? event.currentTarget : `[data-id="${d.id}"]`;
-                d3.select(selector).select('path')
+                d3.select(event.currentTarget).select('path')
                     .style('filter', `drop-shadow(0 0 8px ${state.glow})`);
             }
-            hoveredNode = null;
+        }
+
+        // Update your node event handlers
+        function setupNodeEvents(node) {
+            node.on('mouseover', (event, d) => showTooltip(event, d))
+                .on('mouseout', (event, d) => hideTooltip(event, d))
+                .on('click', (event, d) => {
+                    // Cancel any pending hide and show immediately
+                    terraformViewer.cancelHide();
+                    const rect = event.currentTarget.getBoundingClientRect();
+                    const position = { x: rect.right + 15, y: rect.top };
+                    terraformViewer.show(d, position);
+                    highlightConnected(event, d);
+                });
         }
 
         function dragstarted(event, d) {
@@ -3509,23 +4724,31 @@
             }
         }
 
+        let terraformViewer;
+
         // Initialize components when DOM is ready
         function initializeComponents() {
             // Initialize Command Palette
             const commandPalette = new CommandPalette();
             window.commandPalette = commandPalette;
 
+            terraformViewer = new TerraformObjectViewer({
+                container: '#terraform-object-viewer',
+                hoverDelay: 150,
+                hideDelay: 200
+            });
+
             // Initialize the graph
             init();
 
             // Initialize state indicators
-            updateStateIndicators();
+            // updateStateIndicators();
             
             // Update state indicators when window is resized
             window.addEventListener('resize', () => {
                 clearTimeout(resizeTimer);
                 resizeTimer = setTimeout(() => {
-                    updateStateIndicators();
+                   // updateStateIndicators();
                 }, config.performance.debounceDelay);
             });
         }

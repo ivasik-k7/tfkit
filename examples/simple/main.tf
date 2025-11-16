@@ -122,6 +122,12 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "secret_key" {
+  description = "Testing secret key"
+  sensitive   = true
+  type        = string
+}
+
 variable "secondary_region" {
   description = "Secondary AWS region"
   type        = string
