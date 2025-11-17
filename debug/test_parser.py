@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from tfkit.analytics.base import TerraformGraphAnalytics
 from tfkit.dependency.base import TerraformDependencyBuilder
 from tfkit.graph.base import TerraformGraphBuilder
 from tfkit.parser.base import ParsingConfig, TerraformParser
@@ -9,7 +10,7 @@ from tfkit.templates.theme_manager import ThemeManager
 
 
 def main():
-    test_path = Path("./examples/main")
+    test_path = Path("./examples/simple")
 
     config = ParsingConfig()
     parser = TerraformParser(config)
@@ -20,6 +21,8 @@ def main():
 
     graph_builder = TerraformGraphBuilder(catalog)
     graph_data = graph_builder.build_graph(dependencies)
+
+    analytics = TerraformGraphAnalytics(graph_data).analyze()
 
     try:
         from tfkit import __version__
