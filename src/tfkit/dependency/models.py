@@ -19,6 +19,7 @@ class DependencyType(Enum):
     DATA_REFERENCE = "data_reference"
     OUTPUT = "output"
     TERRAFORM_BLOCK = "terraform_block"
+    NESTED = "nested"
 
 
 @dataclass

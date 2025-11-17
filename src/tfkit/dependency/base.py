@@ -58,7 +58,49 @@ class TerraformDependencyBuilder:
                 if dep.target_address in self.dependencies:
                     self.dependencies[dep.target_address].add_reference(dep)
 
+        self._build_nested_local_relationships()
+
         return self.dependencies
+
+    def _build_nested_local_relationships(self):
+        """Build relationships between nested local structures to ensure parent locals
+        aren't marked as unused when their children have dependencies."""
+
+        local_addresses = [
+            addr for addr in self.dependencies.keys() if addr.startswith("local.")
+        ]
+
+        for local_addr in local_addresses:
+            parts = local_addr.split(".")
+            if len(parts) <= 2:
+                continue
+
+            current_parts = parts[:]
+            while len(current_parts) > 2:
+                child_addr = ".".join(current_parts)
+                parent_addr = ".".join(current_parts[:-1])
+
+                parent_to_child_dep = TerraformDependency(
+                    source_address=parent_addr,
+                    target_address=child_addr,
+                    dependency_type=DependencyType.NESTED,
+                    attribute_path="child_element",
+                )
+
+                child_to_parent_dep = TerraformDependency(
+                    source_address=child_addr,
+                    target_address=parent_addr,
+                    dependency_type=DependencyType.NESTED,
+                    attribute_path="parent_structure",
+                )
+
+                if parent_addr in self.dependencies:
+                    self.dependencies[parent_addr].add_dependency(parent_to_child_dep)
+
+                if child_addr in self.dependencies:
+                    self.dependencies[child_addr].add_reference(child_to_parent_dep)
+
+                current_parts = current_parts[:-1]
 
     def _build_provider_maps(self):
         self._provider_map.clear()
@@ -340,14 +382,52 @@ class TerraformDependencyBuilder:
         dependencies = []
 
         if hasattr(obj, "attributes") and obj.attributes:
-            filtered_attrs = {
-                k: v for k, v in obj.attributes.items() if k != "provider"
-            }
-            if filtered_attrs:
-                deps = self._extract_from_dict(
-                    filtered_attrs, source_address, "attributes"
-                )
-                dependencies.extend(deps)
+            if source_address.startswith("local."):
+                value_attr = getattr(obj.attributes, "value", None)
+                if value_attr:
+                    if isinstance(value_attr, str):
+                        deps = self._extract_from_string(
+                            value_attr, source_address, "value"
+                        )
+                        dependencies.extend(deps)
+                    elif isinstance(value_attr, dict):
+                        deps = self._extract_from_dict(
+                            value_attr, source_address, "value"
+                        )
+                        dependencies.extend(deps)
+                    elif isinstance(value_attr, list):
+                        for idx, item in enumerate(value_attr):
+                            if isinstance(item, str):
+                                deps = self._extract_from_string(
+                                    item, source_address, f"value[{idx}]"
+                                )
+                                dependencies.extend(deps)
+                            elif isinstance(item, dict):
+                                deps = self._extract_from_dict(
+                                    item, source_address, f"value[{idx}]"
+                                )
+                                dependencies.extend(deps)
+            else:
+                filtered_attrs = {
+                    k: v for k, v in obj.attributes.items() if k != "provider"
+                }
+                if filtered_attrs:
+                    deps = self._extract_from_dict(
+                        filtered_attrs, source_address, "attributes"
+                    )
+                    dependencies.extend(deps)
+
+        if source_address.startswith("local.") and hasattr(obj, "attributes"):
+            value_attr = getattr(obj.attributes, "value", None)
+            if value_attr:
+                if isinstance(value_attr, str):
+                    deps = self._extract_from_string(
+                        value_attr, source_address, "value"
+                    )
+                    dependencies.extend(deps)
+                elif isinstance(value_attr, dict):
+                    deps = self._extract_from_dict(value_attr, source_address, "value")
+                    dependencies.extend(deps)
 
         if hasattr(obj, "raw_code") and obj.raw_code:
             deps = self._extract_from_string(obj.raw_code, source_address, "raw_code")

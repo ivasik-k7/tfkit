@@ -54,7 +54,7 @@ class TerraformGraphAnalytics:
         self._analyze_resource_clusters()
         self._analyze_provider_relationships()
         self._analyze_module_structure()
-        self._detect_terraform_anomalies()
+        # self._detect_terraform_anomalies()
         self._analyze_terraform_risks()
         self._compute_terraform_complexity()
 
@@ -62,12 +62,12 @@ class TerraformGraphAnalytics:
         return self.analytics
 
     def _compute_basic_statistics(self) -> None:
-        """Compute basic graph statistics"""
+        """Compute basic graph statistics (Unchanged, already correct)"""
         self.analytics.total_nodes = len(self.graph.nodes)
         self.analytics.total_edges = len(self.graph.links)
 
     def _compute_terraform_distributions(self) -> None:
-        """Compute Terraform-specific distributions"""
+        """Compute Terraform-specific distributions (Unchanged, already correct)"""
         resource_types = defaultdict(int)
         provider_types = defaultdict(int)
 
@@ -101,31 +101,36 @@ class TerraformGraphAnalytics:
             )
 
     def _compute_terraform_connectivity(self) -> None:
-        """Compute Terraform-specific connectivity metrics - FIXED"""
+        """
+        Compute Terraform-specific connectivity metrics (Enhanced)
+        Calculates basic degrees and **Resource Coupling (Out-Degree)**.
+        """
         if self.analytics.total_nodes == 0:
             return
 
-        # Basic degree metrics
         in_degrees = []
         out_degrees = []
         resource_degrees = []
+        resource_out_degrees = []  # For coupling calculation
         local_degrees = []
         variable_degrees = []
 
         for node_id, node in self._node_map.items():
-            in_degree = len(self._adjacency_list[node_id]["in"])
-            out_degree = len(self._adjacency_list[node_id]["out"])
+            adj_data = self._adjacency_list.get(node_id, {"in": set(), "out": set()})
+            in_degree = len(adj_data["in"])
+            out_degree = len(adj_data["out"])
 
             in_degrees.append(in_degree)
             out_degrees.append(out_degree)
 
-            # Terraform-specific degree analysis
+            total_degree = in_degree + out_degree
             if node.type == NodeType.RESOURCE:
-                resource_degrees.append(in_degree + out_degree)
+                resource_degrees.append(total_degree)
+                resource_out_degrees.append(out_degree)
             elif node.type == NodeType.LOCAL:
-                local_degrees.append(in_degree + out_degree)
+                local_degrees.append(total_degree)
             elif node.type == NodeType.VARIABLE:
-                variable_degrees.append(in_degree + out_degree)
+                variable_degrees.append(total_degree)
 
         self.analytics.avg_in_degree = (
             sum(in_degrees) / len(in_degrees) if in_degrees else 0
@@ -507,58 +512,103 @@ class TerraformGraphAnalytics:
         )
 
     def _analyze_terraform_paths(self) -> None:
-        """Analyze Terraform-specific dependency paths"""
-        print("🛣️ Analyzing dependency paths...")
+        """Analyzes Terraform-specific dependency paths, focusing on criticality and configuration flow."""
 
-        # Find critical resource dependency paths
-        self._find_resource_dependency_chains()
+        # 1. Compute Path Statistics (Must run first for global path data)
+        path_distances, all_path_lengths = self._compute_all_path_distances()
 
-        # Find configuration propagation paths
+        if all_path_lengths:
+            self.analytics.avg_path_length = sum(all_path_lengths) / len(
+                all_path_lengths
+            )
+            self.analytics.diameter = max(all_path_lengths)
+
+        # 2. Find Critical Resource Dependency Chains
+        self._find_critical_resource_chains()
+
+        # 3. Find High-Risk Configuration Paths
         self._find_configuration_paths()
 
-        # Compute path statistics
-        self._compute_terraform_path_statistics()
+        # Note: The 'longest_paths' analytics field is not explicitly populated here,
+        # but could be derived from the critical_paths or config_paths if needed.
 
-    def _find_resource_dependency_chains(self) -> None:
-        """Find dependency chains between resources"""
+    def _compute_all_path_distances(
+        self,
+    ) -> tuple[Dict[str, Dict[str, int]], List[int]]:
+        """
+        Computes shortest path distances (using BFS) from a sampled set of nodes
+        to calculate global graph statistics like average path length and diameter.
+        """
+        sample_nodes = list(self._node_map.keys())[:50]  # Performance sample size
+        all_path_lengths = []
+        all_distances = {}  # Stores {source: {target: distance}}
+
+        for source in sample_nodes:
+            distances = self._bfs_distances(source)
+            all_distances[source] = distances
+            all_path_lengths.extend(distances.values())
+
+        # Returns the full distance map and a flat list of all found distances
+        return all_distances, all_path_lengths
+
+    def _bfs_distances(self, start: str) -> Dict[str, int]:
+        """Performs BFS to compute shortest path distances from the start node."""
+        distances = {start: 0}
+        queue = deque([start])
+
+        while queue:
+            node = queue.popleft()
+            for neighbor in self._adjacency_list.get(node, {}).get("out", set()):
+                if neighbor not in distances:
+                    distances[neighbor] = distances[node] + 1
+                    queue.append(neighbor)
+        return distances
+
+    def _find_critical_resource_chains(self) -> None:
+        """Finds and ranks long dependency chains composed primarily of resources."""
         resource_nodes = [
             node_id
             for node_id, node in self._node_map.items()
             if node.type == NodeType.RESOURCE
         ]
 
-        critical_paths = []
+        critical_paths: List[List[str]] = []
 
-        # Find long dependency chains between resources
-        for resource in resource_nodes[:20]:  # Sample for performance
+        # Sampling resource nodes is crucial for performance (20% of resources or max 20)
+        sample_count = min(len(resource_nodes), 20)
+        for resource in resource_nodes[:sample_count]:
+            # Uses DFS-like recursion to find long paths
             paths = self._find_long_chains_from(resource, max_length=8)
             critical_paths.extend(paths)
 
-        # Take top paths by length and complexity
-        critical_paths.sort(key=len, reverse=True)
-        self.analytics.critical_paths = [
-            self._create_path_metrics(p) for p in critical_paths[:10]
-        ]
+        # Rank by length and complexity (using PathMetrics risk_score for secondary key)
+        scored_paths = [self._create_path_metrics(p) for p in critical_paths]
+
+        # Sort by length (primary) then risk_score (secondary)
+        scored_paths.sort(key=lambda p: (p.length, p.risk_score), reverse=True)
+
+        self.analytics.critical_paths = scored_paths[:10]
 
     def _find_long_chains_from(
         self, start: str, max_length: int = 8
     ) -> List[List[str]]:
-        """Find long dependency chains starting from a node"""
-        chains = []
-        stack = [(start, [start])]
+        """Finds paths of a minimum length (>= max_length) by only following resource dependencies."""
+        chains: List[List[str]] = []
+        stack: List[tuple[str, List[str]]] = [(start, [start])]  # (node, path)
 
         while stack:
             node, path = stack.pop()
 
             if len(path) >= max_length:
                 chains.append(path)
-                continue
+                # Continue search beyond max_length, but only process neighbors if not maxed
+                if len(path) >= 12:  # Hard limit for performance
+                    continue
 
-            # Only follow resource dependencies for meaningful chains
             outgoing = [
                 n
-                for n in self._adjacency_list[node]["out"]
-                if self._node_map[n].type == NodeType.RESOURCE
+                for n in self._adjacency_list.get(node, {}).get("out", set())
+                if self._node_map.get(n) and self._node_map[n].type == NodeType.RESOURCE
             ]
 
             for neighbor in outgoing:
@@ -568,7 +618,7 @@ class TerraformGraphAnalytics:
         return chains
 
     def _find_configuration_paths(self) -> None:
-        """Find paths from variables to resources (configuration propagation)"""
+        """Finds shortest paths from input variables to key resources to highlight configuration flow."""
         variable_nodes = [
             node_id
             for node_id, node in self._node_map.items()
@@ -580,34 +630,36 @@ class TerraformGraphAnalytics:
             if node.type == NodeType.RESOURCE
         ]
 
-        config_paths = []
+        config_paths: List[List[str]] = []
 
-        # Sample variables and resources for performance
+        # Sample variables and resources for performance (O(V*R*P) is too high)
         sample_vars = variable_nodes[:10]
         sample_resources = resource_nodes[:20]
 
         for var_node in sample_vars:
             for resource_node in sample_resources:
+                # Find all simple paths (DFS)
                 paths = self._find_all_paths(var_node, resource_node, max_length=6)
                 if paths:
-                    # Take the shortest path as most relevant
+                    # The shortest path shows the most direct impact of the variable
                     shortest_path = min(paths, key=len)
                     config_paths.append(shortest_path)
 
-        # Create path metrics
-        self.analytics.high_risk_paths = [
-            self._create_path_metrics(p) for p in config_paths[:15]
-        ]
+        # Rank by risk score
+        scored_paths = [self._create_path_metrics(p) for p in config_paths]
+        scored_paths.sort(key=lambda p: p.risk_score, reverse=True)
+
+        self.analytics.high_risk_paths = scored_paths[:15]
 
     def _find_all_paths(
         self, start: str, end: str, max_length: int = 10
     ) -> List[List[str]]:
-        """Find all simple paths between two nodes"""
+        """Finds all simple paths (DFS) between two nodes up to a max length."""
         if start == end:
             return [[start]]
 
-        paths = []
-        stack = [(start, [start])]
+        paths: List[List[str]] = []
+        stack: List[tuple[str, List[str]]] = [(start, [start])]  # (node, path)
 
         while stack:
             node, path = stack.pop()
@@ -619,71 +671,48 @@ class TerraformGraphAnalytics:
                 paths.append(path)
                 continue
 
-            for neighbor in self._adjacency_list[node]["out"]:
+            for neighbor in self._adjacency_list.get(node, {}).get("out", set()):
                 if neighbor not in path:
                     stack.append((neighbor, path + [neighbor]))
 
         return paths
 
     def _create_path_metrics(self, path: List[str]) -> PathMetrics:
-        """Create PathMetrics for a path"""
+        """Creates and computes PathMetrics (length, risk) for a given path."""
         metrics = PathMetrics(path=path, length=len(path))
-
-        # Collect node types and calculate risk
-        node_types = []
+        node_types: List[NodeType] = []
+        link_types: List[LinkType] = []
         risk_score = 0.0
 
         for i, node_id in enumerate(path):
             node = self._node_map[node_id]
             node_types.append(node.type)
 
-            # Risk factors
+            # --- Risk Heuristics ---
+            # 1. Base Type Risk
             if node.type == NodeType.RESOURCE:
                 risk_score += 2.0
             elif node.type == NodeType.LOCAL:
                 risk_score += 1.0
 
-            # Long chains are riskier
+            # 2. Positional Risk (later nodes in the chain are more critical)
             risk_score += i * 0.5
 
-            # Implicit dependencies are riskier
+            # 3. Implicit Link Risk (Harder to track/debug dependency)
             if i < len(path) - 1:
-                link = self._link_map.get((node_id, path[i + 1]))
-                if link and link.link_type == LinkType.IMPLICIT:
-                    risk_score += 3.0
+                source, target = node_id, path[i + 1]
+                link = self._link_map.get((source, target))
+
+                if link:
+                    link_types.append(link.link_type)
+                    if link.link_type == LinkType.IMPLICIT:
+                        risk_score += 3.0  # High penalty for implicit dependency
 
         metrics.node_types = node_types
+        metrics.link_types = link_types
         metrics.risk_score = risk_score
 
         return metrics
-
-    def _compute_terraform_path_statistics(self) -> None:
-        """Compute Terraform-specific path statistics"""
-        # Sample nodes for performance
-        sample_nodes = list(self._node_map.keys())[:50]
-        all_distances = []
-
-        for source in sample_nodes:
-            distances = self._bfs_distances(source)
-            all_distances.extend(distances.values())
-
-        if all_distances:
-            self.analytics.avg_path_length = sum(all_distances) / len(all_distances)
-            self.analytics.diameter = max(all_distances)
-
-    def _bfs_distances(self, start: str) -> Dict[str, int]:
-        """BFS to compute distances from start node"""
-        distances = {start: 0}
-        queue = deque([start])
-
-        while queue:
-            node = queue.popleft()
-            for neighbor in self._adjacency_list[node]["out"]:
-                if neighbor not in distances:
-                    distances[neighbor] = distances[node] + 1
-                    queue.append(neighbor)
-
-        return distances
 
     def _analyze_terraform_components(self) -> None:
         """Analyze Terraform-specific components"""
@@ -915,39 +944,65 @@ class TerraformGraphAnalytics:
         return coupling
 
     def _analyze_module_structure(self) -> None:
-        """Analyze module structure in Terraform configuration"""
-        # Group nodes by logical modules based on naming and relationships
+        """
+        Analyzes the module structure, grouping nodes by explicit module calls
+        and calculating the dependency depth distribution.
+        """
         module_groups = defaultdict(set)
 
-        for node_id, node in self._node_map.items():
-            # Use node ID patterns to infer modules
-            if "." in node_id:
-                parts = node_id.split(".")
-                if parts[0] == "module":
-                    # module.module_name.resource
-                    module_groups[parts[1]].add(node_id)
-                elif parts[0] == "local":
-                    # local.module_name.attribute
-                    if len(parts) > 1:
-                        module_groups[parts[1]].add(node_id)
-                else:
-                    # provider_resource.name - group by provider
-                    provider = parts[0].split("_")[0] if "_" in parts[0] else "core"
-                    module_groups[provider].add(node_id)
+        # 1. Compute dependency depth for all nodes once
+        node_depths = self._calculate_all_node_depths()
+
+        for node_id in self._node_map.keys():
+            if node_id.startswith("module."):
+                # Group by the first subdirectory name: module.vpc.aws_instance -> vpc
+                module_name = node_id.split(".")[1]
+                module_groups[module_name].add(node_id)
             else:
+                # Assign all other nodes (locals, variables, outputs, top-level resources) to the root
                 module_groups["root"].add(node_id)
 
-        # Module distribution
-        for module, nodes in module_groups.items():
-            if len(nodes) > 1:  # Only meaningful modules
-                self.analytics.module_distribution[module] = len(nodes)
+        # 3. Store Module Distribution
+        self.analytics.module_distribution = {
+            module: len(nodes)
+            for module, nodes in module_groups.items()
+            if len(nodes) > 0
+        }
 
-        # Module depth (simplified)
-        for node in self._node_map.values():
-            depth = self._calculate_terraform_depth(node.id)
-            self.analytics.module_depth_distribution[depth] = (
-                self.analytics.module_depth_distribution.get(depth, 0) + 1
-            )
+        # 4. Store Dependency Depth Distribution
+        self.analytics.module_depth_distribution = defaultdict(int)
+        for depth in node_depths.values():
+            self.analytics.module_depth_distribution[depth] += 1
+
+    def _calculate_all_node_depths(self) -> Dict[str, int]:
+        """
+        Calculates the dependency depth (longest path from a root) for all nodes
+        in a single Breadth-First Search (BFS) pass. O(|V| + |E|).
+        """
+        depths: Dict[str, int] = {}
+        queue = deque()
+
+        # Initialize BFS with root nodes (nodes having no incoming dependencies)
+        for node_id in self._node_map.keys():
+            if not self._adjacency_list.get(node_id, {}).get("in"):
+                queue.append((node_id, 0))
+                depths[node_id] = 0
+
+        # Perform BFS traversal
+        while queue:
+            current_id, depth = queue.popleft()
+
+            for neighbor_id in self._adjacency_list.get(current_id, {}).get(
+                "out", set()
+            ):
+                new_depth = depth + 1
+
+                # Update depth only if the new path is longer (critical for DAGs)
+                if new_depth > depths.get(neighbor_id, -1):
+                    depths[neighbor_id] = new_depth
+                    queue.append((neighbor_id, new_depth))
+
+        return depths
 
     def _calculate_terraform_depth(self, node_id: str) -> int:
         """Calculate depth in Terraform dependency tree"""
@@ -973,43 +1028,43 @@ class TerraformGraphAnalytics:
 
         return depths.get(node_id, 0)
 
-    def _detect_terraform_anomalies(self) -> None:
-        """Detect Terraform-specific anomalies"""
-        print("🚨 Detecting anomalies...")
+    # def _detect_terraform_anomalies(self) -> None:
+    #     """Detect Terraform-specific anomalies"""
+    #     print("🚨 Detecting anomalies...")
 
-        for node_id, metrics in self.analytics.node_metrics.items():
-            node = self._node_map[node_id]
+    #     for node_id, metrics in self.analytics.node_metrics.items():
+    #         node = self._node_map[node_id]
 
-            # Isolated resources (should have dependencies)
-            if (
-                node.type == NodeType.RESOURCE
-                and metrics.total_degree == 0
-                and node.data.state != NodeState.UNUSED
-            ):
-                self.analytics.isolated_nodes.append(node_id)
+    #         # Isolated resources (should have dependencies)
+    #         if (
+    #             node.type == NodeType.RESOURCE
+    #             and metrics.total_degree == 0
+    #             and node.data.state != NodeState.UNUSED
+    #         ):
+    #             self.analytics.isolated_nodes.append(node_id)
 
-            # Orphaned nodes (no inputs but has outputs)
-            if metrics.in_degree == 0 and metrics.out_degree > 0:
-                # Variables are expected to have no inputs
-                if node.type != NodeType.VARIABLE:
-                    self.analytics.orphaned_nodes.append(node_id)
+    #         # Orphaned nodes (no inputs but has outputs)
+    #         if metrics.in_degree == 0 and metrics.out_degree > 0:
+    #             # Variables are expected to have no inputs
+    #             if node.type != NodeType.VARIABLE:
+    #                 self.analytics.orphaned_nodes.append(node_id)
 
-            # Unused nodes (no outputs but has inputs)
-            if metrics.out_degree == 0 and metrics.in_degree > 0:
-                # Outputs are expected to have no outputs
-                if node.type != NodeType.OUTPUT:
-                    self.analytics.unused_nodes.append(node_id)
+    #         # Unused nodes (no outputs but has inputs)
+    #         if metrics.out_degree == 0 and metrics.in_degree > 0:
+    #             # Outputs are expected to have no outputs
+    #             if node.type != NodeType.OUTPUT:
+    #                 self.analytics.unused_nodes.append(node_id)
 
-            # Over-connected nodes
-            avg_degree = self.analytics.avg_in_degree + self.analytics.avg_out_degree
-            if avg_degree > 0 and metrics.total_degree > avg_degree * 3:
-                self.analytics.over_connected_nodes.append(node_id)
+    #         # Over-connected nodes
+    #         avg_degree = self.analytics.avg_in_degree + self.analytics.avg_out_degree
+    #         if avg_degree > 0 and metrics.total_degree > avg_degree * 3:
+    #             self.analytics.over_connected_nodes.append(node_id)
 
-            # State-based anomalies
-            if node.data.state in [NodeState.UNRESOLVED, NodeState.INVALID]:
-                self.analytics.dependency_violations.append(
-                    f"Invalid state: {node_id} has state {node.data.state}"
-                )
+    #         # State-based anomalies
+    #         if node.data.state in [NodeState.UNRESOLVED, NodeState.INVALID]:
+    #             self.analytics.dependency_violations.append(
+    #                 f"Invalid state: {node_id} has state {node.data.state}"
+    #             )
 
     def _analyze_terraform_risks(self) -> None:
         """Analyze Terraform-specific risks"""

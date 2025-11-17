@@ -32,16 +32,26 @@ def main():
     theme = "github-dark"
     layout = "graph"
 
-    json_string = json.dumps(graph_data.to_dict())
-
     output_path = Path("./out/data.json")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
+        json_string = json.dumps(graph_data.to_dict())
+
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(json_string)
         print(f"✅ Successfully saved data to: {output_path.resolve()}")
+    except OSError as e:
+        print(f"❌ Error writing file to {output_path}: {e}")
+
+    try:
+        output_path = Path("./out/analytics.json")
+
+        json_string = json.dumps(analytics.to_dict())
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(json_string)
     except OSError as e:
         print(f"❌ Error writing file to {output_path}: {e}")
 
