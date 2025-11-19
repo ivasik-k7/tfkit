@@ -37,10 +37,10 @@ def main():
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        json_string = json.dumps(graph_data.to_dict())
+        graph_json = json.dumps(graph_data.to_dict())
 
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(json_string)
+            f.write(graph_json)
         print(f"✅ Successfully saved data to: {output_path.resolve()}")
     except OSError as e:
         print(f"❌ Error writing file to {output_path}: {e}")
@@ -48,10 +48,10 @@ def main():
     try:
         output_path = Path("./out/analytics.json")
 
-        json_string = json.dumps(analytics.to_dict())
+        analytics_json = json.dumps(analytics.to_dict())
 
         with open(output_path, "w", encoding="utf-8") as f:
-            f.write(json_string)
+            f.write(analytics_json)
     except OSError as e:
         print(f"❌ Error writing file to {output_path}: {e}")
 
@@ -60,18 +60,16 @@ def main():
         layout=layout,
         theme=theme,
         title="Terraform Test Visualization",
-        dataset=json.dumps(graph_data.to_dict()),
+        version=__version__,
+        dataset=graph_json,
         config_data=[],
         theme_name=theme,
         theme_colors=ThemeManager.get_theme_colors(theme),
-        version=__version__,
+        analytics_data=analytics_json,
     )
 
     with Browser(path) as b:
         b.open()
-
-    # analytics comes after TerraformGraphBuilder
-    # analytics based on nodes and links and other types of data from tgb
 
 
 if __name__ == "__main__":

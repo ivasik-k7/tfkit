@@ -1,6 +1,6 @@
 import random
 from collections import defaultdict, deque
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from tfkit.analytics.models import (
     ArchetypePattern,
@@ -107,18 +107,15 @@ class TerraformGraphAnalytics:
     def _compute_distributions(self) -> None:
         """Compute all distribution metrics"""
         for node in self.graph.nodes.values():
-            # Type distribution
             self.analytics.type_distribution[node.type] = (
                 self.analytics.type_distribution.get(node.type, 0) + 1
             )
 
-            # State distribution
             if node.data.state:
                 self.analytics.state_distribution[node.data.state] = (
                     self.analytics.state_distribution.get(node.data.state, 0) + 1
                 )
 
-        # Link type distribution
         for link in self.graph.links:
             self.analytics.link_type_distribution[link.link_type] = (
                 self.analytics.link_type_distribution.get(link.link_type, 0) + 1
@@ -412,7 +409,7 @@ class TerraformGraphAnalytics:
             return
 
         # Initialize centrality for all nodes in the graph
-        centrality = {node_id: 1.0 / n for node_id in self._node_map.keys()}
+        centrality = dict.fromkeys(self._node_map.keys(), 1.0 / n)
 
         for _ in range(max_iter):
             new_centrality = defaultdict(float)
@@ -1232,241 +1229,244 @@ class TerraformGraphAnalytics:
             return False
 
         for node in nodes:
-            if node not in visited:
-                if dfs(node):
-                    return True
+            if node not in visited and dfs(node):
+                return True
+
         return False
 
     def _find_strongly_connected_components(self) -> None:
-        """Find strongly connected components using Kosaraju's algorithm"""
-        print("🔗 Finding strongly connected components...")
-
-        # Step 1: First DFS to get finishing times
-        visited = set()
+        """Find strongly connected components using Tarjan's algorithm"""
+        index_counter = [0]
         stack = []
-
-        def dfs_first(node):
-            visited.add(node)
-            for neighbor in self._adjacency_list[node]["out"]:
-                if neighbor not in visited:
-                    dfs_first(neighbor)
-            stack.append(node)
-
-        for node_id in self._node_map.keys():
-            if node_id not in visited:
-                dfs_first(node_id)
-
-        # Step 2: Transpose graph
-        transposed = defaultdict(set)
-        for node_id in self._node_map.keys():
-            for neighbor in self._adjacency_list[node_id]["out"]:
-                transposed[neighbor].add(node_id)
-
-        # Step 3: Second DFS on transposed graph
-        visited.clear()
+        lowlinks = {}
+        index = {}
+        on_stack = set()
         sccs = []
 
-        def dfs_second(node, component):
-            visited.add(node)
-            component.add(node)
-            for neighbor in transposed[node]:
-                if neighbor not in visited:
-                    dfs_second(neighbor, component)
+        def strongconnect(node):
+            index[node] = index_counter[0]
+            lowlinks[node] = index_counter[0]
+            index_counter[0] += 1
+            stack.append(node)
+            on_stack.add(node)
 
-        while stack:
-            node = stack.pop()
-            if node not in visited:
-                component = set()
-                dfs_second(node, component)
-                if len(component) > 1:  # Only consider non-trivial SCCs
-                    sccs.append(component)
+            for successor in self._adjacency_list[node]["out"]:
+                if successor not in index:
+                    strongconnect(successor)
+                    lowlinks[node] = min(lowlinks[node], lowlinks[successor])
+                elif successor in on_stack:
+                    lowlinks[node] = min(lowlinks[node], index[successor])
 
-        self.analytics.strongly_connected_components = sccs
+            if lowlinks[node] == index[node]:
+                scc = set()
+                while True:
+                    successor = stack.pop()
+                    on_stack.remove(successor)
+                    scc.add(successor)
+                    if successor == node:
+                        break
+                sccs.append(scc)
+
+        for node in self._node_map.keys():
+            if node not in index:
+                strongconnect(node)
+
+        # Store non-trivial SCCs
+        self.analytics.strongly_connected_components = [
+            scc for scc in sccs if len(scc) > 1
+        ]
 
     def _find_articulation_points(self) -> None:
-        """Find articulation points using DFS"""
-        print("📍 Finding articulation points...")
-
-        visited = set()
-        discovery = {}
-        low = {}
-        parent = {}
-        articulation_points = set()
-        time = [0]
-
-        def dfs(node):
-            visited.add(node)
-            discovery[node] = time[0]
-            low[node] = time[0]
-            time[0] += 1
-            children = 0
-
-            for neighbor in (
-                self._adjacency_list[node]["in"] | self._adjacency_list[node]["out"]
-            ):
-                if neighbor not in visited:
-                    parent[neighbor] = node
-                    children += 1
-                    dfs(neighbor)
-
-                    low[node] = min(low[node], low[neighbor])
-
-                    # Root with two or more children is articulation point
-                    if parent.get(node) is None and children > 1:
-                        articulation_points.add(node)
-
-                    # Non-root with low[child] >= discovery[node]
-                    if (
-                        parent.get(node) is not None
-                        and low[neighbor] >= discovery[node]
-                    ):
-                        articulation_points.add(node)
-
-                elif neighbor != parent.get(node):
-                    low[node] = min(low[node], discovery[neighbor])
-
-        for node_id in self._node_map.keys():
-            if node_id not in visited:
-                dfs(node_id)
-
-        # Update component metrics
+        """Find articulation points (cut vertices) in components using Tarjan's algorithm"""
         for component in self.analytics.components.values():
-            component.articulation_points = articulation_points & component.node_ids
+            nodes = component.node_ids
+            if len(nodes) < 3:
+                component.articulation_points = set()
+                continue
 
-    # ========== Clustering Analysis ==========
+            # Initialize tracking structures
+            visited: Set[str] = set()
+            discovery_time: Dict[str, int] = {}
+            low_link: Dict[str, int] = {}
+            parent: Dict[str, Optional[str]] = {}
+            articulation_points: Set[str] = set()
+            timer = [0]
 
-    def _analyze_clusters(self) -> None:
-        """Perform community detection using modularity optimization"""
-        print("🏘️ Analyzing clusters...")
+            def dfs_articulation_point(node: str) -> None:
+                """DFS helper to find articulation points"""
+                children_count = 0
+                visited.add(node)
+                discovery_time[node] = low_link[node] = timer[0]
+                timer[0] += 1
 
-        # Simple community detection based on connectivity
-        clusters = self._detect_communities()
-
-        for cluster_id, nodes in enumerate(clusters):
-            if len(nodes) > 1:  # Only meaningful clusters
-                metrics = self._compute_cluster_metrics(cluster_id, nodes)
-                self.analytics.clusters[cluster_id] = metrics
-
-        self.analytics.optimal_cluster_count = len(clusters)
-
-    def _detect_communities(self) -> List[Set[str]]:
-        """Simple community detection using label propagation"""
-        nodes = list(self._node_map.keys())
-        communities = {node: i for i, node in enumerate(nodes)}
-
-        changed = True
-        max_iter = 10
-
-        while changed and max_iter > 0:
-            changed = False
-            random.shuffle(nodes)
-
-            for node in nodes:
-                # Count community frequencies in neighbors
-                neighbor_communities = defaultdict(int)
-                neighbors = (
-                    self._adjacency_list[node]["in"] | self._adjacency_list[node]["out"]
-                )
+                # Get valid neighbors within component
+                neighbors = [
+                    neighbor
+                    for neighbor in self._adjacency_list.get(node, {}).get("out", set())
+                    if neighbor in nodes
+                ]
 
                 for neighbor in neighbors:
-                    neighbor_communities[communities[neighbor]] += 1
+                    if neighbor not in visited:
+                        # Unvisited neighbor - explore it
+                        children_count += 1
+                        parent[neighbor] = node
+                        dfs_articulation_point(neighbor)
 
-                if neighbor_communities:
-                    # Find most frequent community
-                    new_community = max(
-                        neighbor_communities.items(), key=lambda x: x[1]
-                    )[0]
-                    if new_community != communities[node]:
-                        communities[node] = new_community
-                        changed = True
+                        # Update low-link value
+                        low_link[node] = min(
+                            low_link[node], low_link.get(neighbor, float("inf"))
+                        )
 
-            max_iter -= 1
+                        # Check articulation point conditions
+                        # Root node with multiple children
+                        if parent.get(node) is None and children_count > 1:
+                            articulation_points.add(node)
 
-        # Group by community
-        community_groups = defaultdict(set)
-        for node, community_id in communities.items():
-            community_groups[community_id].add(node)
+                        # Non-root node where child cannot reach ancestor
+                        if (
+                            parent.get(node) is not None
+                            and low_link.get(neighbor, float("inf"))
+                            >= discovery_time[node]
+                        ):
+                            articulation_points.add(node)
 
-        return list(community_groups.values())
+                    elif neighbor != parent.get(node):
+                        # Back edge (not to parent) - update low-link
+                        low_link[node] = min(
+                            low_link[node], discovery_time.get(neighbor, float("inf"))
+                        )
+
+            # Start DFS from first node in component
+            if nodes:
+                start_node = next(iter(nodes))
+                parent[start_node] = None
+                dfs_articulation_point(start_node)
+
+            component.articulation_points = articulation_points
+
+    # ========== Clustering ==========
+
+    def _analyze_clusters(self) -> None:
+        """Analyze resource clusters and communities"""
+        print("🏗️ Analyzing clusters...")
+
+        # Provider-based clusters
+        self._cluster_by_provider()
+
+        # Resource type clusters
+        self._cluster_by_resource_type()
+
+        # Module-based clusters
+        self._cluster_by_module()
+
+        # Compute optimal cluster count
+        if self.analytics.clusters:
+            self.analytics.optimal_cluster_count = len(self.analytics.clusters)
+
+    def _cluster_by_provider(self) -> None:
+        """Cluster nodes by provider"""
+        provider_clusters = defaultdict(set)
+
+        for node_id, node in self._node_map.items():
+            if node.data.provider:
+                provider_clusters[node.data.provider].add(node_id)
+
+        cluster_id = 0
+        for provider, nodes in provider_clusters.items():
+            if len(nodes) > 1:
+                metrics = self._compute_cluster_metrics(cluster_id, nodes)
+                metrics.dominant_provider = provider
+                self.analytics.clusters[cluster_id] = metrics
+                cluster_id += 1
+
+    def _cluster_by_resource_type(self) -> None:
+        """Cluster resources by type"""
+        type_clusters = defaultdict(set)
+
+        for node_id, node in self._node_map.items():
+            if node.type == NodeType.RESOURCE and node.data.resource_type:
+                type_clusters[node.data.resource_type].add(node_id)
+
+        cluster_id = len(self.analytics.clusters)
+        for res_type, nodes in type_clusters.items():
+            if len(nodes) > 2:
+                metrics = self._compute_cluster_metrics(cluster_id, nodes)
+                metrics.resource_types.add(res_type)
+                self.analytics.clusters[cluster_id] = metrics
+                cluster_id += 1
+
+    def _cluster_by_module(self) -> None:
+        """Cluster nodes by module"""
+        module_clusters = defaultdict(set)
+
+        for node_id, node in self._node_map.items():
+            if node.data.module_path:
+                module_key = tuple(node.data.module_path[:1])  # First level
+                module_clusters[module_key].add(node_id)
+
+        cluster_id = len(self.analytics.clusters)
+        for module, nodes in module_clusters.items():
+            if len(nodes) > 1:
+                metrics = self._compute_cluster_metrics(cluster_id, nodes)
+                self.analytics.clusters[cluster_id] = metrics
+                cluster_id += 1
 
     def _compute_cluster_metrics(
         self, cluster_id: int, nodes: Set[str]
     ) -> ClusterMetrics:
-        """Compute comprehensive cluster metrics"""
+        """Compute metrics for a cluster"""
         metrics = ClusterMetrics(cluster_id=cluster_id, node_ids=nodes)
 
-        # Count internal and external edges
-        internal_edges = 0
-        external_edges = 0
-
+        # Internal and external edges
         for node in nodes:
-            for neighbor in self._adjacency_list[node]["out"]:
-                if neighbor in nodes:
-                    internal_edges += 1
+            for succ in self._adjacency_list[node]["out"]:
+                if succ in nodes:
+                    metrics.internal_edges += 1
                 else:
-                    external_edges += 1
-
-        metrics.internal_edges = internal_edges
-        metrics.external_edges = external_edges
+                    metrics.external_edges += 1
 
         # Density
-        n = len(nodes)
-        max_internal = n * (n - 1)
-        metrics.density = internal_edges / max_internal if max_internal > 0 else 0
+        max_edges = len(nodes) * (len(nodes) - 1)
+        metrics.density = metrics.internal_edges / max_edges if max_edges > 0 else 0
 
-        # Cohesion and separation
-        total_possible_external = n * (len(self._node_map) - n)
-        metrics.cohesion = internal_edges / max_internal if max_internal > 0 else 0
-        metrics.separation = 1 - (
-            external_edges / total_possible_external
-            if total_possible_external > 0
-            else 0
+        # Cohesion: ratio of internal to total edges
+        total_edges = metrics.internal_edges + metrics.external_edges
+        metrics.cohesion = (
+            metrics.internal_edges / total_edges if total_edges > 0 else 0
         )
 
+        # Separation: average distance to other clusters
+        # (simplified version)
+        metrics.separation = 1.0 - metrics.cohesion
+
         # Silhouette score (simplified)
-        metrics.silhouette_score = metrics.cohesion - (1 - metrics.separation)
+        if total_edges > 0:
+            metrics.silhouette_score = metrics.cohesion - metrics.separation
 
-        # Composition analysis
+        # Composition
         type_counts = defaultdict(int)
-        providers = set()
-        resource_types = set()
-
         for node_id in nodes:
             node = self._node_map[node_id]
             type_counts[node.type] += 1
 
+            if node.data.resource_type:
+                metrics.resource_types.add(node.data.resource_type)
             if node.data.provider:
-                providers.add(node.data.provider)
-            if node.type == NodeType.RESOURCE and node.data.resource_type:
-                resource_types.add(node.data.resource_type)
+                metrics.providers.add(node.data.provider)
 
-        metrics.node_type_distribution = dict(type_counts)
-        metrics.providers = providers
-        metrics.resource_types = resource_types
-
-        # Dominant type
         if type_counts:
             metrics.dominant_type = max(type_counts.items(), key=lambda x: x[1])[0]
 
-        # Dominant provider
-        if providers:
-            provider_counts = defaultdict(int)
-            for node_id in nodes:
-                provider = self._node_map[node_id].data.provider
-                if provider:
-                    provider_counts[provider] += 1
-            if provider_counts:
-                metrics.dominant_provider = max(
-                    provider_counts.items(), key=lambda x: x[1]
-                )[0]
+        metrics.node_type_distribution = dict(type_counts)
 
         return metrics
 
     # ========== Provider Analysis ==========
 
     def _analyze_providers(self) -> None:
-        """Comprehensive provider analysis"""
-        print("🏢 Analyzing providers...")
+        """Analyze provider relationships and coupling"""
+        print("🔌 Analyzing providers...")
 
         provider_nodes = defaultdict(list)
 
@@ -1474,914 +1474,951 @@ class TerraformGraphAnalytics:
             if node.data.provider:
                 provider_nodes[node.data.provider].append(node_id)
 
+        # Provider distribution
         for provider, nodes in provider_nodes.items():
-            analysis = self._compute_provider_analysis(provider, nodes)
-            self.analytics.provider_analysis[provider] = analysis
             self.analytics.provider_distribution[provider] = len(nodes)
 
-        self._analyze_provider_coupling()
-
-    def _compute_provider_analysis(
-        self, provider: str, nodes: List[str]
-    ) -> ProviderAnalysis:
-        """Compute detailed provider metrics"""
-        analysis = ProviderAnalysis(provider=provider)
-
-        analysis.node_count = len(nodes)
-        analysis.resource_count = sum(
-            1 for node_id in nodes if self._node_map[node_id].type == NodeType.RESOURCE
-        )
-
-        # Resource type analysis
-        resource_types = set()
-        for node_id in nodes:
-            node = self._node_map[node_id]
-            if node.type == NodeType.RESOURCE and node.data.resource_type:
-                resource_types.add(node.data.resource_type)
-
-        analysis.resource_types = resource_types
-        analysis.resource_type_count = len(resource_types)
-
-        # Coupling analysis
-        internal_deps = 0
-        external_deps = 0
-
-        for node_id in nodes:
-            for neighbor in self._adjacency_list[node_id]["out"]:
-                neighbor_provider = self._node_map[neighbor].data.provider
-                if neighbor_provider == provider:
-                    internal_deps += 1
-                else:
-                    external_deps += 1
-                    if neighbor_provider:
-                        analysis.coupled_providers[neighbor_provider] = (
-                            analysis.coupled_providers.get(neighbor_provider, 0) + 1
-                        )
-
-        analysis.internal_dependencies = internal_deps
-        analysis.external_dependencies = external_deps
-        analysis.coupling_ratio = (
-            external_deps / (internal_deps + external_deps)
-            if (internal_deps + external_deps) > 0
-            else 0
-        )
-
-        # Complexity analysis
-        complexities = [
-            self.analytics.node_metrics[node_id].complexity_level
-            for node_id in nodes
-            if node_id in self.analytics.node_metrics
-        ]
-        if complexities:
-            complexity_scores = {
-                ComplexityLevel.MINIMAL: 1,
-                ComplexityLevel.LOW: 2,
-                ComplexityLevel.MEDIUM: 3,
-                ComplexityLevel.HIGH: 4,
-                ComplexityLevel.CRITICAL: 5,
-                ComplexityLevel.EXTREME: 6,
-            }
-            avg_complexity = sum(
-                complexity_scores.get(c, 1) for c in complexities
-            ) / len(complexities)
-            analysis.avg_resource_complexity = avg_complexity
-            analysis.max_resource_complexity = max(
-                complexity_scores.get(c, 1) for c in complexities
+            # Create detailed analysis
+            analysis = ProviderAnalysis(provider=provider)
+            analysis.node_count = len(nodes)
+            analysis.resource_count = sum(
+                1 for nid in nodes if self._node_map[nid].type == NodeType.RESOURCE
             )
 
-        return analysis
+            # Resource types
+            for node_id in nodes:
+                node = self._node_map[node_id]
+                if node.data.resource_type:
+                    analysis.resource_types.add(node.data.resource_type)
+            analysis.resource_type_count = len(analysis.resource_types)
 
-    def _analyze_provider_coupling(self) -> None:
-        """Analyze coupling between providers"""
-        provider_coupling = defaultdict(int)
+            # Dependencies
+            internal_deps = 0
+            external_deps = 0
 
-        for link in self.graph.links:
-            source_provider = self._node_map[link.source].data.provider
-            target_provider = self._node_map[link.target].data.provider
+            for node_id in nodes:
+                for dep in self._adjacency_list[node_id]["out"]:
+                    dep_node = self._node_map[dep]
+                    if dep_node.data.provider == provider:
+                        internal_deps += 1
+                    elif dep_node.data.provider:
+                        external_deps += 1
 
-            if (
-                source_provider
-                and target_provider
-                and source_provider != target_provider
-            ):
-                key = (source_provider, target_provider)
-                provider_coupling[key] += 1
+            analysis.internal_dependencies = internal_deps
+            analysis.external_dependencies = external_deps
+            total_deps = internal_deps + external_deps
+            analysis.coupling_ratio = (
+                external_deps / total_deps if total_deps > 0 else 0
+            )
 
-        self.analytics.provider_coupling = dict(provider_coupling)
+            # Complexity
+            complexities = [
+                self.analytics.node_metrics[nid].complexity_level
+                for nid in nodes
+                if nid in self.analytics.node_metrics
+            ]
+            if complexities:
+                complexity_values = {
+                    ComplexityLevel.MINIMAL: 0,
+                    ComplexityLevel.LOW: 1,
+                    ComplexityLevel.MEDIUM: 2,
+                    ComplexityLevel.HIGH: 3,
+                    ComplexityLevel.CRITICAL: 4,
+                    ComplexityLevel.EXTREME: 5,
+                }
+                analysis.avg_resource_complexity = sum(
+                    complexity_values[c] for c in complexities
+                ) / len(complexities)
+                analysis.max_resource_complexity = max(
+                    complexity_values[c] for c in complexities
+                )
 
-        # Provider diversity
-        unique_providers = len(self.analytics.provider_distribution)
-        total_nodes = len(self._node_map)
-        self.analytics.provider_diversity_score = (
-            unique_providers / (total_nodes**0.5) if total_nodes > 0 else 0
-        )
+            self.analytics.provider_analysis[provider] = analysis
+
+        # Provider coupling matrix
+        providers = list(provider_nodes.keys())
+        for i, prov_a in enumerate(providers):
+            for prov_b in providers[i + 1 :]:
+                coupling = self._calculate_provider_coupling(
+                    prov_a, prov_b, provider_nodes
+                )
+                if coupling > 0:
+                    self.analytics.provider_coupling[(prov_a, prov_b)] = coupling
+
+                    # Update analysis
+                    if prov_a in self.analytics.provider_analysis:
+                        self.analytics.provider_analysis[prov_a].coupled_providers[
+                            prov_b
+                        ] = coupling
+                    if prov_b in self.analytics.provider_analysis:
+                        self.analytics.provider_analysis[prov_b].coupled_providers[
+                            prov_a
+                        ] = coupling
+
+        # Provider diversity score
+        if providers:
+            total_nodes = sum(len(nodes) for nodes in provider_nodes.values())
+            entropy = -sum(
+                (len(nodes) / total_nodes)
+                * (len(nodes) / total_nodes if len(nodes) > 0 else 1)
+                for nodes in provider_nodes.values()
+            )
+            self.analytics.provider_diversity_score = entropy
+
+    def _calculate_provider_coupling(
+        self, prov_a: str, prov_b: str, provider_nodes: Dict[str, List[str]]
+    ) -> int:
+        """Calculate coupling between two providers"""
+        coupling = 0
+        nodes_a = provider_nodes[prov_a]
+        nodes_b = provider_nodes[prov_b]
+
+        for node_a in nodes_a:
+            for node_b in nodes_b:
+                if (
+                    node_b in self._adjacency_list[node_a]["out"]
+                    or node_a in self._adjacency_list[node_b]["out"]
+                ):
+                    coupling += 1
+
+        return coupling
 
     # ========== Module Analysis ==========
 
     def _analyze_modules(self) -> None:
-        """Comprehensive module analysis"""
+        """Analyze module structure and dependencies"""
         print("📦 Analyzing modules...")
 
-        module_nodes = defaultdict(list)
-        module_depths = defaultdict(int)
+        module_nodes = defaultdict(set)
 
         for node_id, node in self._node_map.items():
             if node.data.module_path:
-                module_name = ".".join(node.data.module_path)
-                module_nodes[module_name].append(node_id)
-                module_depths[module_name] = len(node.data.module_path)
+                module_key = node.data.module_path[0]
+                module_nodes[module_key].add(node_id)
+            else:
+                module_nodes["root"].add(node_id)
 
-        for module_name, nodes in module_nodes.items():
-            analysis = self._compute_module_analysis(module_name, nodes)
-            self.analytics.module_analysis[module_name] = analysis
-            self.analytics.module_distribution[module_name] = len(nodes)
+        # Module distribution
+        for module, nodes in module_nodes.items():
+            self.analytics.module_distribution[module] = len(nodes)
 
-        # Module depth distribution
-        for depth in module_depths.values():
-            self.analytics.module_depth_distribution[depth] = (
-                self.analytics.module_depth_distribution.get(depth, 0) + 1
+            # Create detailed analysis
+            analysis = ModuleAnalysis(module_name=module)
+            analysis.node_count = len(nodes)
+            analysis.resource_count = sum(
+                1 for nid in nodes if self._node_map[nid].type == NodeType.RESOURCE
             )
 
-        if module_depths:
-            self.analytics.max_module_depth = max(module_depths.values())
+            # Depth
+            depths = [
+                len(self._node_map[nid].data.module_path)
+                for nid in nodes
+                if self._node_map[nid].data.module_path
+            ]
+            if depths:
+                analysis.depth = min(depths)
+                analysis.max_child_depth = max(depths)
 
-    def _compute_module_analysis(
-        self, module_name: str, nodes: List[str]
-    ) -> ModuleAnalysis:
-        """Compute detailed module metrics"""
-        analysis = ModuleAnalysis(module_name=module_name)
+            # Dependencies
+            internal_deps = 0
+            external_deps = 0
 
-        analysis.node_count = len(nodes)
-        analysis.resource_count = sum(
-            1 for node_id in nodes if self._node_map[node_id].type == NodeType.RESOURCE
-        )
+            for node_id in nodes:
+                node = self._node_map[node_id]
 
-        # Depth analysis
-        depths = [len(self._node_map[node_id].data.module_path) for node_id in nodes]
-        analysis.depth = max(depths) if depths else 0
+                # Count inputs (variables)
+                if node.type == NodeType.VARIABLE:
+                    analysis.input_count += 1
 
-        # Input/output analysis
-        input_count = sum(
-            1 for node_id in nodes if self._node_map[node_id].type == NodeType.VARIABLE
-        )
-        output_count = sum(
-            1 for node_id in nodes if self._node_map[node_id].type == NodeType.OUTPUT
-        )
+                # Count outputs
+                if node.type == NodeType.OUTPUT:
+                    analysis.output_count += 1
 
-        analysis.input_count = input_count
-        analysis.output_count = output_count
+                # Dependencies
+                for dep in self._adjacency_list[node_id]["out"]:
+                    if dep in nodes:
+                        internal_deps += 1
+                    else:
+                        external_deps += 1
 
-        # Dependency analysis
-        internal_deps = 0
-        external_deps = 0
+            analysis.internal_dependencies = internal_deps
+            analysis.external_dependencies = external_deps
 
-        for node_id in nodes:
-            for neighbor in self._adjacency_list[node_id]["out"]:
-                neighbor_module = (
-                    ".".join(self._node_map[neighbor].data.module_path)
-                    if self._node_map[neighbor].data.module_path
-                    else ""
+            # Node types
+            for node_id in nodes:
+                node_type = self._node_map[node_id].type
+                analysis.node_types[node_type] = (
+                    analysis.node_types.get(node_type, 0) + 1
                 )
-                if neighbor_module == module_name:
-                    internal_deps += 1
-                else:
-                    external_deps += 1
 
-        analysis.internal_dependencies = internal_deps
-        analysis.external_dependencies = external_deps
+                if self._node_map[node_id].data.provider:
+                    analysis.providers.add(self._node_map[node_id].data.provider)
 
-        # Composition
-        type_counts = defaultdict(int)
-        providers = set()
+            # Quality metrics
+            total_deps = internal_deps + external_deps
+            max_internal = len(nodes) * (len(nodes) - 1)
+            analysis.cohesion = internal_deps / max_internal if max_internal > 0 else 0
+            analysis.coupling = external_deps / total_deps if total_deps > 0 else 0
 
-        for node_id in nodes:
-            node = self._node_map[node_id]
-            type_counts[node.type] += 1
-            if node.data.provider:
-                providers.add(node.data.provider)
+            # Reusability: low coupling, high cohesion, clear interface
+            analysis.reusability_score = (
+                analysis.cohesion * 0.4
+                + (1 - analysis.coupling) * 0.4
+                + min(analysis.input_count / 10, 1.0) * 0.1
+                + min(analysis.output_count / 5, 1.0) * 0.1
+            )
 
-        analysis.node_types = dict(type_counts)
-        analysis.providers = providers
+            self.analytics.module_analysis[module] = analysis
 
-        # Quality metrics
-        _total_deps = internal_deps + external_deps
-        analysis.cohesion = internal_deps / len(nodes) if len(nodes) > 0 else 0
-        analysis.coupling = external_deps / len(nodes) if len(nodes) > 0 else 0
-
-        # Reusability score (higher is better)
-        analysis.reusability_score = (
-            (input_count * 0.3) + (output_count * 0.4) + (1 - analysis.coupling) * 0.3
-        )
-
-        return analysis
-
-    # ========== Resource Relationship Analysis ==========
+        # Module depth distribution
+        for node in self._node_map.values():
+            if node.data.module_path:
+                depth = len(node.data.module_path)
+                self.analytics.module_depth_distribution[depth] = (
+                    self.analytics.module_depth_distribution.get(depth, 0) + 1
+                )
+                self.analytics.max_module_depth = max(
+                    self.analytics.max_module_depth, depth
+                )
 
     def _analyze_resource_relationships(self) -> None:
         """Analyze relationships between resources"""
-        print("🔗 Analyzing resource relationships...")
+        # Find resource-to-resource dependencies
+        resource_deps = defaultdict(list)
 
-        # This would analyze specific Terraform resource patterns
-        # For now, we'll compute some basic resource metrics
-
-        resource_nodes = [
-            node_id
-            for node_id, node in self._node_map.items()
-            if node.type == NodeType.RESOURCE
-        ]
-
-        # Compute resource coupling patterns
-        self._analyze_resource_coupling_patterns(resource_nodes)
-
-    def _analyze_resource_coupling_patterns(self, resource_nodes: List[str]) -> None:
-        """Analyze how resources are coupled together"""
-        # Group resources by provider and type
-        provider_resource_groups = defaultdict(lambda: defaultdict(list))
-
-        for node_id in resource_nodes:
-            node = self._node_map[node_id]
-            if node.data.provider and node.data.resource_type:
-                provider_resource_groups[node.data.provider][
-                    node.data.resource_type
-                ].append(node_id)
-
-        # Analyze coupling within and between groups
-        # This could be extended to detect anti-patterns
+        for node_id, node in self._node_map.items():
+            if node.type == NodeType.RESOURCE:
+                for dep in self._adjacency_list[node_id]["out"]:
+                    dep_node = self._node_map[dep]
+                    if dep_node.type == NodeType.RESOURCE:
+                        resource_deps[node_id].append(dep)
 
     # ========== Anomaly Detection ==========
 
     def _detect_anomalies(self) -> None:
-        """Detect various graph anomalies"""
+        """Detect anomalies and anti-patterns"""
         print("🚨 Detecting anomalies...")
 
-        self._find_isolated_nodes()
-        self._find_orphaned_nodes()
-        self._find_unused_nodes()
-        self._find_over_connected_nodes()
-        self._find_redundant_dependencies()
-
-    def _find_isolated_nodes(self) -> None:
-        """Find completely isolated nodes"""
-        self.analytics.isolated_nodes = [
-            node_id
-            for node_id, metrics in self.analytics.node_metrics.items()
-            if metrics.total_degree == 0
-        ]
-
-    def _find_orphaned_nodes(self) -> None:
-        """Find nodes with no incoming dependencies but that should have some"""
-        # Orphaned resources are those that aren't depended on by anything
-        # but probably should be
-        orphan_candidates = []
-
         for node_id, metrics in self.analytics.node_metrics.items():
             node = self._node_map[node_id]
 
-            # Resources with no dependents might be orphaned
+            # Isolated resources
             if (
                 node.type == NodeType.RESOURCE
-                and metrics.in_degree == 0
+                and metrics.total_degree == 0
+                and node.data.state not in [NodeState.UNUSED, NodeState.ORPHAN]
+            ):
+                self.analytics.isolated_nodes.append(node_id)
+
+            # Orphaned nodes
+            if (
+                metrics.in_degree == 0
                 and metrics.out_degree > 0
+                and node.type
+                not in [NodeType.VARIABLE, NodeType.PROVIDER, NodeType.TERRAFORM]
             ):
-                orphan_candidates.append(node_id)
+                self.analytics.orphaned_nodes.append(node_id)
 
-        self.analytics.orphaned_nodes = orphan_candidates
-
-    def _find_unused_nodes(self) -> None:
-        """Find nodes that are defined but not used"""
-        # Variables and outputs that aren't connected
-        unused = []
-
-        for node_id, metrics in self.analytics.node_metrics.items():
-            node = self._node_map[node_id]
-
-            if (node.type == NodeType.VARIABLE and metrics.out_degree == 0) or (
-                node.type == NodeType.OUTPUT and metrics.in_degree == 0
+            # Unused nodes
+            if (
+                metrics.out_degree == 0
+                and metrics.in_degree > 0
+                and node.type not in [NodeType.OUTPUT]
             ):
-                unused.append(node_id)
+                self.analytics.unused_nodes.append(node_id)
 
-        self.analytics.unused_nodes = unused
+            # Over-connected nodes
+            avg_degree = self.analytics.avg_in_degree + self.analytics.avg_out_degree
+            if avg_degree > 0 and metrics.total_degree > avg_degree * 3:
+                self.analytics.over_connected_nodes.append(node_id)
 
-    def _find_over_connected_nodes(self) -> None:
-        """Find nodes with unusually high connectivity"""
-        degree_threshold = self.analytics.avg_total_degree * 3
-
-        over_connected = [
-            node_id
-            for node_id, metrics in self.analytics.node_metrics.items()
-            if metrics.total_degree > max(degree_threshold, 10)
-        ]
-
-        self.analytics.over_connected_nodes = over_connected
+        # Find redundant dependencies
+        self._find_redundant_dependencies()
 
     def _find_redundant_dependencies(self) -> None:
-        """Find redundant dependency relationships"""
-        redundant = []
-
+        """Find redundant transitive dependencies"""
         for node_id in self._node_map.keys():
-            # Check for transitive reductions
             direct_deps = self._adjacency_list[node_id]["out"]
 
             for dep in direct_deps:
-                # If there's a longer path to dep, the direct link might be redundant
-                if self._has_alternative_path(node_id, dep, direct_deps):
-                    redundant.append((node_id, dep))
+                # Check if there's an indirect path
+                transitive = self._get_all_dependencies(dep)
 
-        self.analytics.redundant_dependencies = redundant
-
-    def _has_alternative_path(
-        self, source: str, target: str, direct_deps: Set[str]
-    ) -> bool:
-        """Check if there's an alternative path from source to target"""
-        visited = set()
-        stack = [neighbor for neighbor in direct_deps if neighbor != target]
-
-        while stack:
-            current = stack.pop()
-            if current == target:
-                return True
-
-            if current in visited:
-                continue
-
-            visited.add(current)
-            stack.extend(self._adjacency_list[current]["out"] - visited)
-
-        return False
+                for other_dep in direct_deps:
+                    if other_dep != dep and other_dep in transitive:
+                        self.analytics.redundant_dependencies.append(
+                            (node_id, other_dep)
+                        )
 
     # ========== Risk Analysis ==========
 
     def _analyze_risks(self) -> None:
         """Comprehensive risk analysis"""
-        print("⚠️ Performing risk analysis...")
+        print("⚠️ Analyzing risks...")
 
-        self._analyze_circular_dependency_risks()
-        self._analyze_dependency_violations()
+        # Security insights
         self._generate_security_insights()
 
-    def _analyze_circular_dependency_risks(self) -> None:
-        """Analyze risks from circular dependencies"""
-        # Already captured in circular_dependencies
-        pass
+        # Dependency violations
+        self._find_dependency_violations()
 
-    def _analyze_dependency_violations(self) -> None:
-        """Detect dependency violations and anti-patterns"""
-        violations = []
-
-        # Check for module -> provider dependencies (should be avoided)
-        for link in self.graph.links:
-            source = self._node_map[link.source]
-            target = self._node_map[link.target]
-
-            # Module depending on resource (usually should be the other way)
-            if source.type == NodeType.MODULE and target.type == NodeType.RESOURCE:
-                violations.append(f"Module {source.id} depends on resource {target.id}")
-
-        self.analytics.dependency_violations = violations
+        # High impact nodes
+        self._identify_high_impact_nodes()
 
     def _generate_security_insights(self) -> None:
         """Generate security-related insights"""
-        insights = []
-
-        # Check for overly permissive dependencies
         for node_id, metrics in self.analytics.node_metrics.items():
             node = self._node_map[node_id]
 
-            # Resources with many dependents might be security concerns
-            if (
-                node.type == NodeType.RESOURCE
-                and metrics.in_degree > 10
-                and "security" in node.id.lower()
-            ):
+            # Publicly exposed resources
+            if node.type == NodeType.RESOURCE and "public" in node_id.lower():
                 insight = SecurityInsight(
-                    insight_type="OVERLY_PERMISSIVE_RESOURCE",
+                    insight_type="public_exposure",
                     severity=RiskLevel.HIGH,
                     node_id=node_id,
-                    description=f"Security resource {node_id} has {metrics.in_degree} dependents",
-                    recommendation="Review access patterns and consider reducing dependencies",
-                    affected_nodes=list(self._adjacency_list[node_id]["in"]),
+                    description=f"Resource {node_id} may be publicly exposed",
+                    recommendation="Review access controls and ensure least privilege",
                 )
-                insights.append(insight)
+                self.analytics.security_insights.append(insight)
 
-        self.analytics.security_insights = insights
+            # Over-privileged nodes
+            if metrics.resource_blast_radius > 50:
+                insight = SecurityInsight(
+                    insight_type="high_blast_radius",
+                    severity=RiskLevel.CRITICAL,
+                    node_id=node_id,
+                    description=f"Changes to {node_id} affect {metrics.resource_blast_radius} resources",
+                    recommendation="Consider breaking into smaller components",
+                )
+                self.analytics.security_insights.append(insight)
 
-    # ========== Change Impact Analysis ==========
+            # Implicit dependencies (harder to audit)
+            implicit_links = sum(
+                1
+                for succ in self._adjacency_list[node_id]["out"]
+                if self._link_map.get(
+                    (node_id, succ), Link(node_id, succ, LinkType.IMPLICIT, 1.0)
+                ).link_type
+                == LinkType.IMPLICIT
+            )
+            if implicit_links > 5:
+                insight = SecurityInsight(
+                    insight_type="implicit_dependencies",
+                    severity=RiskLevel.MODERATE,
+                    node_id=node_id,
+                    description=f"{node_id} has {implicit_links} implicit dependencies",
+                    recommendation="Make dependencies explicit for better auditability",
+                )
+                self.analytics.security_insights.append(insight)
+
+    def _find_dependency_violations(self) -> None:
+        """Find dependency anti-patterns"""
+        for link in self.graph.links:
+            source_node = self._node_map[link.source]
+            target_node = self._node_map[link.target]
+
+            # Cross-provider implicit dependencies
+            if (
+                link.link_type == LinkType.IMPLICIT
+                and source_node.data.provider
+                and target_node.data.provider
+                and source_node.data.provider != target_node.data.provider
+            ):
+                self.analytics.dependency_violations.append(
+                    f"Implicit cross-provider: {link.source} -> {link.target}"
+                )
+
+            # Output depending on another output
+            if (
+                source_node.type == NodeType.OUTPUT
+                and target_node.type == NodeType.OUTPUT
+            ):
+                self.analytics.dependency_violations.append(
+                    f"Output-to-output dependency: {link.source} -> {link.target}"
+                )
+
+    def _identify_high_impact_nodes(self) -> None:
+        """Identify nodes with high change impact"""
+        impact_scores = [
+            (nid, metrics.resource_blast_radius)
+            for nid, metrics in self.analytics.node_metrics.items()
+        ]
+        impact_scores.sort(key=lambda x: x[1], reverse=True)
+
+        self.analytics.high_impact_nodes = [nid for nid, _ in impact_scores[:20]]
+
+    # ========== Change Impact ==========
 
     def _compute_change_impact(self) -> None:
-        """Compute change impact for all nodes"""
-        print("📈 Computing change impact...")
+        """Compute change impact for critical nodes"""
+        print("💥 Computing change impact...")
 
-        for node_id in self._node_map.keys():
-            impact = self._compute_node_change_impact(node_id)
+        # Analyze top 20 most critical nodes
+        critical_nodes = (
+            self.analytics.hub_nodes[:10] + self.analytics.bottleneck_nodes[:10]
+        )
+
+        for node_id in set(critical_nodes):
+            impact = self._analyze_node_impact(node_id)
             self.analytics.change_impact[node_id] = impact
 
-            if impact.risk_level in [RiskLevel.HIGH, RiskLevel.CRITICAL]:
-                self.analytics.high_impact_nodes.append(node_id)
-
-    def _compute_node_change_impact(self, node_id: str) -> ChangeImpactAnalysis:
-        """Compute change impact for a specific node"""
+    def _analyze_node_impact(self, node_id: str) -> ChangeImpactAnalysis:
+        """Analyze impact of changing a specific node"""
         impact = ChangeImpactAnalysis(node_id=node_id)
 
-        # Direct relationships
-        impact.direct_dependents = self._adjacency_list[node_id]["in"]
-        impact.direct_dependencies = self._adjacency_list[node_id]["out"]
+        # Direct impact
+        impact.direct_dependencies = set(self._adjacency_list[node_id]["out"])
+        impact.direct_dependents = set(self._adjacency_list[node_id]["in"])
 
-        # Transitive relationships
-        impact.transitive_dependents = self._get_all_dependents(node_id)
+        # Transitive impact
         impact.transitive_dependencies = self._get_all_dependencies(node_id)
+        impact.transitive_dependents = self._get_all_dependents(node_id)
 
-        # Blast radius
-        impact.total_affected_nodes = len(impact.transitive_dependents)
+        # Total affected
+        all_affected = (
+            impact.transitive_dependencies | impact.transitive_dependents | {node_id}
+        )
+        impact.total_affected_nodes = len(all_affected)
 
-        # Affected resources and modules
-        affected_resources = 0
-        affected_modules = set()
-        affected_providers = set()
+        # Count by type
+        for affected_id in all_affected:
+            affected_node = self._node_map[affected_id]
+            if affected_node.type == NodeType.RESOURCE:
+                impact.affected_resources += 1
+            elif affected_node.type == NodeType.MODULE:
+                impact.affected_modules += 1
 
-        for affected_node in impact.transitive_dependents:
-            node = self._node_map[affected_node]
-            if node.type == NodeType.RESOURCE:
-                affected_resources += 1
-            if node.data.module_path:
-                affected_modules.add(tuple(node.data.module_path))
-            if node.data.provider:
-                affected_providers.add(node.data.provider)
-
-        impact.affected_resources = affected_resources
-        impact.affected_modules = len(affected_modules)
-        impact.affected_providers = affected_providers
+            if affected_node.data.provider:
+                impact.affected_providers.add(affected_node.data.provider)
 
         # Risk assessment
-        risk_score = 0.0
-        risk_score += impact.total_affected_nodes * 0.5
-        risk_score += affected_resources * 1.0
-        risk_score += len(affected_providers) * 2.0
+        risk = 0.0
+        risk += impact.total_affected_nodes * 0.5
+        risk += impact.affected_resources * 2.0
+        risk += impact.affected_modules * 5.0
+        risk += len(impact.affected_providers) * 3.0
 
-        # Critical paths affected
-        critical_paths_affected = sum(
+        impact.risk_score = risk
+
+        if risk > 50:
+            impact.risk_level = RiskLevel.CRITICAL
+        elif risk > 30:
+            impact.risk_level = RiskLevel.HIGH
+        elif risk > 15:
+            impact.risk_level = RiskLevel.MODERATE
+        else:
+            impact.risk_level = RiskLevel.LOW
+
+        # Count affected critical paths
+        impact.critical_paths_affected = sum(
             1 for path in self.analytics.critical_paths if node_id in path.path
         )
-        impact.critical_paths_affected = critical_paths_affected
-        risk_score += critical_paths_affected * 3.0
-
-        # Node-specific risk factors
-        node_metrics = self.analytics.node_metrics.get(node_id)
-        if node_metrics:
-            if node_metrics.is_bottleneck:
-                risk_score += 10.0
-            if node_metrics.is_bridge:
-                risk_score += 8.0
-            if node_metrics.risk_level == RiskLevel.CRITICAL:
-                risk_score += 15.0
-            elif node_metrics.risk_level == RiskLevel.HIGH:
-                risk_score += 10.0
-
-        impact.risk_score = risk_score
-
-        # Risk level classification
-        if risk_score > 40:
-            impact.risk_level = RiskLevel.CRITICAL
-        elif risk_score > 25:
-            impact.risk_level = RiskLevel.HIGH
-        elif risk_score > 15:
-            impact.risk_level = RiskLevel.MODERATE
-        elif risk_score > 5:
-            impact.risk_level = RiskLevel.LOW
-        else:
-            impact.risk_level = RiskLevel.SAFE
 
         return impact
 
-    # ========== Architecture Pattern Detection ==========
+    # ========== Architecture Patterns ==========
 
     def _detect_architecture_patterns(self) -> None:
         """Detect common Terraform architecture patterns"""
         print("🏛️ Detecting architecture patterns...")
 
-        patterns = []
-
         # Hub and spoke pattern
-        hub_spoke = self._detect_hub_and_spoke()
-        if hub_spoke:
-            patterns.append(hub_spoke)
+        if self.analytics.hub_nodes:
+            hub_pattern = self._detect_hub_and_spoke()
+            if hub_pattern:
+                self.analytics.detected_patterns.append(hub_pattern)
 
-        # Layered pattern
+        # Layered architecture
         layered = self._detect_layered_architecture()
         if layered:
-            patterns.append(layered)
+            self.analytics.detected_patterns.append(layered)
 
-        # Modular pattern
-        modular = self._detect_modular_architecture()
-        if modular:
-            patterns.append(modular)
-
-        self.analytics.detected_patterns = patterns
+        # Modular architecture
+        if len(self.analytics.module_distribution) > 3:
+            modular = ArchitecturePattern(
+                pattern=ArchetypePattern.MODULAR,
+                confidence=0.8,
+                nodes=set(self._node_map.keys()),
+                description=f"Modular architecture with {len(self.analytics.module_distribution)} modules",
+            )
+            self.analytics.detected_patterns.append(modular)
 
     def _detect_hub_and_spoke(self) -> Optional[ArchitecturePattern]:
-        """Detect hub-and-spoke architecture pattern"""
-        # Look for nodes with high out-degree and low in-degree (hubs)
-        # connected to nodes with high in-degree and low out-degree (spokes)
-        hub_candidates = [
-            node_id
-            for node_id, metrics in self.analytics.node_metrics.items()
-            if metrics.out_degree > 5 and metrics.in_degree < 3
-        ]
-
-        if len(hub_candidates) < 1:
+        """Detect hub-and-spoke pattern"""
+        if not self.analytics.hub_nodes:
             return None
 
-        # Find the strongest hub
-        main_hub = max(
-            hub_candidates, key=lambda x: self.analytics.node_metrics[x].out_degree
-        )
+        hub_id = self.analytics.hub_nodes[0]
+        hub_metrics = self.analytics.node_metrics[hub_id]
 
-        hub_metrics = self.analytics.node_metrics[main_hub]
-        spokes = self._adjacency_list[main_hub]["out"]
+        if hub_metrics.out_degree > 10 and hub_metrics.in_degree < 3:
+            spoke_nodes = self._adjacency_list[hub_id]["out"]
 
-        if len(spokes) < 3:
-            return None
+            return ArchitecturePattern(
+                pattern=ArchetypePattern.HUB_AND_SPOKE,
+                confidence=0.85,
+                nodes=spoke_nodes | {hub_id},
+                description=f"Hub ({hub_id}) with {len(spoke_nodes)} spokes",
+                characteristics={"hub": hub_id, "spoke_count": len(spoke_nodes)},
+            )
 
-        confidence = min(hub_metrics.out_degree / 10, 1.0)
-
-        return ArchitecturePattern(
-            pattern=ArchetypePattern.HUB_AND_SPOKE,
-            confidence=confidence,
-            nodes={main_hub} | spokes,
-            description=f"Hub-and-spoke pattern with {main_hub} as central hub",
-            characteristics={
-                "hub_node": main_hub,
-                "spoke_count": len(spokes),
-                "hub_out_degree": hub_metrics.out_degree,
-            },
-        )
+        return None
 
     def _detect_layered_architecture(self) -> Optional[ArchitecturePattern]:
-        """Detect layered architecture pattern"""
-        # Look for clear separation between data, networking, compute layers
-        # This is a simplified detection
-        layer_candidates = defaultdict(set)
+        """Detect layered architecture"""
+        # Check if nodes can be organized into distinct layers
+        layers = defaultdict(set)
 
-        for node_id, node in self._node_map.items():
-            if node.type == NodeType.RESOURCE and node.data.resource_type:
-                resource_type = node.data.resource_type.lower()
+        for node_id, metrics in self.analytics.node_metrics.items():
+            if metrics.depth_from_root is not None:
+                layers[metrics.depth_from_root].add(node_id)
 
-                if any(
-                    net in resource_type
-                    for net in ["network", "subnet", "vpc", "firewall"]
-                ):
-                    layer_candidates["networking"].add(node_id)
-                elif any(
-                    compute in resource_type
-                    for compute in ["instance", "vm", "container", "lambda"]
-                ):
-                    layer_candidates["compute"].add(node_id)
-                elif any(
-                    data in resource_type
-                    for data in ["bucket", "database", "storage", "table"]
-                ):
-                    layer_candidates["data"].add(node_id)
-
-        if len(layer_candidates) >= 2:
-            all_nodes = set()
-            for layer_nodes in layer_candidates.values():
-                all_nodes.update(layer_nodes)
-
+        if len(layers) >= 3:
             return ArchitecturePattern(
                 pattern=ArchetypePattern.LAYERED,
                 confidence=0.7,
-                nodes=all_nodes,
-                description="Layered architecture with clear separation of concerns",
+                nodes=set(self._node_map.keys()),
+                description=f"Layered architecture with {len(layers)} layers",
                 characteristics={
-                    "layers": list(layer_candidates.keys()),
-                    "layer_sizes": {
-                        layer: len(nodes) for layer, nodes in layer_candidates.items()
-                    },
+                    "layer_count": len(layers),
+                    "layer_sizes": {k: len(v) for k, v in layers.items()},
                 },
             )
 
         return None
 
-    def _detect_modular_architecture(self) -> Optional[ArchitecturePattern]:
-        """Detect modular architecture pattern"""
-        module_count = len(self.analytics.module_analysis)
-
-        if module_count >= 3:
-            # Check for good module characteristics
-            good_modules = 0
-            total_modules = 0
-
-            for module_analysis in self.analytics.module_analysis.values():
-                total_modules += 1
-                # Good modules have balanced inputs/outputs and reasonable size
-                if (
-                    module_analysis.input_count >= 1
-                    and module_analysis.output_count >= 1
-                    and 3 <= module_analysis.node_count <= 20
-                ):
-                    good_modules += 1
-
-            modularity_ratio = good_modules / total_modules if total_modules > 0 else 0
-
-            if modularity_ratio >= 0.6:
-                return ArchitecturePattern(
-                    pattern=ArchetypePattern.MODULAR,
-                    confidence=modularity_ratio,
-                    nodes=set(
-                        self._node_map.keys()
-                    ),  # All nodes participate in modular architecture
-                    description="Well-structured modular architecture",
-                    characteristics={
-                        "total_modules": module_count,
-                        "good_module_ratio": modularity_ratio,
-                        "avg_module_size": sum(
-                            m.node_count
-                            for m in self.analytics.module_analysis.values()
-                        )
-                        / module_count,
-                    },
-                )
-
-        return None
-
-    # ========== Complexity and Quality Metrics ==========
+    # ========== Quality Metrics ==========
 
     def _compute_complexity_metrics(self) -> None:
-        """Compute overall complexity metrics"""
+        """Compute graph complexity metrics"""
         print("📊 Computing complexity metrics...")
 
-        # Cyclomatic complexity (approximate)
+        # Cyclomatic complexity
         self.analytics.cyclomatic_complexity = (
             self.analytics.total_edges
             - self.analytics.total_nodes
             + 2 * self.analytics.total_components
         )
 
-        # Cognitive complexity (weighted by node complexity)
-        cognitive_weights = {
-            ComplexityLevel.MINIMAL: 1,
-            ComplexityLevel.LOW: 2,
-            ComplexityLevel.MEDIUM: 3,
-            ComplexityLevel.HIGH: 5,
-            ComplexityLevel.CRITICAL: 8,
-            ComplexityLevel.EXTREME: 13,
-        }
+        # Cognitive complexity (weighted by node types)
+        cognitive = 0.0
+        for node_id, node in self._node_map.items():
+            metrics = self.analytics.node_metrics[node_id]
 
-        total_cognitive = sum(
-            cognitive_weights[metrics.complexity_level]
-            for metrics in self.analytics.node_metrics.values()
-        )
-        self.analytics.cognitive_complexity = (
-            total_cognitive / len(self.analytics.node_metrics)
-            if self.analytics.node_metrics
-            else 0
-        )
+            # Base complexity
+            cognitive += 1.0
 
-        # Coupling and cohesion scores
-        total_cohesion = sum(c.cohesion for c in self.analytics.components.values())
-        total_coupling = sum(c.coupling for c in self.analytics.components.values())
+            # Nested complexity
+            if node.data.module_path:
+                cognitive += len(node.data.module_path) * 0.5
 
-        self.analytics.cohesion_score = (
-            total_cohesion / len(self.analytics.components)
-            if self.analytics.components
-            else 0
-        )
-        self.analytics.coupling_score = (
-            total_coupling / len(self.analytics.components)
-            if self.analytics.components
-            else 0
-        )
+            # Branching complexity
+            if metrics.out_degree > 1:
+                cognitive += metrics.out_degree * 0.3
 
-    def _compute_quality_scores(self) -> None:
-        """Compute overall quality and maintainability scores"""
-        print("⭐ Computing quality scores...")
+            # Type-specific complexity
+            if node.type == NodeType.MODULE:
+                cognitive += 2.0
+            elif node.type == NodeType.RESOURCE:
+                cognitive += 1.0
 
-        # Maintainability Index (simplified)
-        # Higher is better (0-100 scale)
+        self.analytics.cognitive_complexity = cognitive
+
+        # Coupling and cohesion
+        self._compute_coupling_cohesion()
+
+        # Maintainability index
+        self._compute_maintainability_index()
+
+        # Technical debt
+        self._compute_technical_debt()
+
+    def _compute_coupling_cohesion(self) -> None:
+        """Compute coupling and cohesion scores"""
+        total_coupling = 0.0
+        total_cohesion = 0.0
+        component_count = 0
+
+        for component in self.analytics.components.values():
+            total_coupling += component.coupling
+            total_cohesion += component.cohesion
+            component_count += 1
+
+        if component_count > 0:
+            self.analytics.coupling_score = total_coupling / component_count
+            self.analytics.cohesion_score = total_cohesion / component_count
+
+    def _compute_maintainability_index(self) -> None:
+        """Compute maintainability index (0-100)"""
         base_score = 100.0
 
-        # Penalties
-        penalties = 0.0
+        # Size penalties
+        base_score -= min(self.analytics.total_nodes * 0.05, 15.0)
+        base_score -= min(self.analytics.total_edges * 0.03, 10.0)
 
-        # Complexity penalty
-        penalties += min(self.analytics.cognitive_complexity * 2, 30)
+        # Complexity penalties
+        base_score -= min(self.analytics.cyclomatic_complexity * 0.2, 20.0)
+        base_score -= min(self.analytics.cognitive_complexity * 0.01, 15.0)
 
         # Coupling penalty
-        penalties += min(self.analytics.coupling_score * 50, 20)
+        base_score -= self.analytics.coupling_score * 15.0
 
-        # Risk penalty
-        high_risk_count = len(
-            [
-                n
-                for n in self.analytics.node_metrics.values()
-                if n.risk_level in [RiskLevel.HIGH, RiskLevel.CRITICAL]
-            ]
+        # Cohesion bonus
+        base_score += self.analytics.cohesion_score * 10.0
+
+        # Risk penalties
+        base_score -= len(self.analytics.high_risk_nodes) * 0.3
+        base_score -= len(self.analytics.circular_dependencies) * 2.0
+        base_score -= len(self.analytics.dependency_violations) * 0.5
+
+        # Anomaly penalties
+        base_score -= len(self.analytics.isolated_nodes) * 0.2
+        base_score -= len(self.analytics.orphaned_nodes) * 0.3
+        base_score -= len(self.analytics.unused_nodes) * 0.1
+
+        # Security penalties
+        base_score -= (
+            len(
+                [
+                    s
+                    for s in self.analytics.security_insights
+                    if s.severity in [RiskLevel.HIGH, RiskLevel.CRITICAL]
+                ]
+            )
+            * 1.0
         )
-        penalties += min(high_risk_count * 1.5, 15)
 
-        # Circular dependency penalty
-        penalties += min(len(self.analytics.circular_dependencies) * 3, 10)
+        self.analytics.maintainability_index = max(0.0, min(100.0, base_score))
 
-        # Anomaly penalty
-        penalties += min(len(self.analytics.isolated_nodes) * 0.5, 5)
-        penalties += min(len(self.analytics.orphaned_nodes) * 0.7, 5)
+    def _compute_technical_debt(self) -> None:
+        """Compute technical debt score"""
+        debt = 0.0
 
-        self.analytics.maintainability_index = max(0, base_score - penalties)
+        # Complexity debt
+        debt += self.analytics.cyclomatic_complexity * 0.5
+        debt += self.analytics.cognitive_complexity * 0.1
 
-        # Technical debt score (higher is worse)
-        self.analytics.technical_debt_score = (
-            (self.analytics.cognitive_complexity * 0.3)
-            + (self.analytics.coupling_score * 0.4)
-            + (high_risk_count * 0.3)
+        # Structural debt
+        debt += len(self.analytics.circular_dependencies) * 5.0
+        debt += len(self.analytics.redundant_dependencies) * 2.0
+
+        # Coupling debt
+        debt += self.analytics.coupling_score * 20.0
+
+        # Risk debt
+        debt += len(self.analytics.high_risk_nodes) * 1.0
+        debt += len(self.analytics.dependency_violations) * 1.5
+
+        # Anomaly debt
+        debt += len(self.analytics.isolated_nodes) * 0.5
+        debt += len(self.analytics.orphaned_nodes) * 1.0
+        debt += len(self.analytics.unused_nodes) * 0.3
+        debt += len(self.analytics.over_connected_nodes) * 1.5
+
+        # Security debt
+        debt += len(self.analytics.security_insights) * 2.0
+
+        self.analytics.technical_debt_score = debt
+
+    def _compute_quality_scores(self) -> None:
+        """Compute overall quality scores"""
+        print("⭐ Computing quality scores...")
+
+        # Architecture quality
+        quality = 0.0
+
+        # Maintainability contribution (40%)
+        quality += (self.analytics.maintainability_index / 100.0) * 40.0
+
+        # Structural quality (30%)
+        structural = 100.0
+        structural -= min(self.analytics.coupling_score * 50.0, 30.0)
+        structural += self.analytics.cohesion_score * 20.0
+        structural -= len(self.analytics.circular_dependencies) * 5.0
+        quality += (max(0, structural) / 100.0) * 30.0
+
+        # Risk management (20%)
+        risk_quality = 100.0
+        risk_quality -= len(self.analytics.high_risk_nodes) * 2.0
+        risk_quality -= (
+            len(
+                [
+                    n
+                    for n in self.analytics.node_metrics.values()
+                    if n.risk_level in [RiskLevel.HIGH, RiskLevel.CRITICAL]
+                ]
+            )
+            * 1.0
         )
+        quality += (max(0, risk_quality) / 100.0) * 20.0
 
-        # Architecture quality score
-        pattern_bonus = sum(p.confidence * 10 for p in self.analytics.detected_patterns)
-        modularity_bonus = len(self.analytics.module_analysis) * 2
-        provider_diversity_bonus = self.analytics.provider_diversity_score * 5
+        # Best practices (10%)
+        best_practices = 100.0
+        best_practices -= len(self.analytics.dependency_violations) * 3.0
+        best_practices -= len(self.analytics.security_insights) * 2.0
+        best_practices -= len(self.analytics.isolated_nodes) * 1.0
+        quality += (max(0, best_practices) / 100.0) * 10.0
 
-        self.analytics.architecture_quality_score = (
-            pattern_bonus + modularity_bonus + provider_diversity_bonus
-        )
+        self.analytics.architecture_quality_score = max(0.0, min(100.0, quality))
 
     # ========== Optimization Suggestions ==========
 
     def _generate_optimization_suggestions(self) -> None:
-        """Generate optimization and refactoring suggestions"""
+        """Generate actionable optimization suggestions"""
         print("💡 Generating optimization suggestions...")
 
-        self._generate_dependency_optimizations()
-        self._generate_module_optimizations()
-        self._generate_risk_mitigations()
-        self._generate_performance_optimizations()
+        # High coupling opportunities
+        if self.analytics.coupling_score > 0.3:
+            self.analytics.optimization_opportunities.append(
+                {
+                    "type": "reduce_coupling",
+                    "severity": "high",
+                    "description": f"High coupling score ({self.analytics.coupling_score:.2f})",
+                    "suggestion": "Consider breaking dependencies between providers or modules",
+                    "affected_nodes": self.analytics.over_connected_nodes[:5],
+                }
+            )
 
-    def _generate_dependency_optimizations(self) -> None:
-        """Generate dependency-related optimizations"""
-        optimizations = []
-
-        # Reduce circular dependencies
+        # Circular dependencies
         if self.analytics.circular_dependencies:
-            optimizations.append(
+            self.analytics.optimization_opportunities.append(
                 {
-                    "type": "CIRCULAR_DEPENDENCY_REDUCTION",
-                    "priority": "HIGH",
+                    "type": "break_cycles",
+                    "severity": "critical",
                     "description": f"Found {len(self.analytics.circular_dependencies)} circular dependencies",
-                    "suggestion": "Break circular dependencies by introducing interfaces or restructuring resources",
-                    "impact": "High",
-                    "effort": "Medium",
+                    "suggestion": "Refactor to remove circular dependencies",
+                    "affected_nodes": [
+                        cycle[0] for cycle in self.analytics.circular_dependencies[:5]
+                    ],
                 }
             )
 
-        # Reduce long dependency chains
-        long_chains = [p for p in self.analytics.critical_paths if p.length > 8]
-        if long_chains:
-            optimizations.append(
+        # Bottlenecks
+        if self.analytics.bottleneck_nodes:
+            self.analytics.optimization_opportunities.append(
                 {
-                    "type": "DEPENDENCY_CHAIN_OPTIMIZATION",
-                    "priority": "MEDIUM",
-                    "description": f"Found {len(long_chains)} long dependency chains (>8 steps)",
-                    "suggestion": "Break long chains by creating intermediate resources or using data sources",
-                    "impact": "Medium",
-                    "effort": "Low",
+                    "type": "remove_bottlenecks",
+                    "severity": "high",
+                    "description": f"Found {len(self.analytics.bottleneck_nodes)} bottleneck nodes",
+                    "suggestion": "Consider parallelizing dependencies or breaking bottlenecks",
+                    "affected_nodes": self.analytics.bottleneck_nodes[:5],
                 }
             )
 
-        self.analytics.optimization_opportunities.extend(optimizations)
-
-    def _generate_module_optimizations(self) -> None:
-        """Generate module-related optimizations"""
-        refactorings = []
-
-        # Identify modules that could be split
-        for module_name, analysis in self.analytics.module_analysis.items():
-            if analysis.node_count > 15:
-                refactorings.append(
-                    {
-                        "type": "MODULE_SPLITTING",
-                        "module": module_name,
-                        "description": f"Module {module_name} has {analysis.node_count} resources (consider splitting)",
-                        "suggestion": "Split into smaller, more focused modules",
-                        "benefit": "Improved maintainability and reusability",
-                    }
-                )
-
-            # Low cohesion modules
-            if analysis.cohesion < 0.3:
-                refactorings.append(
-                    {
-                        "type": "MODULE_COHESION_IMPROVEMENT",
-                        "module": module_name,
-                        "description": f"Module {module_name} has low cohesion ({analysis.cohesion:.2f})",
-                        "suggestion": "Restructure module to group related resources more effectively",
-                        "benefit": "Better organization and reduced coupling",
-                    }
-                )
-
-        self.analytics.refactoring_suggestions.extend(refactorings)
-
-    def _generate_risk_mitigations(self) -> None:
-        """Generate risk mitigation suggestions"""
-        mitigations = []
-
-        # High-risk nodes
-        for node_id, risk_score in self.analytics.high_risk_nodes[:10]:
-            node_metrics = self.analytics.node_metrics[node_id]
-
-            mitigations.append(
+        # Unused nodes
+        if len(self.analytics.unused_nodes) > 5:
+            self.analytics.optimization_opportunities.append(
                 {
-                    "type": "RISK_MITIGATION",
-                    "node": node_id,
-                    "risk_level": node_metrics.risk_level.value,
-                    "description": f"High-risk node {node_id} (risk score: {risk_score:.1f})",
-                    "suggestion": "Add monitoring, implement graceful degradation, or reduce dependencies",
-                    "urgency": "HIGH"
-                    if node_metrics.risk_level == RiskLevel.CRITICAL
-                    else "MEDIUM",
+                    "type": "remove_unused",
+                    "severity": "low",
+                    "description": f"Found {len(self.analytics.unused_nodes)} unused nodes",
+                    "suggestion": "Remove unused resources to reduce complexity",
+                    "affected_nodes": self.analytics.unused_nodes[:10],
                 }
             )
 
-        self.analytics.optimization_opportunities.extend(mitigations)
-
-    def _generate_performance_optimizations(self) -> None:
-        """Generate performance optimization suggestions"""
-        optimizations = []
-
-        # Bottleneck optimization
-        for node_id in self.analytics.bottleneck_nodes:
-            optimizations.append(
+        # Isolated resources
+        if self.analytics.isolated_nodes:
+            self.analytics.optimization_opportunities.append(
                 {
-                    "type": "BOTTLENECK_OPTIMIZATION",
-                    "node": node_id,
-                    "description": f"Node {node_id} is a potential bottleneck",
-                    "suggestion": "Consider replicating or load balancing this resource",
-                    "benefit": "Improved parallelism and reduced deployment time",
+                    "type": "connect_isolated",
+                    "severity": "medium",
+                    "description": f"Found {len(self.analytics.isolated_nodes)} isolated resources",
+                    "suggestion": "Integrate isolated resources or remove if unnecessary",
+                    "affected_nodes": self.analytics.isolated_nodes[:5],
                 }
             )
 
-        # Over-connected nodes
-        for node_id in self.analytics.over_connected_nodes:
-            degree = self.analytics.node_metrics[node_id].total_degree
-            optimizations.append(
+        # High complexity modules
+        high_complexity_modules = [
+            (name, analysis)
+            for name, analysis in self.analytics.module_analysis.items()
+            if analysis.coupling > 0.5 or analysis.cohesion < 0.3
+        ]
+        if high_complexity_modules:
+            self.analytics.optimization_opportunities.append(
                 {
-                    "type": "CONNECTIVITY_OPTIMIZATION",
-                    "node": node_id,
-                    "description": f"Node {node_id} has high connectivity ({degree} connections)",
-                    "suggestion": "Reduce dependencies by introducing abstraction layers",
-                    "benefit": "Reduced complexity and improved modularity",
+                    "type": "refactor_modules",
+                    "severity": "medium",
+                    "description": f"Found {len(high_complexity_modules)} modules with quality issues",
+                    "suggestion": "Refactor modules to improve cohesion and reduce coupling",
+                    "affected_nodes": [name for name, _ in high_complexity_modules[:5]],
                 }
             )
 
-        self.analytics.optimization_opportunities.extend(optimizations)
+        # Provider coupling
+        high_provider_coupling = [
+            (providers, count)
+            for providers, count in self.analytics.provider_coupling.items()
+            if count > 10
+        ]
+        if high_provider_coupling:
+            self.analytics.optimization_opportunities.append(
+                {
+                    "type": "reduce_provider_coupling",
+                    "severity": "medium",
+                    "description": f"High coupling between providers",
+                    "suggestion": "Use abstraction layers to reduce direct provider dependencies",
+                    "affected_nodes": [
+                        f"{p[0]}-{p[1]}" for p, _ in high_provider_coupling[:3]
+                    ],
+                }
+            )
+
+        # Generate refactoring suggestions
+        self._generate_refactoring_suggestions()
+
+    def _generate_refactoring_suggestions(self) -> None:
+        """Generate specific refactoring suggestions"""
+
+        # Extract module pattern
+        if self.analytics.module_distribution.get("root", 0) > 50:
+            self.analytics.refactoring_suggestions.append(
+                {
+                    "type": "extract_module",
+                    "priority": "high",
+                    "description": "Large root module detected",
+                    "suggestion": "Extract logical components into separate modules",
+                    "benefits": [
+                        "Better organization",
+                        "Improved reusability",
+                        "Easier testing",
+                    ],
+                    "estimated_effort": "medium",
+                }
+            )
+
+        # Introduce provider abstraction
+        if self.analytics.provider_diversity_score > 1.5:
+            self.analytics.refactoring_suggestions.append(
+                {
+                    "type": "abstract_providers",
+                    "priority": "medium",
+                    "description": "Multiple providers with complex coupling",
+                    "suggestion": "Introduce abstraction layer to isolate provider-specific logic",
+                    "benefits": [
+                        "Reduced coupling",
+                        "Easier provider migration",
+                        "Better testability",
+                    ],
+                    "estimated_effort": "high",
+                }
+            )
+
+        # Consolidate similar resources
+        similar_clusters = [
+            cluster
+            for cluster in self.analytics.clusters.values()
+            if len(cluster.resource_types) == 1 and len(cluster.node_ids) > 5
+        ]
+        if similar_clusters:
+            self.analytics.refactoring_suggestions.append(
+                {
+                    "type": "consolidate_resources",
+                    "priority": "low",
+                    "description": f"Found {len(similar_clusters)} clusters of similar resources",
+                    "suggestion": "Use count or for_each to consolidate similar resources",
+                    "benefits": [
+                        "DRY principle",
+                        "Easier maintenance",
+                        "Less repetition",
+                    ],
+                    "estimated_effort": "low",
+                }
+            )
+
+        # Split large components
+        large_components = [
+            comp for comp in self.analytics.components.values() if comp.size > 30
+        ]
+        if large_components:
+            self.analytics.refactoring_suggestions.append(
+                {
+                    "type": "split_component",
+                    "priority": "medium",
+                    "description": f"Found {len(large_components)} large components",
+                    "suggestion": "Split large components along domain boundaries",
+                    "benefits": [
+                        "Better modularity",
+                        "Parallel development",
+                        "Reduced blast radius",
+                    ],
+                    "estimated_effort": "medium",
+                }
+            )
+
+        # Improve documentation
+        undocumented_modules = [
+            name
+            for name, analysis in self.analytics.module_analysis.items()
+            if analysis.input_count > 0 and analysis.output_count == 0
+        ]
+        if undocumented_modules:
+            self.analytics.refactoring_suggestions.append(
+                {
+                    "type": "add_outputs",
+                    "priority": "low",
+                    "description": f"{len(undocumented_modules)} modules lack clear outputs",
+                    "suggestion": "Add output values to document module interfaces",
+                    "benefits": [
+                        "Better discoverability",
+                        "Clear contracts",
+                        "Improved reusability",
+                    ],
+                    "estimated_effort": "low",
+                }
+            )
+
+        # Address security issues
+        critical_security = [
+            insight
+            for insight in self.analytics.security_insights
+            if insight.severity == RiskLevel.CRITICAL
+        ]
+        if critical_security:
+            self.analytics.refactoring_suggestions.append(
+                {
+                    "type": "security_hardening",
+                    "priority": "critical",
+                    "description": f"Found {len(critical_security)} critical security issues",
+                    "suggestion": "Address critical security concerns immediately",
+                    "benefits": [
+                        "Improved security posture",
+                        "Reduced risk",
+                        "Compliance",
+                    ],
+                    "estimated_effort": "varies",
+                }
+            )
 
     def _generate_insights(self) -> None:
-        """Generate final insights and summary"""
-        print("📋 Generating final insights...")
+        """Generate high-level insights about the infrastructure"""
+        print("🔍 Generating insights...")
 
-        # This would create a comprehensive summary
-        # For now, we'll just ensure all metrics are computed
+        # Summary insight
+        complexity_assessment = "low"
+        if self.analytics.cognitive_complexity > 500:
+            complexity_assessment = "very high"
+        elif self.analytics.cognitive_complexity > 300:
+            complexity_assessment = "high"
+        elif self.analytics.cognitive_complexity > 150:
+            complexity_assessment = "moderate"
 
-        # Sort optimization opportunities by priority
-        priority_order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-        self.analytics.optimization_opportunities.sort(
-            key=lambda x: priority_order.get(x.get("priority", "LOW"), 2)
+        # Architecture assessment
+        if self.analytics.architecture_quality_score > 80:
+            quality_assessment = "excellent"
+        elif self.analytics.architecture_quality_score > 60:
+            quality_assessment = "good"
+        elif self.analytics.architecture_quality_score > 40:
+            quality_assessment = "fair"
+        else:
+            quality_assessment = "needs improvement"
+
+        print(f"   Complexity: {complexity_assessment}")
+        print(
+            f"   Architecture Quality: {quality_assessment} ({self.analytics.architecture_quality_score:.1f}/100)"
         )
-
-    # ========== Utility Methods ==========
-
-    @property
-    def _avg_total_degree(self) -> float:
-        """Helper property for average total degree"""
-        if not self.analytics.node_metrics:
-            return 0.0
-        return sum(m.total_degree for m in self.analytics.node_metrics.values()) / len(
-            self.analytics.node_metrics
+        print(
+            f"   Maintainability Index: {self.analytics.maintainability_index:.1f}/100"
         )
-
-    def get_analytics_summary(self) -> Dict[str, Any]:
-        """Get a summary of key analytics metrics"""
-        return {
-            "graph_size": {
-                "nodes": self.analytics.total_nodes,
-                "edges": self.analytics.total_edges,
-                "components": self.analytics.total_components,
-            },
-            "complexity": {
-                "cognitive_complexity": round(self.analytics.cognitive_complexity, 2),
-                "cyclomatic_complexity": self.analytics.cyclomatic_complexity,
-                "maintainability_index": round(self.analytics.maintainability_index, 1),
-            },
-            "risks": {
-                "high_risk_nodes": len(self.analytics.high_risk_nodes),
-                "critical_paths": len(self.analytics.critical_paths),
-                "circular_dependencies": len(self.analytics.circular_dependencies),
-            },
-            "quality": {
-                "architecture_quality_score": round(
-                    self.analytics.architecture_quality_score, 1
-                ),
-                "technical_debt_score": round(self.analytics.technical_debt_score, 2),
-            },
-            "optimizations": {
-                "opportunities": len(self.analytics.optimization_opportunities),
-                "refactorings": len(self.analytics.refactoring_suggestions),
-            },
-        }
+        print(f"   Technical Debt Score: {self.analytics.technical_debt_score:.1f}")
