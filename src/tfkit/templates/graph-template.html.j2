@@ -2295,6 +2295,113 @@
                 this.height = null;
             }
 
+            getNodeConfig(node) {
+                if (!node) return this.nodeConfig.resource;
+
+                if (node.type && this.nodeConfig[node.type]) {
+                    return this.nodeConfig[node.type];
+                }
+
+                if (node.subtype && this.nodeConfig[node.subtype]) {
+                    return this.nodeConfig[node.subtype];
+                }
+
+                if (node.type === "provider" && node.subtype) {
+                    if (this.nodeConfig[node.subtype]) {
+                        return this.nodeConfig[node.subtype];
+                    }
+                    return this.nodeConfig.provider;
+                }
+
+                if (node.details?.provider) {
+                    const providerResource = `${node.details.provider}_${node.subtype}`;
+                    if (this.nodeConfig[providerResource]) {
+                        return this.nodeConfig[providerResource];
+                    }
+                    if (this.nodeConfig[node.details.provider]) {
+                        return this.nodeConfig[node.details.provider];
+                    }
+                }
+
+                if (node.subtype) {
+                    const resourceType = (node.subtype || "").toLowerCase();
+
+                    if (
+                        resourceType.includes("instance") ||
+                        resourceType.includes("vm") ||
+                        resourceType.includes("server")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-server",
+                            color: "#3b82f6",
+                        };
+                    }
+                    if (
+                        resourceType.includes("db") ||
+                        resourceType.includes("database") ||
+                        resourceType.includes("sql")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-database",
+                            color: "#06b6d4",
+                        };
+                    }
+                    if (
+                        resourceType.includes("bucket") ||
+                        resourceType.includes("storage") ||
+                        resourceType.includes("volume")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-archive",
+                            color: "#8b5cf6",
+                        };
+                    }
+                    if (
+                        resourceType.includes("vpc") ||
+                        resourceType.includes("subnet") ||
+                        resourceType.includes("network")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-network-wired",
+                            color: "#10b981",
+                        };
+                    }
+                    if (
+                        resourceType.includes("security") ||
+                        resourceType.includes("firewall") ||
+                        resourceType.includes("acl")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-shield-alt",
+                            color: "#f59e0b",
+                        };
+                    }
+                    if (
+                        resourceType.includes("iam") ||
+                        resourceType.includes("role") ||
+                        resourceType.includes("policy")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-user-lock",
+                            color: "#ef4444",
+                        };
+                    }
+                }
+
+                // 6. Fallback to type-based config
+                return this.nodeConfig[node.type] || this.nodeConfig.resource;
+            }
+
+            getStateConfig(state) {
+                return this.stateConfig[state] || this.stateConfig.unknown;
+            }
+
             processGraphData() {
                 return {
                     nodes: (this.rawDataset?.nodes || []).map((node) => {
@@ -2443,7 +2550,6 @@
 
             getNodeConfigMap() {
                 return {
-                    // Core Terraform types
                     resource: { icon: "fas fa-cube", color: "#3b82f6", size: "medium" },
                     module: { icon: "fas fa-cubes", color: "#8b5cf6", size: "large" },
                     variable: { icon: "fas fa-code", color: "#10b981", size: "small" },
@@ -2862,114 +2968,6 @@
                         glow: "rgba(156, 163, 175, 0.2)",
                     },
                 };
-            }
-
-            getNodeConfig(node) {
-                if (!node) return this.nodeConfig.resource;
-
-                // 1. Exact resource subtype match
-                if (node.subtype && this.nodeConfig[node.subtype]) {
-                    return this.nodeConfig[node.subtype];
-                }
-
-                // 2. Provider-specific match
-                if (node.type === "provider" && node.subtype) {
-                    if (this.nodeConfig[node.subtype]) {
-                        return this.nodeConfig[node.subtype];
-                    }
-                    return this.nodeConfig.provider;
-                }
-
-                // 3. Check provider in details
-                if (node.details?.provider) {
-                    const providerResource = `${node.details.provider}_${node.subtype}`;
-                    if (this.nodeConfig[providerResource]) {
-                        return this.nodeConfig[providerResource];
-                    }
-                    if (this.nodeConfig[node.details.provider]) {
-                        return this.nodeConfig[node.details.provider];
-                    }
-                }
-
-                // 4. Pattern-based matching for resource categories
-                if (node.subtype) {
-                    const resourceType = (node.subtype || "").toLowerCase();
-
-                    if (
-                        resourceType.includes("instance") ||
-                        resourceType.includes("vm") ||
-                        resourceType.includes("server")
-                    ) {
-                        return {
-                            ...this.nodeConfig.resource,
-                            icon: "fas fa-server",
-                            color: "#3b82f6",
-                        };
-                    }
-                    if (
-                        resourceType.includes("db") ||
-                        resourceType.includes("database") ||
-                        resourceType.includes("sql")
-                    ) {
-                        return {
-                            ...this.nodeConfig.resource,
-                            icon: "fas fa-database",
-                            color: "#06b6d4",
-                        };
-                    }
-                    if (
-                        resourceType.includes("bucket") ||
-                        resourceType.includes("storage") ||
-                        resourceType.includes("volume")
-                    ) {
-                        return {
-                            ...this.nodeConfig.resource,
-                            icon: "fas fa-archive",
-                            color: "#8b5cf6",
-                        };
-                    }
-                    if (
-                        resourceType.includes("vpc") ||
-                        resourceType.includes("subnet") ||
-                        resourceType.includes("network")
-                    ) {
-                        return {
-                            ...this.nodeConfig.resource,
-                            icon: "fas fa-network-wired",
-                            color: "#10b981",
-                        };
-                    }
-                    if (
-                        resourceType.includes("security") ||
-                        resourceType.includes("firewall") ||
-                        resourceType.includes("acl")
-                    ) {
-                        return {
-                            ...this.nodeConfig.resource,
-                            icon: "fas fa-shield-alt",
-                            color: "#f59e0b",
-                        };
-                    }
-                    if (
-                        resourceType.includes("iam") ||
-                        resourceType.includes("role") ||
-                        resourceType.includes("policy")
-                    ) {
-                        return {
-                            ...this.nodeConfig.resource,
-                            icon: "fas fa-user-lock",
-                            color: "#ef4444",
-                        };
-                    }
-                }
-
-                // 5. Fallback to type-based config
-                return this.nodeConfig[node.type] || this.nodeConfig.resource;
-            }
-
-            getStateConfig(state) {
-                if (!state) return this.stateConfig.unknown;
-                return this.stateConfig[state] || this.stateConfig.unknown;
             }
 
             init() {
@@ -4410,12 +4408,160 @@
                 };
 
                 this.elements = {};
+                
+                this.nodeConfig = {
+                    resource: { icon: "fas fa-cube", color: "#3b82f6" },
+                    provider: { icon: "fas fa-plug", color: "#10b981" },
+                    module: { icon: "fas fa-cubes", color: "#8b5cf6" },
+                    data: { icon: "fas fa-database", color: "#06b6d4" },
+                    variable: { icon: "fas fa-sliders-h", color: "#f59e0b" },
+                    output: { icon: "fas fa-sign-out-alt", color: "#ef4444" },
+                    local: { icon: "fas fa-code", color: "#84cc16" },
+                    terraform: { icon: "fas fa-cloud", color: "#6366f1" }
+                };
+
+                this.stateConfig = {
+                    active: { color: "#10b981", label: "Active" },
+                    hub: { color: "#8b5cf6", label: "Hub" },
+                    bridge: { color: "#06b6d4", label: "Bridge" },
+                    aggregator: { color: "#f59e0b", label: "Aggregator" },
+                    configuration: { color: "#84cc16", label: "Configuration" },
+                    config_provider: { color: "#84cc16", label: "Config Provider" },
+                    config_consumer: { color: "#84cc16", label: "Config Consumer" },
+                    external: { color: "#6366f1", label: "External" },
+                    dependency: { color: "#f97316", label: "Dependency" },
+                    derived: { color: "#d946ef", label: "Derived" },
+                    leaf: { color: "#14b8a6", label: "Leaf" },
+                    orphan: { color: "#ef4444", label: "Orphan" },
+                    unused: { color: "#94a3b8", label: "Unused" },
+                    obsolete: { color: "#64748b", label: "Obsolete" },
+                    stale: { color: "#f59e0b", label: "Stale" },
+                    invalid: { color: "#dc2626", label: "Invalid" },
+                    unresolved: { color: "#ef4444", label: "Unresolved" },
+                    transient: { color: "#d946ef", label: "Transient" },
+                    ephemeral: { color: "#c084fc", label: "Ephemeral" },
+                    shared: { color: "#06b6d4", label: "Shared" },
+                    unknown: { color: "#6b7280", label: "Unknown" }
+                };
+
                 this.init();
             }
 
             init() {
                 this.createContainer();
                 this.bindEvents();
+            }
+
+            getNodeConfig(node) {
+                if (!node) return this.nodeConfig.resource;
+
+                // 1. Exact type match
+                if (node.type && this.nodeConfig[node.type]) {
+                    return this.nodeConfig[node.type];
+                }
+
+                // 2. Exact resource subtype match
+                if (node.subtype && this.nodeConfig[node.subtype]) {
+                    return this.nodeConfig[node.subtype];
+                }
+
+                // 3. Provider-specific match
+                if (node.type === "provider" && node.subtype) {
+                    if (this.nodeConfig[node.subtype]) {
+                        return this.nodeConfig[node.subtype];
+                    }
+                    return this.nodeConfig.provider;
+                }
+
+                // 4. Check provider in details
+                if (node.details?.provider) {
+                    const providerResource = `${node.details.provider}_${node.subtype}`;
+                    if (this.nodeConfig[providerResource]) {
+                        return this.nodeConfig[providerResource];
+                    }
+                    if (this.nodeConfig[node.details.provider]) {
+                        return this.nodeConfig[node.details.provider];
+                    }
+                }
+
+                // 5. Pattern-based matching for resource categories
+                if (node.subtype) {
+                    const resourceType = (node.subtype || "").toLowerCase();
+
+                    if (
+                        resourceType.includes("instance") ||
+                        resourceType.includes("vm") ||
+                        resourceType.includes("server")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-server",
+                            color: "#3b82f6",
+                        };
+                    }
+                    if (
+                        resourceType.includes("db") ||
+                        resourceType.includes("database") ||
+                        resourceType.includes("sql")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-database",
+                            color: "#06b6d4",
+                        };
+                    }
+                    if (
+                        resourceType.includes("bucket") ||
+                        resourceType.includes("storage") ||
+                        resourceType.includes("volume")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-archive",
+                            color: "#8b5cf6",
+                        };
+                    }
+                    if (
+                        resourceType.includes("vpc") ||
+                        resourceType.includes("subnet") ||
+                        resourceType.includes("network")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-network-wired",
+                            color: "#10b981",
+                        };
+                    }
+                    if (
+                        resourceType.includes("security") ||
+                        resourceType.includes("firewall") ||
+                        resourceType.includes("acl")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-shield-alt",
+                            color: "#f59e0b",
+                        };
+                    }
+                    if (
+                        resourceType.includes("iam") ||
+                        resourceType.includes("role") ||
+                        resourceType.includes("policy")
+                    ) {
+                        return {
+                            ...this.nodeConfig.resource,
+                            icon: "fas fa-user-lock",
+                            color: "#ef4444",
+                        };
+                    }
+                }
+
+                // 6. Fallback to type-based config
+                return this.nodeConfig[node.type] || this.nodeConfig.resource;
+            }
+
+            getStateConfig(state) {
+                return this.stateConfig[state] || this.stateConfig.unknown;
             }
 
             createContainer() {
@@ -4557,14 +4703,13 @@
             }
 
             updateHeader(data) {
-                const nodeConfig = getNodeConfig(data);
-                const stateConfig = getStateConfig(data.state);
+
+                const nodeConfig = this.getNodeConfig(data);
+                const stateConfig = this.getStateConfig(data.state);
 
                 if (this.elements.icon) {
                     this.elements.icon.innerHTML = `<i class="${nodeConfig.icon}"></i>`;
                     this.elements.icon.style.color = nodeConfig.color;
-
-                    // Add enhanced icon styling
                     this.elements.icon.style.background = `${nodeConfig.color}15`;
                     this.elements.icon.style.border = `1px solid ${nodeConfig.color}30`;
                     this.elements.icon.style.borderRadius = "8px";
@@ -4572,10 +4717,8 @@
                 }
 
                 if (this.elements.title) {
-                    const titleText =
-                        data.label || data.name || data.id || "Unnamed Resource";
+                    const titleText = data.label || data.name || data.id || "Unnamed Resource";
                     this.elements.title.textContent = titleText;
-
                     this.elements.title.title = titleText;
                 }
 
@@ -4584,16 +4727,12 @@
                     const type = data.type || data.subtype || "unknown";
 
                     this.elements.subtitle.innerHTML = `
-                        <span class="node-state ${state}">${this.formatStateLabel(
-                        state
-                    )}</span>
-                        <span class="tov-type ${type}">${this.formatTypeLabel(
-                        type
-                    )}</span>
+                        <span class="node-state ${state}">${this.formatStateLabel(state)}</span>
+                        <span class="tov-type ${type}">${this.formatTypeLabel(type)}</span>
                     `;
                 }
             }
-
+                
             formatStateLabel(state) {
                 const stateLabels = {
                     active: "Active",
@@ -5557,261 +5696,662 @@
         }
     </script>
     <script>
-        const analyticsData = {{ analytics_data| safe }};
-
-        function safeGet(obj, path, defaultValue = null) {
-            if (!obj) return defaultValue;
-            return path
-                .split(".")
-                .reduce(
-                    (acc, key) => (acc && acc[key] !== undefined ? acc[key] : defaultValue),
-                    obj
-                );
-        }
-
-        function initializeAnalyticsUI() {
-            if (!analyticsData) {
-                console.warn("No analytics data available");
-                return;
+        class AnalyticsManager {
+            constructor(rawAnalyticsData = null) {
+                this.rawData = rawAnalyticsData;
+                this.parsedData = null;
+                this.filters = {
+                    state: null,
+                    risk: null,
+                    component: null
+                };
+                this.metrics = {};
+                this.isInitialized = false;
+                
+                this.config = {
+                    decimalPlaces: 1,
+                    autoInitialize: true,
+                    enableLogging: true,
+                    defaultRiskLevel: 'unknown'
+                };
             }
 
-            updateMainMetrics();
-            updateStateIndicators();
-            updateRiskAnalysis();
-            updateAnalysisDescriptions();
-        }
+            /**
+            * Initialize the analytics dashboard with safety checks
+            */
+            init(config = {}) {
+                try {
+                    // Merge configuration
+                    this.config = { ...this.config, ...config };
+                    
+                    if (this.config.enableLogging) {
+                        console.log('Initializing Analytics Dashboard...');
+                    }
 
-        function updateMainMetrics() {
-            document.getElementById("node-count").textContent = safeGet(
-                analyticsData,
-                "total_nodes",
-                0
-            );
-            document.getElementById("edge-count").textContent = safeGet(
-                analyticsData,
-                "total_edges",
-                0
-            );
-            document.getElementById("component-count").textContent = safeGet(
-                analyticsData,
-                "total_components",
-                0
-            );
+                    // Validate and parse data
+                    if (!this.rawData) {
+                        this._log('warn', 'No analytics data provided');
+                        return false;
+                    }
 
-            document.getElementById("avg-dependencies").textContent = safeGet(
-                analyticsData,
-                "avg_in_degree",
-                0
-            ).toFixed(1);
-            document.getElementById("max-depth").textContent = safeGet(
-                analyticsData,
-                "diameter",
-                0
-            );
-            document.getElementById("complexity-score").textContent = safeGet(
-                analyticsData,
-                "cyclomatic_complexity",
-                0
-            );
-        }
+                    this.parsedData = this._parseAnalyticsData(this.rawData);
+                    
+                    if (!this._validateData()) {
+                        this._log('error', 'Invalid analytics data structure');
+                        return false;
+                    }
 
-        function updateStateIndicators() {
-            const container = document.getElementById("state-indicators");
-            if (!container) return;
-
-            const stateDistribution = safeGet(analyticsData, "state_distribution", {});
-            const totalNodes = safeGet(analyticsData, "total_nodes", 1);
-
-            if (Object.keys(stateDistribution).length === 0) {
-                container.innerHTML = `
-                <div class="state-item state-unknown">
-                    <div class="state-header">
-                    <div class="state-name">
-                        <div class="state-icon">
-                        <i class="fas fa-question"></i>
-                        </div>
-                        No State Data
-                    </div>
-                    </div>
-                </div>
-                `;
-                return;
+                    // Calculate derived metrics
+                    this._calculateMetrics();
+                    
+                    this.isInitialized = true;
+                    
+                    if (this.config.enableLogging) {
+                        console.log('Analytics Dashboard initialized successfully');
+                    }
+                    
+                    return true;
+                    
+                } catch (error) {
+                    this._log('error', `Initialization failed: ${error.message}`);
+                    return false;
+                }
             }
 
-            container.innerHTML = Object.entries(stateDistribution)
-                .filter(([state, count]) => count > 0)
-                .map(([state, count]) => {
-                    const percentage = ((count / totalNodes) * 100).toFixed(1);
-                    const isCritical = ["hub", "bridge", "bottleneck"].includes(state);
-
-                    return `
-                    <div class="state-item state-${state}" onclick="filterByState('${state}')">
-                    <div class="state-header">
-                        <div class="state-name">
-                        <div class="state-icon" style="background: ${getStateColor(
-                        state
-                    )}20; color: ${getStateColor(state)};">
-                            <i class="${getStateIcon(state)}"></i>
-                        </div>
-                        ${formatStateName(state)}
-                        </div>
-                        <div class="state-count">${count}</div>
-                    </div>
-                    <div class="state-info">
-                        <div class="state-metric">
-                        <i class="fas fa-percentage"></i>
-                        ${percentage}%
-                        </div>
-                        ${isCritical
-                            ? `
-                        <div class="state-metric">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        Critical
-                        </div>
-                        `
-                            : ""
-                        }
-                    </div>
-                    </div>
-                `;
-                })
-                .join("");
-        }
-
-        function updateRiskAnalysis() {
-            const container = document.getElementById("risk-section");
-            if (!container) return;
-
-            const riskDistribution = safeGet(analyticsData, "risk_distribution", {});
-
-            if (Object.keys(riskDistribution).length === 0) {
-                container.innerHTML = `
-                <div class="analysis-row">
-                    <div class="analysis-icon">
-                    <i class="fas fa-question"></i>
-                    </div>
-                    <div class="analysis-content">
-                    <div class="analysis-title">No Risk Data</div>
-                    <div class="analysis-desc">Risk analysis unavailable</div>
-                    </div>
-                </div>
-                `;
-                return;
+            /**
+            * Safe data access utility
+            */
+            safeGet(obj, path, defaultValue = null) {
+                if (!obj || typeof obj !== 'object') return defaultValue;
+                
+                return path.split('.').reduce((acc, key) => {
+                    return acc && acc[key] !== undefined && acc[key] !== null ? acc[key] : defaultValue;
+                }, obj);
             }
 
-            container.innerHTML = Object.entries(riskDistribution)
-                .map(([riskLevel, count]) => {
-                    const color = getRiskColor(riskLevel);
-                    const icon = getRiskIcon(riskLevel);
+            /**
+            * Parse and normalize analytics data
+            */
+            _parseAnalyticsData(data) {
+                try {
+                    console.log('🔍 Parsing analytics data...', data);
+                    
+                    if (typeof data === 'string') {
+                        data = JSON.parse(data);
+                    }
 
-                    return `
-                    <div class="analysis-row" onclick="filterByRisk('${riskLevel}')">
-                    <div class="analysis-icon" style="background: ${color}20; color: ${color};">
-                        <i class="${icon}"></i>
-                    </div>
-                    <div class="analysis-content">
-                        <div class="analysis-title">${formatRiskName(
-                        riskLevel
-                    )}</div>
-                        <div class="analysis-desc">${count} nodes</div>
-                    </div>
-                    <div class="analysis-action">
-                        <i class="fas fa-eye"></i>
-                    </div>
+                    const parsed = {
+                        total_nodes: data.total_nodes || 0,
+                        total_edges: data.total_edges || 0,
+                        total_components: data.total_components || 0,
+                        avg_in_degree: parseFloat(data.avg_in_degree || 0),
+                        diameter: data.diameter || 0,
+                        cyclomatic_complexity: data.cyclomatic_complexity || 0,
+                        
+                        state_distribution: data.state_distribution || {},
+                        risk_distribution: data.risk_distribution || {},
+                        
+                        hub_nodes: data.hub_nodes || [],
+                        bottleneck_nodes: data.bottleneck_nodes || [],
+                        longest_paths: data.longest_paths || [],
+                        
+                        components: data.components || [],
+                        node_metrics: data.node_metrics || {}
+                    };
+
+                    console.log('✅ Parsed state distribution:', parsed.state_distribution);
+                    console.log('✅ Parsed risk distribution:', parsed.risk_distribution);
+                    
+                    return parsed;
+                    
+                } catch (error) {
+                    console.error('❌ Data parsing failed:', error);
+                    return this._getDefaultDataStructure();
+                }
+            }
+
+            /**
+            * Validate data structure
+            */
+            _validateData() {
+                const required = ['total_nodes', 'total_edges', 'state_distribution'];
+                
+                for (const field of required) {
+                    if (this.parsedData[field] === undefined) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            }
+
+            /**
+            * Calculate derived metrics and analytics
+            */
+            _calculateMetrics() {
+                const data = this.parsedData;
+                
+                // Basic metrics
+                this.metrics = {
+                    nodeCount: data.total_nodes,
+                    edgeCount: data.total_edges,
+                    componentCount: data.total_components,
+                    avgDependencies: data.avg_in_degree,
+                    maxDepth: data.diameter,
+                    complexityScore: data.cyclomatic_complexity,
+                    
+                    // Calculated metrics
+                    density: data.total_nodes > 0 ? 
+                        (data.total_edges / (data.total_nodes * (data.total_nodes - 1))).toFixed(3) : 0,
+                    
+                    criticalNodesCount: (data.hub_nodes?.length || 0) + (data.bottleneck_nodes?.length || 0),
+                    
+                    riskPercentage: {
+                        high: this._calculateRiskPercentage('high'),
+                        moderate: this._calculateRiskPercentage('moderate'),
+                        low: this._calculateRiskPercentage('low'),
+                        safe: this._calculateRiskPercentage('safe')
+                    },
+                    
+                    statePercentages: this._calculateStatePercentages(),
+                    
+                    componentMetrics: this._calculateComponentMetrics()
+                };
+            }
+
+            /**
+            * Calculate risk percentage distribution
+            */
+            _calculateRiskPercentage(riskLevel) {
+                const total = this.parsedData.total_nodes || 1;
+                const riskCount = this.safeGet(this.parsedData, `risk_distribution.${riskLevel}`, 0);
+                return ((riskCount / total) * 100).toFixed(this.config.decimalPlaces);
+            }
+
+            /**
+            * Calculate state percentage distribution
+            */
+            _calculateStatePercentages() {
+                const percentages = {};
+                const total = this.parsedData.total_nodes || 1;
+                const stateDistribution = this.parsedData.state_distribution || {};
+                
+                Object.keys(stateDistribution).forEach(state => {
+                    percentages[state] = ((stateDistribution[state] / total) * 100).toFixed(this.config.decimalPlaces);
+                });
+                
+                return percentages;
+            }
+
+            /**
+            * Calculate component-level metrics
+            */
+            _calculateComponentMetrics() {
+                const components = this.parsedData.components || {};
+                
+                // Convert object to array if needed
+                const componentsArray = Array.isArray(components) ? 
+                    components : 
+                    Object.values(components);
+                
+                return componentsArray.map(component => ({
+                    id: component.component_id || component.id || 'unknown',
+                    nodeCount: component.size || component.nodes?.length || 0,
+                    riskLevel: this._calculateComponentRisk(component),
+                    connectivity: this._calculateComponentConnectivity(component)
+                }));
+            }
+
+            /**
+            * Calculate risk level for a component
+            */
+            _calculateComponentRisk(component) {
+                // Implementation depends on your risk calculation logic
+                return 'moderate'; // Placeholder
+            }
+
+            /**
+            * Calculate connectivity score for a component
+            */
+            _calculateComponentConnectivity(component) {
+                const nodeCount = component.size || component.nodes?.length || 0;
+                if (nodeCount <= 1) return 0;
+                
+                const maxPossibleEdges = nodeCount * (nodeCount - 1);
+                const actualEdges = component.edge_count || component.edges?.length || 0;
+                
+                return (actualEdges / maxPossibleEdges).toFixed(3);
+            }
+
+            /**
+            * Update all UI components
+            */
+            updateUI() {
+                if (!this.isInitialized) {
+                    this._log('warn', 'Dashboard not initialized. Call init() first.');
+                    return;
+                }
+
+                this.updateMainMetrics();
+                this.updateStateIndicators();
+                this.updateRiskAnalysis();
+                this.updateAnalysisDescriptions();
+                this.updateComponentOverview(); // New enhanced feature
+            }
+
+            /**
+            * Update main metrics display
+            */
+            updateMainMetrics() {
+                this._updateElementContent('node-count', this.metrics.nodeCount);
+                this._updateElementContent('edge-count', this.metrics.edgeCount);
+                this._updateElementContent('component-count', this.metrics.componentCount);
+                
+                this._updateElementContent('avg-dependencies', this.metrics.avgDependencies.toFixed(this.config.decimalPlaces));
+                this._updateElementContent('max-depth', this.metrics.maxDepth);
+                this._updateElementContent('complexity-score', this.metrics.complexityScore);
+                
+                // Enhanced metrics
+                this._updateElementContent('graph-density', this.metrics.density);
+                this._updateElementContent('critical-nodes-count', this.metrics.criticalNodesCount);
+            }
+
+            /**
+            * Update state indicators with enhanced information
+            */
+            updateStateIndicators() {
+                const container = document.getElementById('state-indicators');
+                if (!container) return;
+
+                const stateDistribution = this.parsedData.state_distribution || {};
+                const totalNodes = this.parsedData.total_nodes || 1;
+
+                if (Object.keys(stateDistribution).length === 0) {
+                    container.innerHTML = this._getNoDataTemplate('state');
+                    return;
+                }
+
+                container.innerHTML = Object.entries(stateDistribution)
+                    .filter(([state, count]) => count > 0)
+                    .map(([state, count]) => this._createStateIndicator(state, count, totalNodes))
+                    .join('');
+            }
+
+            /**
+            * Create state indicator HTML
+            */
+            _createStateIndicator(state, count, totalNodes) {
+                const percentage = ((count / totalNodes) * 100).toFixed(this.config.decimalPlaces);
+                const isCritical = ['hub', 'bridge', 'bottleneck'].includes(state);
+                const color = this.getStateColor(state);
+                const icon = this.getStateIcon(state);
+
+                return `
+                    <div class="state-item state-${state}" onclick="analyticsDashboard.filterByState('${state}')">
+                        <div class="state-header">
+                            <div class="state-name">
+                                <div class="state-icon" style="background: ${color}20; color: ${color};">
+                                    <i class="${icon}"></i>
+                                </div>
+                                ${this.formatStateName(state)}
+                            </div>
+                            <div class="state-count">${count}</div>
+                        </div>
+                        <div class="state-info">
+                            <div class="state-metric">
+                                <i class="fas fa-percentage"></i>
+                                ${percentage}%
+                            </div>
+                            ${isCritical ? `
+                            <div class="state-metric">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Critical
+                            </div>
+                            ` : ''}
+                            <div class="state-metric">
+                                <i class="fas fa-chart-bar"></i>
+                                Rank: ${this._getStateRank(state)}
+                            </div>
+                        </div>
                     </div>
                 `;
-                })
-                .join("");
-        }
+            }
 
-        function updateAnalysisDescriptions() {
-            const longestPaths = safeGet(analyticsData, "longest_paths", []);
-            const criticalPathDesc =
-                longestPaths.length > 0
-                    ? `${longestPaths[0].length} nodes, ${safeGet(
-                        longestPaths[0],
-                        "risk_level",
-                        "unknown"
-                    )} risk`
-                    : "Not available";
-            document.getElementById("critical-path-desc").textContent = criticalPathDesc;
+            /**
+            * Update risk analysis with enhanced metrics
+            */
+            updateRiskAnalysis() {
+                const container = document.getElementById('risk-section');
+                if (!container) return;
 
-            // Central Nodes
-            const hubNodes = safeGet(analyticsData, "hub_nodes", []);
-            document.getElementById("central-nodes-desc").textContent =
-                hubNodes.length > 0 ? `${hubNodes.length} hubs` : "Not available";
+                const riskDistribution = this.parsedData.risk_distribution || {};
 
-            const bottleneckNodes = safeGet(analyticsData, "bottleneck_nodes", []);
-            document.getElementById("bottleneck-desc").textContent =
-                bottleneckNodes.length > 0
-                    ? `${bottleneckNodes.length} nodes`
-                    : "Not available";
-        }
+                if (Object.keys(riskDistribution).length === 0) {
+                    container.innerHTML = this._getNoDataTemplate('risk');
+                    return;
+                }
 
-        function getStateIcon(state) {
-            const iconMap = {
-                active: "fas fa-check-circle",
-                hub: "fas fa-star",
-                bridge: "fas fa-link",
-                aggregator: "fas fa-layer-group",
-                config_provider: "fas fa-file-export",
-                leaf: "fas fa-leaf",
-                orphan: "fas fa-unlink",
-                unknown: "fas fa-question",
-            };
-            return iconMap[state] || "fas fa-cube";
-        }
+                container.innerHTML = Object.entries(riskDistribution)
+                    .map(([riskLevel, count]) => this._createRiskAnalysisRow(riskLevel, count))
+                    .join('');
+            }
 
-        function getStateColor(state) {
-            const colorMap = {
-                active: "#22c55e",
-                hub: "#3b82f6",
-                bridge: "#06b6d4",
-                aggregator: "#8b5cf6",
-                config_provider: "#84cc16",
-                leaf: "#10b981",
-                orphan: "#f59e0b",
-            };
-            return colorMap[state] || "#6b7280";
-        }
+            /**
+            * Create risk analysis row HTML
+            */
+            _createRiskAnalysisRow(riskLevel, count) {
+                const color = this.getRiskColor(riskLevel);
+                const icon = this.getRiskIcon(riskLevel);
+                const percentage = this.metrics.riskPercentage[riskLevel] || '0';
 
-        function formatStateName(state) {
-            return state
-                .split("_")
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(" ");
-        }
+                return `
+                    <div class="analysis-row" onclick="analyticsDashboard.filterByRisk('${riskLevel}')">
+                        <div class="analysis-icon" style="background: ${color}20; color: ${color};">
+                            <i class="${icon}"></i>
+                        </div>
+                        <div class="analysis-content">
+                            <div class="analysis-title">${this.formatRiskName(riskLevel)}</div>
+                            <div class="analysis-desc">${count} nodes (${percentage}%)</div>
+                        </div>
+                    </div>
+                `;
+            }
 
-        function getRiskColor(riskLevel) {
-            const colorMap = {
-                high: "#ef4444",
-                moderate: "#f59e0b",
-                low: "#10b981",
-                safe: "#3b82f6",
-            };
-            return colorMap[riskLevel] || "#6b7280";
-        }
+            /**
+            * Update analysis descriptions with enhanced data
+            */
+            updateAnalysisDescriptions() {
+                // Critical Path
+                const longestPaths = this.parsedData.longest_paths || [];
+                const criticalPathDesc = this._getCriticalPathDescription(longestPaths);
+                this._updateElementContent('critical-path-desc', criticalPathDesc);
 
-        function getRiskIcon(riskLevel) {
-            const iconMap = {
-                high: "fas fa-exclamation-triangle",
-                moderate: "fas fa-exclamation-circle",
-                low: "fas fa-info-circle",
-                safe: "fas fa-check-circle",
-            };
-            return iconMap[riskLevel] || "fas fa-question";
-        }
+                // Central Nodes
+                const hubNodes = this.parsedData.hub_nodes || [];
+                this._updateElementContent('central-nodes-desc', 
+                    hubNodes.length > 0 ? `${hubNodes.length} hubs (${this._getTopHubNames(hubNodes)})` : 'Not available');
 
-        function formatRiskName(riskLevel) {
-            return riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1) + " Risk";
+                // Bottleneck Nodes
+                const bottleneckNodes = this.parsedData.bottleneck_nodes || [];
+                this._updateElementContent('bottleneck-desc', 
+                    bottleneckNodes.length > 0 ? `${bottleneckNodes.length} critical bottlenecks` : 'Not available');
+            }
+
+            /**
+            * New: Update component overview
+            */
+            updateComponentOverview() {
+                const container = document.getElementById('component-overview');
+                if (!container) return;
+
+                const components = this.metrics.componentMetrics || [];
+
+                if (components.length === 0) {
+                    container.innerHTML = this._getNoDataTemplate('components');
+                    return;
+                }
+
+                container.innerHTML = components
+                    .map(component => this._createComponentCard(component))
+                    .join('');
+            }
+
+            /**
+            * Filter nodes by state
+            */
+            filterByState(state) {
+                this.filters.state = state;
+                this._applyFilters();
+                this._log('info', `Filtered by state: ${state}`);
+            }
+
+            /**
+            * Filter nodes by risk level
+            */
+            filterByRisk(riskLevel) {
+                this.filters.risk = riskLevel;
+                this._applyFilters();
+                this._log('info', `Filtered by risk: ${riskLevel}`);
+            }
+
+            /**
+            * Clear all filters
+            */
+            clearFilters() {
+                this.filters = { state: null, risk: null, component: null };
+                this._applyFilters();
+                this._log('info', 'All filters cleared');
+            }
+
+            /**
+            * Apply current filters
+            */
+            _applyFilters() {
+                // Implementation depends on your visualization library
+                console.log('Applying filters:', this.filters);
+                // Trigger filter event or callback
+                if (this.onFilterChange) {
+                    this.onFilterChange(this.filters);
+                }
+            }
+
+            /**
+            * Get dashboard summary for reporting
+            */
+            getSummary() {
+                return {
+                    metrics: this.metrics,
+                    filters: this.filters,
+                    dataQuality: this._assessDataQuality(),
+                    timestamp: new Date().toISOString()
+                };
+            }
+
+            /**
+            * Assess data quality
+            */
+            _assessDataQuality() {
+                const data = this.parsedData;
+                let score = 0;
+                let checks = 0;
+
+                // Check for basic data presence
+                if (data.total_nodes > 0) { score += 1; checks++; }
+                if (data.total_edges > 0) { score += 1; checks++; }
+                if (Object.keys(data.state_distribution).length > 0) { score += 1; checks++; }
+                if (Object.keys(data.risk_distribution).length > 0) { score += 1; checks++; }
+
+                return checks > 0 ? (score / checks) * 100 : 0;
+            }
+
+            // Utility methods
+            _updateElementContent(elementId, content) {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    element.textContent = content;
+                }
+            }
+
+            _getNoDataTemplate(type) {
+                const templates = {
+                    state: `<div class="state-item state-unknown">
+                        <div class="state-header">
+                            <div class="state-name">
+                                <div class="state-icon"><i class="fas fa-question"></i></div>
+                                No State Data
+                            </div>
+                        </div>
+                    </div>`,
+                    risk: `<div class="analysis-row">
+                        <div class="analysis-icon"><i class="fas fa-question"></i></div>
+                        <div class="analysis-content">
+                            <div class="analysis-title">No Risk Data</div>
+                            <div class="analysis-desc">Risk analysis unavailable</div>
+                        </div>
+                    </div>`,
+                    components: `<div class="component-item">
+                        <div class="component-content">
+                            <div class="component-title">No Components Data</div>
+                            <div class="component-desc">Component analysis unavailable</div>
+                        </div>
+                    </div>`
+                };
+                return templates[type] || '<div>No data available</div>';
+            }
+
+            _getCriticalPathDescription(longestPaths) {
+                if (longestPaths.length === 0) return "Not available";
+                
+                const path = longestPaths[0];
+                return `${path.length} nodes, ${this.safeGet(path, 'risk_level', 'unknown')} risk, 
+                        Impact: ${this._calculatePathImpact(path)}`;
+            }
+
+            _calculatePathImpact(path) {
+                // Calculate impact score based on path characteristics
+                return 'High'; // Placeholder
+            }
+
+            _getTopHubNames(hubNodes, limit = 3) {
+                return hubNodes.slice(0, limit).map(node => node.name || node.id).join(', ');
+            }
+
+            _getStateRank(state) {
+                const ranks = { hub: 1, bridge: 2, bottleneck: 3, aggregator: 4, active: 5, leaf: 6, orphan: 7 };
+                return ranks[state] || 8;
+            }
+
+            _createComponentCard(component) {
+                return `
+                    <div class="component-card" onclick="analyticsDashboard.filterByComponent('${component.id}')">
+                        <div class="component-header">
+                            <span class="component-id">${component.id}</span>
+                            <span class="component-risk risk-${component.riskLevel}">${component.riskLevel}</span>
+                        </div>
+                        <div class="component-metrics">
+                            <div class="metric">Nodes: ${component.nodeCount}</div>
+                            <div class="metric">Connectivity: ${component.connectivity}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            _getDefaultDataStructure() {
+                return {
+                    total_nodes: 0,
+                    total_edges: 0,
+                    total_components: 0,
+                    avg_in_degree: 0,
+                    diameter: 0,
+                    cyclomatic_complexity: 0,
+                    state_distribution: {},
+                    risk_distribution: {},
+                    hub_nodes: [],
+                    bottleneck_nodes: [],
+                    longest_paths: [],
+                    components: [],
+                    node_metrics: {}
+                };
+            }
+
+            _log(level, message) {
+                if (!this.config.enableLogging) return;
+                
+                const styles = {
+                    info: 'color: blue;',
+                    warn: 'color: orange;',
+                    error: 'color: red;'
+                };
+                
+                console.log(`%cAnalyticsDashboard: ${message}`, styles[level] || '');
+            }
+
+            // Static utility methods
+            getStateIcon(state) {
+                const iconMap = {
+                    active: 'fas fa-check-circle',
+                    hub: 'fas fa-star',
+                    bridge: 'fas fa-link',
+                    aggregator: 'fas fa-layer-group',
+                    config_provider: 'fas fa-file-export',
+                    leaf: 'fas fa-leaf',
+                    orphan: 'fas fa-unlink',
+                    unknown: 'fas fa-question'
+                };
+                return iconMap[state] || 'fas fa-cube';
+            }
+
+            getStateColor(state) {
+                const colorMap = {
+                    active: '#22c55e',
+                    hub: '#3b82f6',
+                    bridge: '#06b6d4',
+                    aggregator: '#8b5cf6',
+                    config_provider: '#84cc16',
+                    leaf: '#10b981',
+                    orphan: '#f59e0b'
+                };
+                return colorMap[state] || '#6b7280';
+            }
+
+            formatStateName(state) {
+                return state.split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+            }
+
+            getRiskColor(riskLevel) {
+                const colorMap = {
+                    high: '#ef4444',
+                    moderate: '#f59e0b',
+                    low: '#10b981',
+                    safe: '#3b82f6'
+                };
+                return colorMap[riskLevel] || '#6b7280';
+            }
+
+            getRiskIcon(riskLevel) {
+                const iconMap = {
+                    high: 'fas fa-exclamation-triangle',
+                    moderate: 'fas fa-exclamation-circle',
+                    low: 'fas fa-info-circle',
+                    safe: 'fas fa-check-circle'
+                };
+                return iconMap[riskLevel] || 'fas fa-question';
+            }
+
+            formatRiskName(riskLevel) {
+                return riskLevel.charAt(0).toUpperCase() + riskLevel.slice(1) + ' Risk';
+            }
+
+            // Getters and setters
+            setData(newData) {
+                this.rawData = newData;
+                this.isInitialized = false;
+                return this.init();
+            }
+
+            getMetrics() {
+                return { ...this.metrics };
+            }
+
+            getFilters() {
+                return { ...this.filters };
+            }
+
+            isReady() {
+                return this.isInitialized;
+            }
         }
     </script>
     <script>
+        const rawAnalytics = {{ analytics_data| safe }};
         const rawDataset = {{ dataset| safe }};
-        const colors = {{ theme_colors }}
+        const colors = {{ theme_colors }};
 
         let terraformViewer;
         let graphManager;
+        let analyticsManager; 
         let resizeTimer;
         let isInitialized = false;
 
@@ -5831,9 +6371,11 @@
         };
 
         const initializeAnalyticsThrottled = () => {
-            if (typeof initializeAnalyticsUI === 'function') {
+            if (analyticsManager && analyticsManager.isReady()) {
                 requestAnimationFrame(() => {
-                    setTimeout(initializeAnalyticsUI, 100);
+                    setTimeout(() => {
+                        analyticsManager.updateUI();
+                    }, 100);
                 });
             }
         };
@@ -5844,6 +6386,25 @@
             try {
                 graphManager = new GraphManager(rawDataset, colors);
                 window.graphManager = graphManager;
+
+                console.log(rawAnalytics)
+                analyticsManager = new AnalyticsManager(rawAnalytics);
+                window.analyticsManager = analyticsManager;
+
+                const analyticsInitialized = analyticsManager.init({
+                    enableLogging: false,
+                    decimalPlaces: 1
+                });
+
+                if (!analyticsInitialized) {
+                    console.warn('Analytics manager initialization failed');
+                }
+
+                analyticsManager.onFilterChange = (filters) => {
+                    if (graphManager && graphManager.applyFilters) {
+                        graphManager.applyFilters(filters);
+                    }
+                };
 
                 if ('requestIdleCallback' in window) {
                     requestIdleCallback(() => {
@@ -5885,6 +6446,22 @@
             };
         };
 
+        window.filterByState = createSafeGlobalFunction((state) => {
+            analyticsManager?.filterByState(state);
+        });
+
+        window.filterByRisk = createSafeGlobalFunction((riskLevel) => {
+            analyticsManager?.filterByRisk(riskLevel);
+        });
+
+        window.clearAnalyticsFilters = createSafeGlobalFunction(() => {
+            analyticsManager?.clearFilters();
+        });
+
+        window.getAnalyticsSummary = createSafeGlobalFunction(() => {
+            return analyticsManager?.getSummary();
+        });
+
         window.resetView = createSafeGlobalFunction(() => graphManager?.resetView());
         window.zoomIn = createSafeGlobalFunction(() => graphManager?.zoomIn());
         window.zoomOut = createSafeGlobalFunction(() => graphManager?.zoomOut());
@@ -5900,18 +6477,24 @@
 
             window.addEventListener('resize', handleResize, passiveOptions);
             document.addEventListener('click', handleClickOutside, captureOptions);
+
+            document.addEventListener('analytics:filterChanged', (event) => {
+                if (graphManager && event.detail) {
+                    graphManager.applyFilters?.(event.detail);
+                }
+            });
         };
 
         const teardownEventListeners = () => {
             window.removeEventListener('resize', handleResize);
             document.removeEventListener('click', handleClickOutside);
+            document.removeEventListener('analytics:filterChanged');
         };
 
         const initializeWhenReady = () => {
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', initializeApp, { once: true });
             } else {
-                // Use setTimeout to yield to browser for initial rendering
                 setTimeout(initializeApp, 0);
             }
         };
@@ -5929,7 +6512,12 @@
                 graphManager.destroy?.();
             }
 
+            if (analyticsManager) {
+                analyticsManager.clearFilters();
+            }
+
             window.graphManager = null;
+            window.analyticsManager = null; 
             window.commandPalette = null;
             window.terraformViewer = null;
 
@@ -5941,6 +6529,9 @@
                 graphManager?.setLowPerformanceMode?.(true);
             } else {
                 graphManager?.setHighPerformanceMode?.(true);
+                if (analyticsManager && analyticsManager.isReady()) {
+                    setTimeout(() => analyticsManager.updateUI(), 100);
+                }
             }
         };
 
@@ -5962,12 +6553,23 @@
                 try {
                     perfObserver.observe({ entryTypes: ['longtask'] });
                 } catch (e) {
+                    // Silent catch for browsers that don't support longtask
                 }
             }
         };
 
-        initializeWhenReady();
+        // Enhanced error handling for analytics
+        window.addEventListener('error', (event) => {
+            if (event.message && event.message.includes('analytics')) {
+                console.error('Analytics error:', event.error);
+                // Fallback to basic analytics display
+                if (analyticsManager && !analyticsManager.isReady()) {
+                    console.warn('Falling back to basic analytics mode');
+                }
+            }
+        });
 
+        initializeWhenReady();
         monitorPerformance();
     </script>
 </body>

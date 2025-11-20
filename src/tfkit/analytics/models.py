@@ -517,3 +517,67 @@ class GraphAnalytics:
             return obj
 
         return serialize(asdict(self))
+
+    def to_graph_template_data(self) -> Dict[str, Any]:
+        def serialize(obj):
+            if isinstance(obj, Enum):
+                return obj.value
+            elif isinstance(obj, set):
+                return list(obj)
+            elif isinstance(obj, tuple):
+                return list(obj)
+            elif hasattr(obj, "to_dict"):
+                return obj.to_dict()
+            elif isinstance(obj, dict):
+                return {
+                    (
+                        k.value
+                        if isinstance(k, Enum)
+                        else "_".join(map(str, k))
+                        if isinstance(k, tuple)
+                        else k
+                    ): serialize(v)
+                    for k, v in obj.items()
+                }
+            elif isinstance(obj, (list, tuple)):
+                return [serialize(item) for item in obj]
+            return obj
+
+        return serialize(
+            {
+                "total_nodes": self.total_nodes,
+                "total_edges": self.total_edges,
+                "total_components": self.total_components,
+                "graph_density": self.graph_density,
+                "type_distribution": self.type_distribution,
+                "state_distribution": self.state_distribution,
+                "risk_distribution": self.risk_distribution,
+                "complexity_distribution": self.complexity_distribution,
+                "avg_in_degree": self.avg_in_degree,
+                "avg_out_degree": self.avg_out_degree,
+                "max_in_degree": self.max_in_degree,
+                "max_out_degree": self.max_out_degree,
+                "diameter": self.diameter,
+                "avg_path_length": self.avg_path_length,
+                "avg_clustering_coefficient": self.avg_clustering_coefficient,
+                "hub_nodes": self.hub_nodes,
+                "bottleneck_nodes": self.bottleneck_nodes,
+                "bridge_nodes": self.bridge_nodes,
+                "authority_nodes": self.authority_nodes,
+                "root_nodes": self.root_nodes,
+                "leaf_nodes": self.leaf_nodes,
+                "high_risk_nodes": self.high_risk_nodes,
+                "high_impact_nodes": self.high_impact_nodes,
+                "largest_component_size": self.largest_component_size,
+                "components": self.components,  # Let serialize handle the components
+                "longest_paths": self.longest_paths,
+                "critical_paths": self.critical_paths,
+                "high_risk_paths": self.high_risk_paths,
+                "technical_debt_score": self.technical_debt_score,
+                "maintainability_index": self.maintainability_index,
+                "cyclomatic_complexity": self.cyclomatic_complexity,
+                "provider_distribution": self.provider_distribution,
+                "module_distribution": self.module_distribution,
+                "node_metrics": self.node_metrics,
+            }
+        )
