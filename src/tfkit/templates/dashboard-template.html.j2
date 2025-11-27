@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <style>
         :root {
             --bg-primary: {{ theme_colors.bg_primary }};
@@ -22,21 +21,26 @@
             --warning: {{ theme_colors.warning }};
             --danger: {{ theme_colors.danger }};
             --info: {{ theme_colors.info }};
+            --accent-rgb: 59, 130, 246;
+        }
+
+
+        /* Base Styles for Structure */
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            padding: 20px;
-            overflow-x: hidden;
         }
 
         .quick-actions {
@@ -967,171 +971,438 @@
         }
     </style>
     <style>
-        .grid-background {
+        :root {
+            --color-accent: {{ theme_colors.accent }};           /* Primary interaction color (e.g., #007bff) */
+            --color-accent-secondary: #0056b3;                    /* A variation of the accent color - manually set for better gradient contrast */
+
+            --color-bg-primary: {{ theme_colors.bg_primary }};   /* Main background color */
+            --color-bg-secondary: {{ theme_colors.bg_secondary }}; /* Card/sidebar background */
+            --color-bg-tertiary: #2a3447;                         /* Darker detail background - replacing hardcoded #16202e, #1a2333 */
+
+            --color-text-primary: {{ theme_colors.text_primary }}; /* Main body text color */
+            --color-text-secondary: {{ theme_colors.text_secondary }}; /* Secondary/muted text */
+
+            --color-border: {{ theme_colors.border }};           /* Border color */
+
+            /* Status Colors */
+            --color-success: {{ theme_colors.success }};         /* Green */
+            --color-danger: {{ theme_colors.danger }};           /* Red - replacing hardcoded #cc2929 */
+            --color-warning: {{ theme_colors.warning }};         /* Yellow/Amber - replacing hardcoded #a87109 */
+            --color-info: {{ theme_colors.info }};               /* Blue/Cyan - replacing hardcoded #078c9d */
+            
+            /* RGB Helper for Shadows (Must be defined manually or injected by template logic) */
+            /* Assuming accent color is a shade of blue for this example: */
+            --rgb-accent: 0, 123, 255; 
+            --rgb-danger: 239, 68, 68; /* RGB for use in flow-high shadow opacity */
+
+            /* --- 2. Typography & Spacing --- */
+            --font-primary: 'Exo 2', sans-serif;
+            --font-title: 'Orbitron', sans-serif;
+
+            --space-sm: 1rem;     /* 16px */
+            --space-md: 1.5rem;   /* 24px */
+            --space-lg: 2.5rem;   /* 40px */
+            --space-xl: 3rem;     /* 48px */
+
+            /* --- 3. Design Elements (Mixins/Variables) --- */
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 18px;
+
+            --shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.4);
+            --shadow-lg: 0 12px 30px rgba(0, 0, 0, 0.7);
+
+            --transition-fast: all 0.2s ease;
+            --transition-default: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+            /* --- 4. Layout Variables --- */
+            --header-height: 65px;
+            --footer-height: 40px;
+        }
+
+        /* ####################################################################### */
+        /* #                                 BASE LAYOUT                         # */
+        /* ####################################################################### */
+
+        /* Reset for a full-height app experience */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-primary);
+            background-color: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            overflow: hidden; /* Prevent body scroll, handle scroll in content-area */
+        }
+
+        /* Main wrapper to enforce fixed header/footer and flexible middle */
+        .app-wrapper {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Main Content Area: Takes remaining space and enables flexible layout */
+        .main-content {
+            display: flex;
+            flex: 1; /* Occupies all space between header and footer */
+            overflow: hidden; /* Important: ensures children (sidebar/content-area) handle their own scrolling */
+        }
+
+        /* Content Area: Should be scrollable */
+        .content-area {
+            flex: 1;
+            padding: var(--space-xl);
+            overflow-y: auto; /* **INTERNAL SCROLLING HERE** */
+            background: var(--color-bg-primary);
+            /* Offset for fixed header */
+            padding-top: calc(var(--header-height) + var(--space-xl)); 
+        }
+
+        /* ####################################################################### */
+        /* #                              HEADER & FOOTER                        # */
+        /* ####################################################################### */
+
+        .app-header-container {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
-            height: 100%;
-            z-index: -1;
-            opacity: 0.35;
-            pointer-events: none;
-            background: 
-                linear-gradient(90deg, var(--border) 1px, transparent 1px) 0 0 / 60px 60px,
-                linear-gradient(0deg, var(--border) 1px, transparent 1px) 0 0 / 60px 60px;
-            will-change: transform;
+            height: var(--header-height);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--color-bg-secondary)d0; /* Semi-transparent background */
+            backdrop-filter: blur(10px); /* Frosted glass effect */
+            border-bottom: 1px solid var(--color-border)40;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            z-index: 2000;
+            font-family: var(--font-primary);
+            box-sizing: border-box; /* Include padding/border in height calculation */
         }
 
-        .grid-background::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 20%, var(--accent) 1px, transparent 1px),
-                radial-gradient(circle at 80% 80%, var(--accent-secondary) 1px, transparent 1px);
-            background-size: 120px 120px;
-            opacity: 0.03;
+        .header-branding {
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
 
-        .grid-background::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                linear-gradient(45deg, transparent 49.5%, var(--accent) 49.5%, var(--accent) 50.5%, transparent 50.5%) 0 0 / 40px 40px,
-                linear-gradient(-45deg, transparent 49.5%, var(--accent-secondary) 49.5%, var(--accent-secondary) 50.5%, transparent 50.5%) 0 0 / 40px 40px;
-            opacity: 0.02;
+        .app-title-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
 
-        @keyframes grid-drift {
-            0% {
-                background-position: 0 0, 0 0;
-                transform: translate3d(0, 0, 0);
-            }
-            100% {
-                background-position: 60px 60px, 60px 60px;
-                transform: translate3d(0, 0, 0);
-            }
+        .app-icon {
+            font-size: 1.8em;
+            color: var(--color-accent);
+            filter: drop-shadow(0 0 4px var(--color-accent)40); 
         }
 
-        @keyframes grid-breathe {
-            0%, 100% {
-                opacity: 0.02;
-                transform: scale3d(1, 1, 1);
-            }
-            50% {
-                opacity: 0.05;
-                transform: scale3d(1.01, 1.01, 1);
-            }
-        }
-
-        @keyframes grid-shift {
-            0% {
-                background-position: 0 0, 0 0;
-            }
-            100% {
-                background-position: 40px 40px, 40px 40px;
-            }
-        }
-
-        /* Reduced motion support */
-        @media (prefers-reduced-motion: reduce) {
-            .grid-background,
-            .grid-background::before,
-            .grid-background::after {
-                animation: none;
-            }
-        }
-
-        /* High contrast mode */
-        @media (prefers-contrast: high) {
-            .grid-background {
-                opacity: 0.35;
-            }
-        }
-    </style>
-    <style>
-                .dashboard {
-            max-width: 1800px;
-            margin: 0 auto;
-        }
-
-        /* Enhanced Header */
-        .header {
-            text-align: center;
-            margin-bottom: 50px;
-            padding: 50px 40px;
-            background: linear-gradient(135deg, var(--bg-secondary) 0%, rgba(30, 41, 59, 0.8) 100%);
-            border: 1px solid var(--border);
-            border-radius: 28px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
-            backdrop-filter: blur(20px);
-        }
-
-        .header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                var(--accent) 20%, 
-                var(--accent-secondary) 50%,
-                var(--accent) 80%, 
-                transparent 100%);
-            animation: shimmer 3s ease-in-out infinite;
-        }
-
-        .header h1 {
-            font-size: 3.5rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+        .app-title {
+            font-family: var(--font-title);
+            font-size: 1.5em;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            letter-spacing: 1px;
+            background: linear-gradient(90deg, var(--color-text-primary) 0%, var(--color-accent) 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            margin-bottom: 20px;
-            letter-spacing: -0.02em;
-            position: relative;
-            display: inline-block;
         }
 
-        .header p {
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .app-footer-container {
+            width: 100%;
+            min-height: var(--footer-height);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            /* New styles to match your other footer */
+            background: linear-gradient(90deg, rgba(0,0,0,0.02), transparent);
+            border-top: 1px solid var(--color-border);
+            border-radius: 12px 12px 0 0;
+
+            box-shadow: 0 -6px 18px rgba(0,0,0,0.08);
             color: var(--text-secondary);
-            font-size: 1.3rem;
-            opacity: 0.8;
-            max-width: 600px;
-            margin: 0 auto;
-            line-height: 1.6;
+
+            font-size: 0.9rem;
+            gap: 12px;
+            box-sizing: border-box;
+
+            backdrop-filter: blur(6px); /* Optional: Glassy look */
+            z-index: 1000;
         }
 
-        /* Enhanced Stats Grid */
+        /* Footer meta info matching your component style */
+        .footer-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .footer-meta span {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Version styling to match `.footer-left .version` */
+        .footer-meta .version {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95em;
+        }
+
+        /* Harmonized footer links */
+        .footer-link,
+        .app-footer-container .footer-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+            font-weight: 600;
+        }
+
+        .footer-link:hover,
+        .app-footer-container .footer-link:hover {
+            color: var(--accent);
+            background: var(--bg-tertiary);
+            transform: translateY(-1px);
+        }
+
+
+        /* ####################################################################### */
+        /* #                                 SIDEBAR                             # */
+        /* ####################################################################### */
+
+        .sidebar {
+            width: 300px;
+            min-width: 280px;
+            background: linear-gradient(180deg, var(--color-bg-secondary), var(--color-bg-primary));
+            border-right: 1px solid var(--color-border);
+            padding: var(--space-lg) var(--space-md);
+            overflow-y: auto; /* **INTERNAL SCROLLING HERE** */
+            position: relative;
+            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.4);
+            /* Calculate remaining height (100vh - header - footer) */
+            height: calc(100vh - var(--header-height) - var(--footer-height));
+            /* Adjust top position to sit below the fixed header */
+            margin-top: var(--header-height); 
+            box-sizing: border-box;
+        }
+
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 2px;
+            height: 100%;
+            background: linear-gradient(180deg, transparent, var(--color-accent-secondary), transparent);
+            opacity: 0.7;
+        }
+
+        .nav-section {
+            margin-bottom: var(--space-xl);
+        }
+
+        .nav-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+            margin-bottom: var(--space-md);
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            opacity: 0.8;
+        }
+
+        .nav-title::before {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--color-border));
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            padding: 1.1rem 1.5rem;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 0.75rem;
+            border: 1px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: var(--color-accent);
+            transform: scaleY(0);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border-radius: 0 6px 6px 0;
+        }
+
+        .nav-item:hover {
+            background: var(--color-bg-tertiary);
+            transform: translateX(10px);
+            border-color: var(--color-border);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-item:hover::before {
+            transform: scaleY(1);
+            background: var(--color-accent-secondary);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(90deg, var(--color-accent) 0%, var(--color-accent-secondary) 100%);
+            transform: translateX(12px);
+            border-color: var(--color-accent);
+            box-shadow: 0 8px 25px rgba(var(--rgb-accent), 0.4);
+            color: white;
+            font-weight: 600;
+        }
+
+        .nav-item.active::before {
+            transform: scaleY(1);
+            background: white;
+        }
+
+        .nav-item i {
+            font-size: 1.4rem;
+            width: 24px;
+            text-align: center;
+            transition: all 0.3s ease;
+            color: var(--color-text-secondary);
+        }
+
+        .nav-item.active i {
+            color: white;
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        /* ####################################################################### */
+        /* #                                 BUTTONS                             # */
+        /* ####################################################################### */
+
+        .btn {
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: var(--transition-fast);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            font-family: var(--font-primary);
+            line-height: 1.2;
+        }
+        .btn-icon-text i {
+            font-size: 1em;
+        }
+
+        .btn:hover {
+            transform: translateY(-4px) scale(1.01);
+            box-shadow: 0 12px 30px rgba(var(--rgb-accent), 0.7);
+            filter: brightness(1.1);
+        }
+
+        /* Primary Button - Use the accent color for prominence */
+        .btn-primary {
+            background: var(--color-accent);
+            border: 1px solid var(--color-accent);
+            color: var(--color-bg-primary); 
+            box-shadow: 0 4px 12px var(--color-accent)40;
+        }
+        .btn-primary:hover {
+            background: var(--color-accent)e0;
+            border-color: var(--color-accent)e0;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px var(--color-accent)60;
+        }
+        .btn-primary:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 12px var(--color-accent)40;
+        }
+
+        /* Secondary Button - Outline/Inverse style */
+        .btn-secondary {
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border);
+            color: var(--color-text-primary);
+        }
+        .btn-secondary:hover {
+            background: var(--color-accent)10;
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+            transform: translateY(-1px);
+        }
+        .btn-secondary:active {
+            transform: translateY(0);
+        }
+
+        /* Outline Button */
+        .btn-outline {
+            background: transparent;
+            border: 2px solid var(--color-border);
+            color: var(--color-text-secondary);
+            box-shadow: none;
+            background-color: var(--color-bg-secondary);
+        }
+        .btn-outline:hover {
+            border-color: var(--color-accent);
+            color: var(--color-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(var(--rgb-accent), 0.3);
+        }
+
+        /* ####################################################################### */
+        /* #                            DASHBOARD CARDS                          # */
+        /* ####################################################################### */
+
+        /* Stats Grid */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 24px;
-            margin-bottom: 50px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-xl);
         }
 
         .stat-card {
-            background: linear-gradient(145deg, var(--bg-secondary), var(--bg-tertiary));
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 32px 28px;
+            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
             text-align: center;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: var(--transition-default);
             position: relative;
             overflow: hidden;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         }
 
         .stat-card::before {
@@ -1141,15 +1412,15 @@
             left: 0;
             right: 0;
             height: 4px;
-            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+            background: linear-gradient(90deg, var(--color-accent), var(--color-accent-secondary));
             transform: scaleX(0);
-            transition: transform 0.4s ease;
+            transition: transform 0.5s ease-in-out;
+            transform-origin: left;
         }
 
         .stat-card:hover {
-            transform: translateY(-12px) scale(1.02);
-            border-color: var(--accent);
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
         }
 
         .stat-card:hover::before {
@@ -1158,266 +1429,183 @@
 
         .stat-icon {
             font-size: 3rem;
-            margin-bottom: 20px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            margin-bottom: var(--space-sm);
+            background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            opacity: 0.9;
-            filter: drop-shadow(0 4px 12px rgba(96, 165, 250, 0.3));
+            filter: drop-shadow(0 0 5px rgba(var(--rgb-accent), 0.4));
         }
 
         .stat-value {
             font-size: 3.2rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            margin-bottom: 8px;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--color-text-primary), var(--color-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
             line-height: 1;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .stat-label {
-            font-size: 0.95rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 700;
-            opacity: 0.8;
-        }
-
-        /* Advanced Charts Container */
-        .charts-section {
-            margin-bottom: 50px;
-        }
-
-        .section-title {
-            font-size: 2rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            margin-bottom: 30px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            position: relative;
-            padding-left: 20px;
-        }
-
-        .section-title::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 6px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
-            border-radius: 3px;
-        }
-
-        .charts-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-            gap: 30px;
-        }
-
-        .chart-wrapper {
-            background: linear-gradient(145deg, var(--bg-secondary), var(--bg-tertiary));
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 32px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(10px);
-        }
-
-        .chart-wrapper::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, 
-                transparent 0%, 
-                var(--accent) 50%, 
-                transparent 100%);
-        }
-
-        .chart-title {
-            font-size: 1.4rem;
-            color: var(--text-primary);
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            margin-bottom: 24px;
-        }
-
-        .chart-title i {
-            color: var(--accent);
-            font-size: 1.3em;
-            background: rgba(96, 165, 250, 0.1);
-            padding: 10px;
-            border-radius: 12px;
-        }
-
-        /* Enhanced Tab System */
-        .tab-container {
-            background: linear-gradient(145deg, var(--bg-secondary), var(--bg-tertiary));
-            border: 1px solid var(--border);
-            border-radius: 28px;
-            overflow: hidden;
-            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(20px);
-            margin-bottom: 50px;
-        }
-
-        .tab-header {
-            display: flex;
-            background: rgba(15, 23, 42, 0.8);
-            border-bottom: 1px solid var(--border);
-            position: relative;
-            backdrop-filter: blur(10px);
-        }
-
-        .tab-button {
-            flex: 1;
-            padding: 24px 28px;
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            font-size: 1.1rem;
+            color: var(--color-text-secondary);
+            font-size: var(--space-sm);
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-trend {
+            margin-top: var(--space-sm);
+            font-size: 0.95rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
-            position: relative;
-            overflow: hidden;
+            gap: 0.5rem;
+            font-weight: 600;
         }
 
-        .tab-button::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
-            transition: width 0.4s ease;
-            border-radius: 2px 2px 0 0;
+        .stat-trend.up { color: var(--color-success); }
+        .stat-trend.down { color: var(--color-danger); }
+        .stat-trend.stable { color: var(--color-info); }
+
+        /* Charts */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-xl);
         }
 
-        .tab-button:hover {
-            background: rgba(96, 165, 250, 0.05);
-            color: var(--text-primary);
+        .chart-container {
+            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            padding: var(--space-md);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            transition: var(--transition-default);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
-        .tab-button.active {
-            color: var(--accent);
-            background: rgba(96, 165, 250, 0.1);
+        .chart-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
         }
 
-        .tab-button.active::before {
-            width: 80%;
-        }
-
-        .tab-content {
-            padding: 40px;
-            min-height: 600px;
-        }
-
-        .tab-pane {
-            display: none;
-            animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .tab-pane.active {
-            display: block;
-        }
-
-        /* Advanced Nodes Section */
-        .nodes-section {
-            margin-bottom: 40px;
-        }
-
-        .section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 24px;
-            padding-bottom: 16px;
-            border-bottom: 1px solid var(--border);
-        }
-
-        .section-title-sm {
-            color: var(--text-primary);
+        .chart-title {
             font-size: 1.5rem;
-            font-weight: 700;
+            margin-bottom: var(--space-md);
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: var(--space-sm);
+            font-weight: 700;
+            color: var(--color-text-primary);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 0.75rem;
         }
 
-        .section-count {
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
-            color: white;
-            padding: 8px 20px;
-            border-radius: 25px;
-            font-size: 1rem;
-            font-weight: 700;
-            box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+        .chart-title i {
+            font-size: 1.6rem;
+            background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 350px;
+        }
+
+        /* Nodes Grid */
+
+        #criticalNodes {
+            display: masonry;
+            column-gap: 1.75rem;
+            padding: var(--space-md);
+            margin-top: var(--space-md);
         }
 
         .nodes-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 16px;
+            /* Use a responsive grid with minimum width for flexibility */
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: var(--space-lg);
+            padding: var(--space-md);
         }
 
+        .nodes-section {
+            break-inside: avoid;
+            background: var(--color-bg-secondary);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            padding: var(--space-lg);
+            margin-bottom: 1.75rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+            transition: 0.25s ease;
+        }
+
+        .nodes-section:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+        }
+
+        .section-header {
+            margin-bottom: var(--space-md);
+            padding-bottom: var(--space-sm);
+            border-bottom: 2px solid var(--color-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .section-count {
+            padding: 0.5rem 1.1rem;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            background: linear-gradient(
+                135deg,
+                var(--color-accent),
+                var(--color-accent-secondary)
+            );
+            color: white;
+            box-shadow: 0 3px 12px rgba(var(--rgb-accent), 0.35);
+        }
+
+        .nodes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* Node cards remain unchanged, but here's improved polishing */
         .node-item {
-            background: linear-gradient(145deg, var(--bg-tertiary), rgba(15, 23, 42, 0.8));
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 22px 24px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
-        }
-
-        .node-item::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 5px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
-            transform: scaleY(0);
-            transition: transform 0.4s ease;
-            border-radius: 0 3px 3px 0;
+            background: var(--color-bg-primary);
+            padding: 1.4rem;
+            border-radius: var(--radius-md);
+            border-left: 5px solid var(--color-accent);
+            border: 1px solid var(--color-border);
+            transition: 0.25s ease;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
         }
 
         .node-item:hover {
-            transform: translateX(12px) scale(1.02);
-            border-color: var(--accent);
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25);
-        }
-
-        .node-item:hover::before {
-            transform: scaleY(1);
+            transform: translateX(6px);
+            background: var(--color-bg-tertiary);
+            box-shadow: 0 8px 22px rgba(0,0,0,0.35);
         }
 
         .node-content {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 16px;
         }
 
         .node-info {
@@ -1425,338 +1613,696 @@
         }
 
         .node-name {
-            color: var(--text-primary);
-            font-weight: 600;
-            line-height: 1.5;
-            margin-bottom: 8px;
-            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            word-break: break-word;
+            color: var(--color-text-primary);
+            font-size: 1.1rem;
         }
 
         .node-meta {
             display: flex;
-            gap: 12px;
+            gap: 0.75rem;
             flex-wrap: wrap;
         }
 
         .node-tag {
-            background: rgba(96, 165, 250, 0.1);
-            color: var(--accent);
-            padding: 4px 10px;
-            border-radius: 8px;
-            font-size: 0.8rem;
+            background: var(--color-bg-tertiary);
+            color: var(--color-text-secondary);
+            padding: 0.4rem 0.8rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
             font-weight: 600;
-            border: 1px solid rgba(96, 165, 250, 0.2);
+            border: 1px solid var(--color-border);
         }
 
         .risk-badge {
-            padding: 8px 16px;
-            border-radius: 14px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-            flex-shrink: 0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 800;
+            min-width: 60px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
         }
 
-        .risk-high {
-            background: linear-gradient(135deg, var(--danger), #dc2626);
+        .risk-high { 
+            background: linear-gradient(135deg, var(--color-danger), #cc2929);
+            color: white;
+        }
+        .risk-moderate { 
+            background: linear-gradient(135deg, var(--color-warning), #a87109);
+            color: var(--color-bg-primary);
+        }
+        .risk-low { 
+            background: linear-gradient(135deg, var(--color-info), #078c9d);
+            color: white;
+        }
+        .risk-safe { 
+            background: linear-gradient(135deg, var(--color-success), #047857);
             color: white;
         }
 
-        .risk-moderate {
-            background: linear-gradient(135deg, var(--warning), #d97706);
-            color: black;
-        }
+        /* ####################################################################### */
+        /* #                          FLOW PATHS & COMPONENTS                    # */
+        /* ####################################################################### */
 
-        .risk-low {
-            background: linear-gradient(135deg, var(--success), #059669);
-            color: white;
-        }
-
-        .risk-safe {
-            background: linear-gradient(135deg, var(--info), #0891b2);
-            color: white;
-        }
-
-        /* Advanced Path Visualization */
-        .path-item {
-            background: linear-gradient(145deg, var(--bg-tertiary), rgba(15, 23, 42, 0.8));
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 28px;
-            margin-bottom: 20px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        .flow-path-item {
+            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary)); 
+            padding: var(--space-lg);
+            border-radius: var(--radius-md); 
+            border: 1px solid var(--color-border);
+            margin-bottom: var(--space-xl);
+            transition: var(--transition-default);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
             position: relative;
             overflow: hidden;
-            backdrop-filter: blur(10px);
         }
 
-        .path-item:hover {
-            transform: translateY(-8px);
-            border-color: var(--accent);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        .flow-path-item:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
         }
 
-        .path-header {
+        /* Risk Indicators using a subtle glow/accent */
+        .flow-path-item.flow-high { border: 1px solid var(--color-danger); box-shadow: 0 0 15px rgba(var(--rgb-danger), 0.3); }
+        .flow-path-item.flow-moderate { border: 1px solid var(--color-warning); }
+        .flow-path-item.flow-low { border: 1px solid var(--color-info); }
+        .flow-path-item.flow-safe { border: 1px solid var(--color-success); }
+
+        /* Path Header */
+        .flow-path-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: var(--space-lg);
+            padding-bottom: var(--space-sm);
+            border-bottom: 1px solid var(--color-bg-tertiary); 
         }
 
-        .path-title {
+        .flow-path-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--color-text-primary);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .flow-path-title i {
+            background: linear-gradient(45deg, var(--color-accent), var(--color-accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+        }
+
+        .flow-path-metrics {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .flow-metric-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
             font-weight: 700;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 1.2rem;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
         }
 
-        .path-metrics {
-            display: flex;
-            gap: 20px;
-        }
+        .flow-metric-badge.flow-high { background: var(--color-danger); }
+        .flow-metric-badge.flow-moderate { background: var(--color-warning); color: var(--color-bg-primary); }
+        .flow-metric-badge.flow-low { background: var(--color-info); }
+        .flow-metric-badge.flow-safe { background: var(--color-success); }
 
-        .path-metric {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 10px 18px;
-            border-radius: 14px;
+        .flow-metric-text {
             font-size: 0.95rem;
-            font-weight: 600;
-            border: 1px solid var(--border);
+            color: var(--color-text-secondary);
+        }
+        .flow-metric-text i { margin-right: 0.5rem; color: var(--color-accent); }
+
+        /* --- Flow Node Visualization --- */
+
+        .flow-card-container {
             display: flex;
             align-items: center;
-            gap: 8px;
+            white-space: nowrap;
+            overflow-x: auto;
+            padding-bottom: var(--space-sm);
         }
 
-        .path-nodes {
+        .flow-node-card {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 20px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.02);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .path-node {
-            background: var(--bg-secondary);
-            padding: 12px 18px;
-            border-radius: 14px;
-            font-size: 0.9rem;
-            border: 1px solid var(--border);
+            flex-shrink: 0;
+            width: 200px;
+            padding: 1.5rem var(--space-sm);
+            background: var(--color-bg-primary);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border);
             transition: all 0.3s ease;
             position: relative;
-            overflow: hidden;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
         }
 
-        .path-node:hover {
-            background: var(--accent);
-            color: white;
-            transform: scale(1.08);
-            box-shadow: 0 8px 25px rgba(96, 165, 250, 0.3);
+        .flow-node-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            border-color: var(--color-accent-secondary);
         }
 
-        .path-connector {
-            color: var(--text-secondary);
-            font-weight: 700;
-            font-size: 1.2rem;
-            margin: 0 8px;
+        /* Icon (Top indicator for flow) */
+        .node-icon {
+            font-size: 2rem;
+            margin-bottom: var(--space-sm);
+            transition: color 0.3s ease, transform 0.3s ease;
         }
+
+        .flow-node-card:hover .node-icon {
+            transform: scale(1.1);
+        }
+
+        /* Node Risk Coloring (Drives the color of the text and icon) */
+        .flow-node-card.node-high .node-icon { color: var(--color-danger); }
+        .flow-node-card.node-moderate .node-icon { color: var(--color-warning); }
+        .flow-node-card.node-low .node-icon { color: var(--color-info); }
+        .flow-node-card.node-safe .node-icon { color: var(--color-success); }
+
+        /* Node Label (Text below the icon) */
+        .node-label {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            text-align: center;
+            word-break: break-word;
+            line-height: 1.4;
+            max-width: 100%;
+        }
+
+        /* --- Connector Styling (Visualizing the flow between cards) --- */
+
+        .flow-connector {
+            flex: 1;
+            height: 3px;
+            background: var(--color-border);
+            position: relative;
+            margin: 0 var(--space-sm); 
+            z-index: 5;
+            transition: background 0.4s ease;
+            min-width: 50px;
+        }
+
+        /* Connector Arrow Head (Pure CSS diamond shape) */
+        .flow-connector::after {
+            content: '';
+            position: absolute;
+            top: -6px;
+            right: -10px;
+            width: 15px;
+            height: 15px;
+            background: inherit; 
+            transform: rotate(45deg);
+            border-radius: 2px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            z-index: 7;
+        }
+
+        /* Color the connector and arrow based on the risk of the originating node */
+        .flow-node-card.node-high + .flow-connector,
+        .flow-node-card.node-high + .flow-connector::after { background: var(--color-danger); }
+
+        .flow-node-card.node-moderate + .flow-connector,
+        .flow-node-card.node-moderate + .flow-connector::after { background: var(--color-warning); }
+
+        .flow-node-card.node-low + .flow-connector,
+        .flow-node-card.node-low + .flow-connector::after { background: var(--color-info); }
+
+        .flow-node-card.node-safe + .flow-connector,
+        .flow-node-card.node-safe + .flow-connector::after { background: var(--color-success); }
+
 
         /* Component Cards */
         .component-card {
-            background: linear-gradient(145deg, var(--bg-tertiary), rgba(15, 23, 42, 0.8));
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 28px;
-            margin-bottom: 20px;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
+            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            margin-bottom: var(--space-md);
+            transition: var(--transition-default);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
         }
 
         .component-card:hover {
-            transform: translateY(-8px);
-            border-color: var(--accent);
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4);
         }
 
         .component-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            margin-bottom: var(--space-md);
+            padding-bottom: var(--space-sm);
+            border-bottom: 2px solid var(--color-border);
         }
 
         .component-title {
-            color: var(--text-primary);
-            font-weight: 700;
+            font-size: 1.5rem;
             display: flex;
             align-items: center;
-            gap: 12px;
-            font-size: 1.3rem;
+            gap: var(--space-sm);
+            font-weight: 700;
+            color: var(--color-text-primary);
         }
 
         .component-size {
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
             color: white;
-            padding: 10px 20px;
+            padding: 0.75rem 1.25rem;
             border-radius: 25px;
-            font-size: 1rem;
+            font-size: var(--space-sm);
             font-weight: 700;
-            box-shadow: 0 4px 15px rgba(96, 165, 250, 0.3);
+            box-shadow: 0 4px 15px rgba(var(--rgb-accent), 0.4);
         }
 
         .component-metrics {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px;
-            margin-bottom: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
         }
 
         .component-metric {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 16px;
-            border-radius: 14px;
-            border: 1px solid var(--border);
+            text-align: center;
+            background: var(--color-bg-primary);
+            padding: 1.5rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
             transition: all 0.3s ease;
         }
 
         .component-metric:hover {
-            background: rgba(96, 165, 250, 0.1);
-            border-color: var(--accent);
+            box-shadow: 0 4px 15px rgba(var(--rgb-accent), 0.15);
         }
 
         .metric-label {
+            color: var(--color-text-secondary);
             font-size: 0.85rem;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            margin-bottom: 6px;
+            margin-bottom: 0.75rem;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .metric-value {
-            font-size: 1.3rem;
-            font-weight: 700;
-            color: var(--text-primary);
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: var(--color-text-primary);
         }
 
-        /* Network Graph Visualization */
-        .network-graph {
-            width: 100%;
-            height: 600px;
-            background: var(--bg-secondary);
-            border-radius: 20px;
-            border: 1px solid var(--border);
+        /* Network Container */
+        .network-container {
+            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            padding: var(--space-md);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
+            height: 500px;
             position: relative;
             overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
-        .graph-legend {
+        .network-controls {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(15, 23, 42, 0.9);
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            backdrop-filter: blur(10px);
+            top: var(--space-md);
+            right: var(--space-md);
+            z-index: 10;
+            display: flex;
+            gap: 0.75rem;
+            background: rgba(var(--color-bg-primary), 0.8);
+            backdrop-filter: blur(5px);
+            border-radius: var(--radius-md);
+            padding: 0.5rem;
+            border: 1px solid var(--color-border);
         }
 
-        .legend-item {
+        .network-control {
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            color: var(--color-text-primary);
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
-            gap: 10px;
-            margin-bottom: 8px;
-            font-size: 0.9rem;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
         }
 
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
+        .network-control:hover {
+            background: var(--color-accent);
+            color: white;
+            transform: scale(1.08);
+            box-shadow: 0 4px 15px rgba(var(--rgb-accent), 0.5);
         }
 
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        /* Tab Content Management */
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.6s cubic-bezier(0.39, 0.575, 0.565, 1);
         }
 
-        @keyframes shimmer {
-            0%, 100% { opacity: 0.7; }
-            50% { opacity: 1; }
+        .tab-content.active {
+            display: block;
         }
 
-        /* Responsive Design */
-        @media (max-width: 1200px) {
-            .charts-container {
-                grid-template-columns: 1fr;
-            }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
+
+        /* New Metrics and Insights Components */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            padding: var(--space-md);
+            border-radius: 16px;
+            border: 1px solid var(--color-border);
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .metric-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            margin-bottom: 1.25rem;
+        }
+
+        .metric-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.4rem;
+            box-shadow: 0 4px 10px rgba(var(--rgb-accent), 0.4);
+        }
+
+        .metric-title {
+            font-weight: 700;
+            color: var(--color-text-primary);
+            font-size: 1.1rem;
+        }
+
+        .metric-value-large {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--color-text-primary), var(--color-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .metric-description {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        /* Grid */
+        .insights-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+            margin-top: var(--space-lg);
+        }
+
+        /* Card */
+        .insight-card {
+            background: linear-gradient(145deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            padding: var(--space-md);
+            border-radius: 16px;
+            border: 1px solid var(--color-border);
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .insight-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+        }
+
+        /* Header */
+        .insight-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            margin-bottom: 1rem;
+        }
+
+        /* Icon Bubble */
+        .insight-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--bg-tertiary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.25rem;
+            transition: transform 0.25s ease;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+        }
+
+        .insight-card:hover .insight-icon {
+            transform: scale(1.08);
+        }
+
+        /* Title */
+        .insight-title {
+            font-weight: 700;
+            color: var(--color-text-primary);
+            font-size: 1.15rem;
+        }
+
+        /* Severity badge */
+        .insight-severity {
+            margin-top: 2px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            width: fit-content;
+            letter-spacing: 0.5px;
+        }
+
+        .insight-severity.high {
+            background: rgba(255,70,70,0.12);
+            color: var(--color-danger);
+        }
+
+        .insight-severity.medium {
+            background: rgba(255,180,40,0.15);
+            color: var(--color-warning);
+        }
+
+        .insight-severity.good {
+            background: rgba(40,200,120,0.15);
+            color: var(--color-success);
+        }
+
+        /* Text content */
+        .insight-content {
+            color: var(--color-text-secondary);
+            font-size: 0.97rem;
+            line-height: 1.55;
+        }
+
+
+        .insight-actions {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* Provider Analysis */
+        .provider-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .provider-card {
+            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            padding: var(--space-md);
+            border-radius: 16px;
+            border: 1px solid var(--color-border);
+            transition: all 0.3s ease;
+        }
+
+        .provider-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .provider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+
+        .provider-name {
+            font-weight: 700;
+            color: var(--color-text-primary);
+            font-size: 1.1rem;
+        }
+
+        .provider-count {
+            background: var(--color-accent);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        /* ####################################################################### */
+        /* #                           RESPONSIVE DESIGN                         # */
+        /* ####################################################################### */
 
         @media (max-width: 768px) {
-            .header {
-                padding: 30px 20px;
+            .main-content {
+                flex-direction: column;
             }
             
-            .header h1 {
-                font-size: 2.5rem;
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--color-border);
+                order: -1;
+                /* Sidebar in mobile should be full width and scrollable horizontally, or collapse entirely. 
+                We'll keep it visible but adjust height for a compact nav area. */
+                height: auto; 
+                max-height: 200px;
+                margin-top: var(--header-height);
+                overflow-y: hidden;
+            }
+
+            .content-area {
+                padding-top: var(--space-xl); /* Reset offset, since header is now full width and content flows below */
             }
             
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
             
-            .nodes-grid {
+            .charts-grid, .nodes-grid, .metrics-grid, .insights-grid, .provider-grid {
                 grid-template-columns: 1fr;
             }
             
-            .tab-header {
+            .flow-path-header {
                 flex-direction: column;
-            }
-            
-            .path-header {
-                flex-direction: column;
-                gap: 16px;
                 align-items: flex-start;
+                gap: var(--space-sm);
             }
             
-            .path-metrics {
+            .flow-path-metrics {
                 flex-wrap: wrap;
+            }
+
+            .app-header-container {
+                flex-direction: column;
+                gap: var(--space-sm);
+                text-align: center;
+                height: auto;
+            }
+
+            .header-actions {
+                width: 100%;
+                justify-content: center;
             }
         }
 
         @media (max-width: 480px) {
-            .header h1 {
-                font-size: 2rem;
+            .content-area {
+                padding: 1.5rem;
             }
-            
             .stats-grid {
                 grid-template-columns: 1fr;
             }
             
-            .stat-value {
-                font-size: 2.5rem;
+            .nodes-grid {
+                grid-template-columns: 1fr;
             }
-            
-            .tab-content {
-                padding: 20px;
+
+            .component-metrics {
+                grid-template-columns: 1fr;
             }
         }
-        </style>
+
+        /* ####################################################################### */
+        /* #                              UTILITY                                # */
+        /* ####################################################################### */
+
+        /* Loading states */
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-secondary) 50%, var(--color-bg-tertiary) 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: var(--radius-sm);
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--color-bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-bg-tertiary);
+            border-radius: 5px;
+            border: 2px solid var(--color-bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--color-accent);
+        }
+    </style>
 </head>
 
 <body>
@@ -1793,97 +2339,380 @@
         </div>
     </div>
 
-    <div class="dashboard">
-        <div class="stats-grid" id="statsGrid"></div>
-
-        <!-- Advanced Charts Section -->
-        <div class="charts-section">
-            <div class="section-title">
-                <i class="fas fa-chart-bar"></i>
-                Distribution Analytics
+    <div class="app-wrapper">
+        
+        <header class="app-header-container">
+            <div class="header-branding">
+                <div class="app-title-group">
+                    <i class="fas fa-chart-network app-icon"></i>
+                    <span class="app-title">Terraform Analytics Dashboard</span>
+                </div>
             </div>
-            <div class="charts-container">
-                <div class="chart-wrapper">
-                    <div class="chart-title">
-                        <i class="fas fa-cubes"></i>
-                        Resource Type Distribution
+        </header>
+
+        <div class="main-content">
+            <nav class="sidebar">
+                <div class="nav-section">
+                    <div class="nav-title">Dashboard Overview</div>
+                    <div class="nav-item active" data-tab="overview">
+                        <i class="fas fa-tachometer-alt-fast"></i>
+                        <span>Overview Dashboard</span>
                     </div>
-                    <canvas id="typeChart"></canvas>
                 </div>
-                <div class="chart-wrapper">
-                    <div class="chart-title">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        Risk Distribution Analysis
-                    </div>
-                    <canvas id="riskChart"></canvas>
-                </div>
-                <div class="chart-wrapper">
-                    <div class="chart-title">
-                        <i class="fas fa-brain"></i>
-                        Complexity Metrics
-                    </div>
-                    <canvas id="complexityChart"></canvas>
-                </div>
-                <div class="chart-wrapper">
-                    <div class="chart-title">
+
+                <div class="nav-section">
+                    <div class="nav-title">Graph Analysis</div>
+                    <div class="nav-item" data-tab="nodes">
                         <i class="fas fa-sitemap"></i>
-                        Node State Distribution
+                        <span>Critical Nodes</span>
                     </div>
-                    <canvas id="stateChart"></canvas>
+                    <div class="nav-item" data-tab="paths">
+                        <i class="fas fa-route"></i>
+                        <span>Dependency Paths</span>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- Enhanced Tab System -->
-        <div class="tab-container">
-            <div class="tab-header">
-                <button class="tab-button active" onclick="switchTab('criticalNodes')">
-                    <i class="fas fa-fire"></i>
-                    Critical Nodes
-                </button>
-                <button class="tab-button" onclick="switchTab('paths')">
-                    <i class="fas fa-route"></i>
-                    Dependency Paths
-                </button>
-                <button class="tab-button" onclick="switchTab('components')">
-                    <i class="fas fa-puzzle-piece"></i>
-                    Components
-                </button>
-                <button class="tab-button" onclick="switchTab('network')">
-                    <i class="fas fa-network-wired"></i>
-                    Network Graph
-                </button>
-            </div>
-            <div class="tab-content">
-                <div id="criticalNodes" class="tab-pane active"></div>
-                <div id="paths" class="tab-pane"></div>
-                <div id="components" class="tab-pane"></div>
-                <div id="network" class="tab-pane">
-                    <div class="network-graph" id="networkGraph">
-                        <div class="graph-legend">
-                            <div class="legend-item">
-                                <div class="legend-color" style="background: var(--accent);"></div>
-                                <span>Hub Nodes</span>
+                <div class="nav-section">
+                    <div class="nav-title">Advanced Metrics</div>
+                    <div class="nav-item" data-tab="metrics">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Advanced Metrics</span>
+                    </div>
+                    <div class="nav-item" data-tab="risk">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Risk Analysis</span>
+                    </div>
+                    <div class="nav-item" data-tab="performance">
+                        <i class="fas fa-rocket"></i>
+                        <span>Performance</span>
+                    </div>
+                </div>
+
+                <div class="nav-section">
+                    <div class="nav-title">Architecture Insights</div>
+                    <div class="nav-item" data-tab="providers">
+                        <i class="fas fa-plug"></i>
+                        <span>Provider Analysis</span>
+                    </div>
+                    <div class="nav-item" data-tab="modules">
+                        <i class="fas fa-cube"></i>
+                        <span>Module Analysis</span>
+                    </div>
+                    <div class="nav-item" data-tab="optimization">
+                        <i class="fas fa-magic"></i>
+                        <span>Optimization</span>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="content-area">
+                <!-- Overview Tab -->
+                <div id="overview" class="tab-content active">
+                    <div class="stats-grid" id="statsGrid"></div>
+                    
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-cubes"></i>
+                                Resource Type Distribution
                             </div>
-                            <div class="legend-item">
-                                <div class="legend-color" style="background: var(--danger);"></div>
-                                <span>High Risk</span>
-                            </div>
-                            <div class="legend-item">
-                                <div class="legend-color" style="background: var(--success);"></div>
-                                <span>Safe Nodes</span>
-                            </div>
-                            <div class="legend-item">
-                                <div class="legend-color" style="background: var(--warning);"></div>
-                                <span>Bottlenecks</span>
+                            <div class="chart-wrapper">
+                                <canvas id="typeChart"></canvas>
                             </div>
                         </div>
-                        <canvas id="networkCanvas"></canvas>
+                        
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Risk Distribution
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="riskChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-brain"></i>
+                                Complexity Analysis
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="complexityChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-sitemap"></i>
+                                Node State Distribution
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="stateChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-link"></i>
+                                Link Type Distribution
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="linkTypeChart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-layer-group"></i>
+                                Module Distribution
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="moduleChart"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
+
+                <!-- Critical Nodes Tab -->
+                <div id="nodes" class="tab-content">
+                    <div class="nodes-grid" id="criticalNodes"></div>
+                </div>
+
+                <!-- Dependency Paths Tab -->
+                <div id="paths" class="tab-content">
+                    <div id="pathsContainer"></div>
+                </div>
+
+                <!-- Components Tab -->
+                <div id="components" class="tab-content">
+                    <div id="componentsContainer"></div>
+                </div>
+
+                <!-- Advanced Metrics Tab -->
+                <div id="metrics" class="tab-content">
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <div class="metric-icon">
+                                    <i class="fas fa-brain"></i>
+                                </div>
+                                <div class="metric-title">Cyclomatic Complexity</div>
+                            </div>
+                            <div class="metric-value-large" id="cyclomaticComplexity">71</div>
+                            <div class="metric-description">
+                                Measures the complexity of the dependency graph structure
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <div class="metric-icon">
+                                    <i class="fas fa-cogs"></i>
+                                </div>
+                                <div class="metric-title">Cognitive Complexity</div>
+                            </div>
+                            <div class="metric-value-large" id="cognitiveComplexity">116.6</div>
+                            <div class="metric-description">
+                                Measures how difficult the infrastructure is to understand
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <div class="metric-icon">
+                                    <i class="fas fa-tools"></i>
+                                </div>
+                                <div class="metric-title">Maintainability Index</div>
+                            </div>
+                            <div class="metric-value-large" id="maintainabilityIndex">73.7%</div>
+                            <div class="metric-description">
+                                Overall maintainability score of the infrastructure
+                            </div>
+                        </div>
+
+                        <div class="metric-card">
+                            <div class="metric-header">
+                                <div class="metric-icon">
+                                    <i class="fas fa-coins"></i>
+                                </div>
+                                <div class="metric-title">Technical Debt</div>
+                            </div>
+                            <div class="metric-value-large" id="technicalDebt">67.2%</div>
+                            <div class="metric-description">
+                                Accumulated technical debt in the infrastructure
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-chart-line"></i>
+                                Node Centrality Metrics
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="centralityChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-wave-square"></i>
+                                Degree Distribution
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="degreeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Analysis Tab -->
+                <div id="risk" class="tab-content">
+                    <div class="chart-container">
+                        <div class="chart-title">
+                            <i class="fas fa-radar"></i>
+                            Risk Heatmap Analysis
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="riskHeatmap"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="insights-grid" id="riskInsights"></div>
+                </div>
+
+                <!-- Performance Tab -->
+                <div id="performance" class="tab-content">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-bolt"></i>
+                            </div>
+                            <div class="stat-value">2.18</div>
+                            <div class="stat-label">Avg Path Length</div>
+                            <div class="stat-trend stable">
+                                <i class="fas fa-minus"></i> Optimal
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-memory"></i>
+                            </div>
+                            <div class="stat-value">0.192</div>
+                            <div class="stat-label">Clustering Coefficient</div>
+                            <div class="stat-trend up">
+                                <i class="fas fa-arrow-up"></i> Good
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-microchip"></i>
+                            </div>
+                            <div class="stat-value">0.286</div>
+                            <div class="stat-label">Transitivity</div>
+                            <div class="stat-trend stable">
+                                <i class="fas fa-minus"></i> Normal
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-network-wired"></i>
+                            </div>
+                            <div class="stat-value">0.029</div>
+                            <div class="stat-label">Graph Density</div>
+                            <div class="stat-trend down">
+                                <i class="fas fa-arrow-down"></i> Sparse
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-chart-bar"></i>
+                                Degree Distribution by Type
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="degreeByTypeChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <div class="chart-title">
+                                <i class="fas fa-project-diagram"></i>
+                                Component Size Distribution
+                            </div>
+                            <div class="chart-wrapper">
+                                <canvas id="componentSizeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Provider Analysis Tab -->
+                <div id="providers" class="tab-content">
+                    <div class="provider-grid" id="providerGrid"></div>
+                    
+                    <div class="chart-container" style="margin-top: 2rem;">
+                        <div class="chart-title">
+                            <i class="fas fa-plug"></i>
+                            Provider Coupling Analysis
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="providerCouplingChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Module Analysis Tab -->
+                <div id="modules" class="tab-content">
+                    <div class="nodes-grid" id="moduleAnalysis"></div>
+                    
+                    <div class="chart-container" style="margin-top: 2rem;">
+                        <div class="chart-title">
+                            <i class="fas fa-cube"></i>
+                            Module Quality Metrics
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="moduleQualityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Optimization Tab -->
+                <div id="optimization" class="tab-content">
+                    <div class="insights-grid" id="optimizationInsights"></div>
+                    
+                    <div class="chart-container" style="margin-top: 2rem;">
+                        <div class="chart-title">
+                            <i class="fas fa-magic"></i>
+                            Architecture Quality Score
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="architectureQualityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
+        
+        <footer class="app-footer-container">
+            <div class="footer-meta">
+                <span class="version">tfkit <span style="opacity:0.8; font-weight:500">(v{{ version | default('0.0.0') }})</span></span>
+                <span class="footer-links">
+                    <a href="https://tfkit.netlify.app/" target="_blank" title="Homepage" class="footer-link"><i class="fas fa-home"></i> Homepage</a>
+                    <a href="https://github.com/ivasik-k7/tfkit" target="_blank" title="GitHub" class="footer-link"><i class="fab fa-github"></i> GitHub</a>
+                </span>
+            </div>
+            <div class="footer-actions">
+                <a class="btn btn-outline" href="https://github.com/ivasik-k7/tfkit/issues" target="_blank" title="Report Issue">
+                    <i class="fas fa-bug"></i> Report Issue
+                </a>
+            </div>
+        </footer>
     </div>
+
     <script>
         class CommandPalette {
             constructor(rawData, options = {}) {
@@ -2801,11 +3630,15 @@
     <script>
     </script>
     <script>
+        // Enhanced AnalyticsManager with comprehensive data analysis
         class AnalyticsManager {
             constructor(data) {
                 this.data = data;
                 this.charts = new Map();
                 this.currentTheme = this.getThemeColors();
+                this.networkInstance = null;
+                this.debounceTimers = new Map();
+                this.currentTab = 'overview';
                 this.init();
             }
 
@@ -2828,12 +3661,94 @@
             }
 
             init() {
+                this.setupEventListeners();
                 this.renderStats();
                 this.createCharts();
                 this.renderCriticalNodes();
                 this.renderLongestPaths();
-                this.renderComponents();
-                this.createNetworkGraph();
+                this.createAdvancedMetrics();
+                this.createRiskHeatmap();
+                this.renderProviderAnalysis();
+                this.renderModuleAnalysis();
+                this.renderOptimizationInsights();
+                
+                this.setupLazyLoading();
+            }
+
+            setupEventListeners() {
+                // Fixed sidebar navigation
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const tabName = e.currentTarget.dataset.tab;
+                        this.switchTab(tabName);
+                    });
+                });
+
+                // Network controls
+                document.getElementById('zoomIn')?.addEventListener('click', () => this.zoomNetwork(1.2));
+                document.getElementById('zoomOut')?.addEventListener('click', () => this.zoomNetwork(0.8));
+                document.getElementById('resetView')?.addEventListener('click', () => this.resetNetworkView());
+                document.getElementById('fullscreen')?.addEventListener('click', () => this.toggleFullscreen());
+
+                // Export functionality
+                document.getElementById('exportBtn')?.addEventListener('click', () => this.exportData());
+                document.getElementById('refreshBtn')?.addEventListener('click', () => this.refreshData());
+
+                // Window resize with debounce
+                window.addEventListener('resize', this.debounce(() => this.handleResize(), 250));
+            }
+
+            setupLazyLoading() {
+                const observer = new IntersectionObserver((entries) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const tabId = entry.target.id;
+                            if (tabId === 'network' && !this.networkInstance) {
+                                this.createNetworkGraph();
+                            }
+                        }
+                    });
+                }, { threshold: 0.1 });
+
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    observer.observe(tab);
+                });
+            }
+
+            debounce(func, wait) {
+                return (...args) => {
+                    const key = func.toString();
+                    clearTimeout(this.debounceTimers.get(key));
+                    this.debounceTimers.set(key, setTimeout(() => func.apply(this, args), wait));
+                };
+            }
+
+            switchTab(tabName) {
+                // Update navigation items
+                document.querySelectorAll('.nav-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.dataset.tab === tabName) {
+                        item.classList.add('active');
+                    }
+                });
+
+                // Update tab content
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                
+                const targetTab = document.getElementById(tabName);
+                if (targetTab) {
+                    targetTab.classList.add('active');
+                    this.currentTab = tabName;
+                }
+
+
+                // Refresh charts on tab switch for proper rendering
+                setTimeout(() => {
+                    this.handleResize();
+                }, 100);
             }
 
             renderStats() {
@@ -2841,42 +3756,50 @@
                     { 
                         label: 'Total Nodes', 
                         value: this.data.total_nodes, 
-                        icon: 'fas fa-cube'
+                        icon: 'fas fa-cube',
+                        trend: 'stable'
                     },
                     { 
                         label: 'Total Edges', 
                         value: this.data.total_edges, 
-                        icon: 'fas fa-link'
+                        icon: 'fas fa-link',
+                        trend: 'up'
                     },
                     { 
                         label: 'Components', 
                         value: this.data.total_components, 
-                        icon: 'fas fa-puzzle-piece'
+                        icon: 'fas fa-puzzle-piece',
+                        trend: 'stable'
                     },
                     { 
                         label: 'Graph Density', 
                         value: this.data.graph_density.toFixed(4), 
-                        icon: 'fas fa-chart-network'
+                        icon: 'fas fa-circle-nodes',
+                        trend: 'low'
                     },
                     { 
                         label: 'Network Diameter', 
                         value: this.data.diameter, 
-                        icon: 'fas fa-arrows-alt-h'
+                        icon: 'fas fa-arrows-alt-h',
+                        trend: 'stable'
                     },
                     { 
                         label: 'Technical Debt', 
                         value: `${this.data.technical_debt_score.toFixed(1)}%`, 
-                        icon: 'fas fa-coins'
+                        icon: 'fas fa-coins',
+                        trend: this.data.technical_debt_score > 70 ? 'high' : 'moderate'
                     },
                     { 
                         label: 'Maintainability', 
                         value: `${this.data.maintainability_index.toFixed(1)}%`, 
-                        icon: 'fas fa-tools'
+                        icon: 'fas fa-tools',
+                        trend: this.data.maintainability_index > 80 ? 'good' : 'warning'
                     },
                     { 
-                        label: 'Max In Degree', 
-                        value: this.data.max_in_degree, 
-                        icon: 'fas fa-arrow-down'
+                        label: 'Avg Path Length', 
+                        value: this.data.avg_path_length.toFixed(2), 
+                        icon: 'fas fa-road',
+                        trend: 'stable'
                     }
                 ];
 
@@ -2888,22 +3811,44 @@
                         </div>
                         <div class="stat-value">${stat.value}</div>
                         <div class="stat-label">${stat.label}</div>
+                        <div class="stat-trend ${stat.trend}">
+                            <i class="fas fa-${this.getTrendIcon(stat.trend)}"></i>
+                            ${this.getTrendText(stat.trend)}
+                        </div>
                     </div>
                 `).join('');
             }
 
-            createCharts() {
-                this.createTypeChart();
-                this.createRiskChart();
-                this.createComplexityChart();
-                this.createStateChart();
+            getTrendIcon(trend) {
+                const icons = {
+                    up: 'arrow-up',
+                    down: 'arrow-down',
+                    stable: 'minus',
+                    high: 'exclamation-triangle',
+                    moderate: 'info-circle',
+                    good: 'check-circle',
+                    warning: 'exclamation-circle',
+                    low: 'arrow-down'
+                };
+                return icons[trend] || 'minus';
             }
 
-            createTypeChart() {
-                const ctx = document.getElementById('typeChart').getContext('2d');
-                const typeData = this.data.type_distribution;
-                
-                this.createAdvancedPieChart(ctx, 'Type Distribution', typeData, [
+            getTrendText(trend) {
+                const texts = {
+                    up: 'Increasing',
+                    down: 'Decreasing',
+                    stable: 'Stable',
+                    high: 'High',
+                    moderate: 'Moderate',
+                    good: 'Good',
+                    warning: 'Warning',
+                    low: 'Low'
+                };
+                return texts[trend] || 'Stable';
+            }
+
+            createCharts() {
+                this.createDistributionChart('typeChart', 'Type Distribution', this.data.type_distribution, [
                     this.currentTheme.accent,
                     this.currentTheme.success,
                     this.currentTheme.warning,
@@ -2913,37 +3858,22 @@
                     '#2dd4bf',
                     '#fb923c'
                 ]);
-            }
 
-            createRiskChart() {
-                const ctx = document.getElementById('riskChart').getContext('2d');
-                const riskData = this.data.risk_distribution;
-                
-                this.createAdvancedPieChart(ctx, 'Risk Distribution', riskData, [
+                this.createDistributionChart('riskChart', 'Risk Distribution', this.data.risk_distribution, [
                     this.currentTheme.danger,
-                    this.currentTheme.success,
                     this.currentTheme.warning,
+                    this.currentTheme.success,
                     this.currentTheme.accentSecondary
                 ]);
-            }
 
-            createComplexityChart() {
-                const ctx = document.getElementById('complexityChart').getContext('2d');
-                const complexityData = this.data.complexity_distribution;
-                
-                this.createAdvancedPieChart(ctx, 'Complexity Distribution', complexityData, [
+                this.createDistributionChart('complexityChart', 'Complexity Distribution', this.data.complexity_distribution, [
                     this.currentTheme.success,
                     '#34d399',
                     this.currentTheme.warning,
                     this.currentTheme.danger
                 ]);
-            }
 
-            createStateChart() {
-                const ctx = document.getElementById('stateChart').getContext('2d');
-                const stateData = this.data.state_distribution;
-                
-                this.createAdvancedPieChart(ctx, 'State Distribution', stateData, [
+                this.createDistributionChart('stateChart', 'State Distribution', this.data.state_distribution, [
                     this.currentTheme.accent,
                     this.currentTheme.accentSecondary,
                     '#f472b6',
@@ -2952,20 +3882,28 @@
                     this.currentTheme.success,
                     '#2dd4bf'
                 ]);
+
+                this.createDistributionChart('linkTypeChart', 'Link Type Distribution', this.data.link_type_distribution, [
+                    this.currentTheme.accent,
+                    this.currentTheme.success,
+                    this.currentTheme.warning,
+                    this.currentTheme.info,
+                    this.currentTheme.accentSecondary,
+                    '#2dd4bf'
+                ]);
+
+                this.createDistributionChart('moduleChart', 'Module Distribution', this.data.module_distribution, [
+                    this.currentTheme.accent,
+                    this.currentTheme.accentSecondary
+                ]);
             }
 
-            createAdvancedPieChart(ctx, title, data, colors) {
-                if (this.charts.has(title)) {
-                    this.charts.get(title).destroy();
-                }
-
-                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            createDistributionChart(canvasId, title, data, colors) {
+                const ctx = document.getElementById(canvasId).getContext('2d');
                 
-                const container = ctx.canvas.parentElement;
-                ctx.canvas.style.width = '100%';
-                ctx.canvas.style.height = '300px'; // Fixed height
-                ctx.canvas.width = container.clientWidth;
-                ctx.canvas.height = 300;
+                if (this.charts.has(canvasId)) {
+                    this.charts.get(canvasId).destroy();
+                }
 
                 const chart = new Chart(ctx, {
                     type: 'doughnut',
@@ -2976,139 +3914,166 @@
                             backgroundColor: colors,
                             borderColor: this.currentTheme.bgSecondary,
                             borderWidth: 3,
-                            borderRadius: 8,
+                            borderRadius: 6,
                             spacing: 2
                         }]
                     },
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        layout: {
-                            padding: {
-                                top: 10,
-                                bottom: 10,
-                                left: 10,
-                                right: 10
-                            }
-                        },
                         plugins: {
                             legend: {
                                 position: 'bottom',
                                 labels: {
                                     color: this.currentTheme.textPrimary,
-                                    font: {
-                                        size: 11,
-                                        family: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-                                    },
+                                    font: { size: 11 },
                                     padding: 15,
-                                    usePointStyle: true,
-                                    boxWidth: 12
+                                    usePointStyle: true
                                 }
                             },
                             tooltip: {
-                                enabled: true,
-                                position: 'nearest'
+                                callbacks: {
+                                    label: (context) => {
+                                        const label = context.label || '';
+                                        const value = context.raw || 0;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: ${value} (${percentage}%)`;
+                                    }
+                                }
                             }
                         },
-                        cutout: '65%',
+                        cutout: '60%',
                         animation: {
                             animateScale: true,
                             animateRotate: true,
-                            duration: 800,
-                            easing: 'easeOutQuart'
-                        },
-                        onResize: (chart, size) => {
-                            if (size.height > 350) {
-                                chart.options.maintainAspectRatio = true;
-                                chart.update('none');
-                            }
+                            duration: 800
                         }
                     }
                 });
 
-                this.charts.set(title, chart);
+                this.charts.set(canvasId, chart);
             }
+
+            getNodeTypeIcon(nodeType) {
+                switch (nodeType) {
+                    case 'resource':
+                        return 'fas fa-server';
+                    case 'variable':
+                        return 'fas fa-variable'; // Font Awesome 6
+                    case 'local':
+                        return 'fas fa-code-branch';
+                    case 'output':
+                        return 'fas fa-sign-out-alt';
+                    case 'data':
+                        return 'fas fa-database';
+                    case 'module':
+                        return 'fas fa-cube';
+                    default:
+                        return 'fas fa-asterisk';
+                }
+            }
+
+
+        // --- REWORKED renderCriticalNodes ---
             renderCriticalNodes() {
                 const container = document.getElementById('criticalNodes');
-                
+
+                // Mapped fas icons to replace emojis
                 const sections = [
                     {
-                        title: '🚨 High Risk Nodes',
-                        icon: 'fas fa-fire',
-                        nodes: this.data.high_risk_nodes,
-                        getRiskClass: (risk) => risk > 15 ? 'high-risk' : risk > 10 ? 'moderate-risk' : 'low-risk'
+                        title: 'High Risk Nodes',
+                        icon: 'fas fa-exclamation-triangle', // Replaced 🚨
+                        nodes: this.data.high_risk_nodes || [],
+                        getRiskClass: (risk) => risk > 15 ? 'risk-high' : risk > 10 ? 'risk-moderate' : 'risk-low'
                     },
                     {
-                        title: '🎯 Hub Nodes',
-                        icon: 'fas fa-hubspot',
-                        nodes: this.data.hub_nodes
+                        title: 'Hub Nodes (High Degree)',
+                        icon: 'fas fa-share-alt', // Replaced 🎯
+                        nodes: this.data.hub_nodes || []
                     },
                     {
-                        title: '⚠️ Bottleneck Nodes',
-                        icon: 'fas fa-tachometer-alt',
-                        nodes: this.data.bottleneck_nodes
+                        title: 'Bottleneck Nodes (High Betweenness)',
+                        icon: 'fas fa-compress-alt', // Replaced ⚠️
+                        nodes: this.data.bottleneck_nodes || []
                     },
                     {
-                        title: '🌉 Bridge Nodes',
-                        icon: 'fas fa-bridge',
-                        nodes: this.data.bridge_nodes
+                        title: 'Bridge Nodes (Key Connectors)',
+                        icon: 'fas fa-route', // Replaced 🌉
+                        nodes: this.data.bridge_nodes || []
                     },
                     {
-                        title: '📊 Authority Nodes',
-                        icon: 'fas fa-crown',
-                        nodes: this.data.authority_nodes
+                        title: 'Authority Nodes (High In-Degree)',
+                        icon: 'fas fa-star', // Replaced 📊/👑
+                        nodes: this.data.authority_nodes || []
                     },
                     {
-                        title: '🍃 Leaf Nodes',
-                        icon: 'fas fa-leaf',
-                        nodes: this.data.leaf_nodes
+                        title: 'Leaf Nodes (No Dependencies)',
+                        icon: 'fas fa-terminal', // Replaced 🍃
+                        nodes: this.data.leaf_nodes || []
                     }
                 ];
 
-                container.innerHTML = sections.map(section => `
-                    <div class="nodes-section">
-                        <div class="section-header">
-                            <div class="section-title-sm">
-                                <i class="${section.icon}"></i>
-                                ${section.title}
+                container.innerHTML = sections.map(section => {
+                    // Skip sections with no nodes unless it's a critical category
+                    if (section.nodes.length === 0 && section.title !== 'High Risk Nodes') {
+                        return '';
+                    }
+
+                    return `
+                        <div class="nodes-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <i class="${section.icon} section-icon"></i>
+                                    ${section.title}
+                                </div>
+                                <div class="section-count">${section.nodes.length}</div>
                             </div>
-                            <div class="section-count">${section.nodes.length}</div>
+                            <div class="nodes-list">
+                                ${this.renderNodeList(section.nodes, section.getRiskClass)}
+                            </div>
                         </div>
-                        <div class="nodes-grid">
-                            ${this.renderNodeList(section.nodes, section.getRiskClass)}
-                        </div>
-                    </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             renderNodeList(nodes, riskClassFn) {
                 if (!nodes || nodes.length === 0) {
-                    return '<div class="node-item">No nodes found</div>';
+                    return '<div class="node-item node-empty">No critical nodes in this category.</div>';
                 }
 
-                const displayNodes = nodes.slice(0, 20);
+                const displayNodes = nodes.slice(0, 10); // Display slightly more, up to 10
 
                 return displayNodes.map(node => {
                     const nodeName = Array.isArray(node) ? node[0] : node;
                     const riskScore = Array.isArray(node) ? node[1] : null;
-                    
+
                     let riskBadge = '';
-                    let additionalClass = '';
+                    let nodeRiskClass = '';
                     
                     if (riskScore !== null) {
-                        additionalClass = riskClassFn ? riskClassFn(riskScore) : '';
-                        riskBadge = `<div class="risk-badge ${
-                            riskScore > 15 ? 'risk-high' : 
-                            riskScore > 10 ? 'risk-moderate' : 
-                            riskScore > 5 ? 'risk-low' : 'risk-safe'
-                        }">${riskScore}</div>`;
+                        // Determine risk class for coloring
+                        if (riskScore > 15) {
+                            nodeRiskClass = 'risk-high';
+                            riskBadge = `<div class="risk-badge risk-high" title="Risk Score">${Math.round(riskScore)}</div>`;
+                        } else if (riskScore > 10) {
+                            nodeRiskClass = 'risk-moderate';
+                            riskBadge = `<div class="risk-badge risk-moderate" title="Risk Score">${Math.round(riskScore)}</div>`;
+                        } else if (riskScore > 5) {
+                            nodeRiskClass = 'risk-low';
+                            riskBadge = `<div class="risk-badge risk-low" title="Risk Score">${Math.round(riskScore)}</div>`;
+                        } else {
+                            nodeRiskClass = 'risk-safe';
+                        }
                     }
-
+                    
                     const nodeType = this.getNodeType(nodeName);
                     const nodeTags = this.getNodeTags(nodeName, nodeType);
+                    const typeIcon = this.getNodeTypeIcon(nodeType);
 
                     return `
-                        <div class="node-item ${additionalClass}">
+                        <div class="node-item ${nodeRiskClass}" title="${nodeName}">
+                            <i class="${typeIcon} node-type-icon"></i>
                             <div class="node-content">
                                 <div class="node-info">
                                     <div class="node-name">${this.formatNodeName(nodeName)}</div>
@@ -3136,7 +4101,6 @@
             getNodeTags(nodeName, nodeType) {
                 const tags = [nodeType];
                 
-                // Add additional tags based on node properties
                 if (this.data.hub_nodes.includes(nodeName)) tags.push('hub');
                 if (this.data.bottleneck_nodes.includes(nodeName)) tags.push('bottleneck');
                 if (this.data.bridge_nodes.includes(nodeName)) tags.push('bridge');
@@ -3154,203 +4118,691 @@
             }
 
             renderLongestPaths() {
-                const container = document.getElementById('paths');
-                const paths = this.data.longest_paths.slice(0, 8);
+                const container = document.getElementById('pathsContainer');
+                if (!container || !this.data || !this.data.longest_paths) {
+                    if (container) container.innerHTML = '<p class="info-message">No critical paths found or data is loading.</p>';
+                    return;
+                }
+                
+                // Using the full list for visualization
+                const paths = this.data.longest_paths;
 
-                container.innerHTML = paths.map((path, index) => `
-                    <div class="path-item">
-                        <div class="path-header">
-                            <div class="path-title">
-                                <i class="fas fa-route"></i>
-                                Path ${index + 1}
+                container.innerHTML = paths.map((path, index) => {
+                    const riskLevel = path.risk_level ? path.risk_level.toLowerCase() : 'safe';
+                    const riskClass = `flow-${riskLevel}`;
+                    
+                    const pathNodes = path.path || [];
+                    if (pathNodes.length === 0) return '';
+
+                    const startNodeName = this.formatNodeName(pathNodes[0]);
+                    const endNodeName = this.formatNodeName(pathNodes[pathNodes.length - 1]);
+
+                    return `
+                        <div class="flow-path-item ${riskClass}">
+                            <div class="flow-path-header">
+                                <div class="flow-path-title">
+                                    <i class="fas fa-sitemap"></i>
+                                    <span>Path ${index + 1}: ${startNodeName} &rarr; ${endNodeName}</span>
+                                </div>
+                                <div class="flow-path-metrics">
+                                    <span class="flow-metric-badge ${riskClass}">Risk: ${path.risk_level || 'Safe'}</span>
+                                    <span class="flow-metric-text"><i class="fas fa-ruler-horizontal"></i> Length: ${path.length || 0}</span>
+                                    <span class="flow-metric-text"><i class="fas fa-chart-line"></i> Score: ${path.risk_score ? path.risk_score.toFixed(1) : '0.0'}</span>
+                                </div>
                             </div>
-                            <div class="path-metrics">
-                                <div class="path-metric">
-                                    <i class="fas fa-ruler"></i>
-                                    Length: ${path.length}
-                                </div>
-                                <div class="path-metric">
-                                    <i class="fas fa-weight-hanging"></i>
-                                    Risk: ${path.risk_level}
-                                </div>
-                                <div class="path-metric">
-                                    <i class="fas fa-chart-line"></i>
-                                    Score: ${path.risk_score}
+                            
+                            <div class="flow-card-container">
+                                ${pathNodes.map((node, i) => {
+                                    const nodeDetail = (this.data.nodes && this.data.nodes[node]) || { risk_level: 'safe' };
+                                    const nodeRiskClass = `node-${nodeDetail.risk_level.toLowerCase()}`;
+                                    const nodeName = this.formatNodeName(node);
+                                    const isEnd = i === pathNodes.length - 1;
+                                    const isStart = i === 0;
+
+                                    return `
+                                        <div class="flow-node-card ${nodeRiskClass}">
+                                            <div class="node-icon">
+                                                <i class="fas fa-${isStart ? 'arrow-alt-circle-right' : isEnd ? 'flag-checkered' : 'dot-circle'}"></i>
+                                            </div>
+                                            <span class="node-label">${nodeName}</span>
+                                        </div>
+                                        ${!isEnd ? '<div class="flow-connector"></div>' : ''}
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            createAdvancedMetrics() {
+                // Set metric values
+                document.getElementById('cyclomaticComplexity').textContent = this.data.cyclomatic_complexity;
+                document.getElementById('cognitiveComplexity').textContent = this.data.cognitive_complexity.toFixed(1);
+                document.getElementById('maintainabilityIndex').textContent = `${this.data.maintainability_index.toFixed(1)}%`;
+                document.getElementById('technicalDebt').textContent = `${this.data.technical_debt_score.toFixed(1)}%`;
+
+                this.createCentralityChart();
+                this.createDegreeChart();
+                this.createDegreeByTypeChart();
+                this.createComponentSizeChart();
+            }
+
+            createCentralityChart() {
+                const ctx = document.getElementById('centralityChart').getContext('2d');
+                
+                const sampleNodes = Object.values(this.data.node_metrics).slice(0, 8);
+                const labels = sampleNodes.map(node => this.formatNodeName(node.node_id));
+                
+                const centralityData = {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Betweenness Centrality',
+                            data: sampleNodes.map(node => node.betweenness_centrality * 1000),
+                            borderColor: this.currentTheme.accent,
+                            backgroundColor: this.currentTheme.accent + '20',
+                            tension: 0.4,
+                            fill: true
+                        },
+                        {
+                            label: 'Closeness Centrality',
+                            data: sampleNodes.map(node => node.closeness_centrality * 100),
+                            borderColor: this.currentTheme.success,
+                            backgroundColor: this.currentTheme.success + '20',
+                            tension: 0.4,
+                            fill: true
+                        }
+                    ]
+                };
+
+                new Chart(ctx, {
+                    type: 'line',
+                    data: centralityData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { color: this.currentTheme.textPrimary }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createDegreeChart() {
+                const ctx = document.getElementById('degreeChart').getContext('2d');
+                
+                const degreeData = {
+                    labels: ['Minimal', 'Low', 'Medium', 'High'],
+                    datasets: [{
+                        label: 'Node Count',
+                        data: [
+                            this.data.complexity_distribution.minimal,
+                            this.data.complexity_distribution.low,
+                            this.data.complexity_distribution.medium,
+                            this.data.complexity_distribution.high
+                        ],
+                        backgroundColor: [
+                            this.currentTheme.success,
+                            this.currentTheme.info,
+                            this.currentTheme.warning,
+                            this.currentTheme.danger
+                        ],
+                        borderColor: this.currentTheme.bgSecondary,
+                        borderWidth: 2
+                    }]
+                };
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: degreeData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textPrimary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createDegreeByTypeChart() {
+                const ctx = document.getElementById('degreeByTypeChart').getContext('2d');
+                
+                const degreeData = {
+                    labels: ['Resource', 'Local', 'Variable'],
+                    datasets: [{
+                        label: 'Average Degree',
+                        data: [
+                            this.data.avg_resource_degree,
+                            this.data.avg_local_degree,
+                            this.data.avg_variable_degree
+                        ],
+                        backgroundColor: [
+                            this.currentTheme.accent,
+                            this.currentTheme.success,
+                            this.currentTheme.warning
+                        ],
+                        borderColor: this.currentTheme.bgSecondary,
+                        borderWidth: 2
+                    }]
+                };
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: degreeData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textPrimary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createComponentSizeChart() {
+                const ctx = document.getElementById('componentSizeChart').getContext('2d');
+                
+                const componentSizes = Object.values(this.data.components).map(comp => comp.size);
+                const sizeData = {
+                    labels: componentSizes.map((_, i) => `Component ${i}`),
+                    datasets: [{
+                        label: 'Component Size',
+                        data: componentSizes,
+                        backgroundColor: this.currentTheme.accent,
+                        borderColor: this.currentTheme.bgSecondary,
+                        borderWidth: 2
+                    }]
+                };
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: sizeData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textPrimary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createRiskHeatmap() {
+                const ctx = document.getElementById('riskHeatmap').getContext('2d');
+                
+                const riskData = {
+                    labels: ['Safe', 'Low', 'Moderate', 'High'],
+                    datasets: [{
+                        data: [
+                            this.data.risk_distribution.safe,
+                            this.data.risk_distribution.low,
+                            this.data.risk_distribution.moderate,
+                            this.data.risk_distribution.high
+                        ],
+                        backgroundColor: [
+                            this.currentTheme.success,
+                            this.currentTheme.info,
+                            this.currentTheme.warning,
+                            this.currentTheme.danger
+                        ]
+                    }]
+                };
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: riskData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textPrimary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            }
+                        }
+                    }
+                });
+
+                // Render risk insights
+                this.renderRiskInsights();
+            }
+
+            renderRiskInsights() {
+                const container = document.getElementById('riskInsights');
+
+                const insights = [
+                    {
+                        title: 'High Risk Nodes',
+                        description: `${this.data.high_risk_nodes.length} nodes show elevated or critical risk.`,
+                        severity: 'high',
+                        icon: 'fas fa-fire-flame-curved'
+                    },
+                    {
+                        title: 'Bottleneck Analysis',
+                        description: `${this.data.bottleneck_nodes.length} bottleneck nodes may restrict flow or performance.`,
+                        severity: 'medium',
+                        icon: 'fas fa-diagram-project'
+                    },
+                    {
+                        title: 'Architecture Quality',
+                        description: `Quality Score: ${this.data.architecture_quality_score.toFixed(1)}%`,
+                        severity: 'good',
+                        icon: 'fas fa-shield-halved'
+                    }
+                ];
+
+                container.innerHTML = insights.map(insight => `
+                    <div class="insight-card insight-${insight.severity}">
+                        <div class="insight-header">
+                            <div class="insight-icon">
+                                <i class="${insight.icon}"></i>
+                            </div>
+                            <div>
+                                <div class="insight-title">${insight.title}</div>
+                                <div class="insight-severity ${insight.severity}">
+                                    ${insight.severity.toUpperCase()}
                                 </div>
                             </div>
                         </div>
-                        <div class="path-nodes">
-                            ${path.path.map((node, i) => `
-                                <div class="path-node">${this.formatNodeName(node)}</div>
-                                ${i < path.path.length - 1 ? '<div class="path-connector">→</div>' : ''}
-                            `).join('')}
-                        </div>
+                        <div class="insight-content">${insight.description}</div>
                     </div>
                 `).join('');
             }
 
-            renderComponents() {
-                const container = document.getElementById('components');
-                const components = Object.values(this.data.components);
+            getSeverityColor(severity) {
+                return {
+                    high: this.currentTheme.danger,
+                    medium: this.currentTheme.warning,
+                    good: this.currentTheme.success,
+                    low: this.currentTheme.info
+                }[severity] || this.currentTheme.info;
+            }
 
-                container.innerHTML = components.map(component => `
-                    <div class="component-card">
-                        <div class="component-header">
-                            <div class="component-title">
-                                <i class="fas fa-puzzle-piece"></i>
-                                Component ${component.component_id}
+
+            renderProviderAnalysis() {
+                const container = document.getElementById('providerGrid');
+                const providers = Object.entries(this.data.provider_distribution);
+
+                container.innerHTML = providers.map(([provider, count]) => `
+                    <div class="provider-card">
+                        <div class="provider-header">
+                            <div class="provider-name">${provider}</div>
+                            <div class="provider-count">${count}</div>
+                        </div>
+                        <div class="metric-description">
+                            ${this.getProviderDescription(provider)}
+                        </div>
+                    </div>
+                `).join('');
+
+                this.createProviderCouplingChart();
+            }
+
+            getProviderDescription(provider) {
+                const descriptions = {
+                    'aws': 'Primary AWS provider for main resources',
+                    'aws.secondary': 'Secondary AWS provider for cross-region resources',
+                    'random': 'Random provider for generating unique values',
+                    'null': 'Null provider for orchestration tasks'
+                };
+                return descriptions[provider] || 'Terraform provider';
+            }
+
+            createProviderCouplingChart() {
+                const ctx = document.getElementById('providerCouplingChart').getContext('2d');
+                
+                const couplingData = {
+                    labels: Object.keys(this.data.provider_coupling),
+                    datasets: [{
+                        label: 'Coupling Strength',
+                        data: Object.values(this.data.provider_coupling),
+                        backgroundColor: this.currentTheme.accent,
+                        borderColor: this.currentTheme.bgSecondary,
+                        borderWidth: 2
+                    }]
+                };
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: couplingData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textPrimary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            }
+                        }
+                    }
+                });
+            }
+
+            renderModuleAnalysis() {
+                const container = document.getElementById('moduleAnalysis');
+                const modules = Object.values(this.data.module_analysis);
+
+                container.innerHTML = modules.map(module => `
+                    <div class="nodes-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <i class="fas fa-cube"></i>
+                                ${module.module_name}
                             </div>
-                            <div class="component-size">${component.size} nodes</div>
+                            <div class="section-count">${module.node_count} nodes</div>
                         </div>
                         <div class="component-metrics">
                             <div class="component-metric">
-                                <div class="metric-label">Type</div>
-                                <div class="metric-value">${component.component_type}</div>
+                                <div class="metric-label">Resources</div>
+                                <div class="metric-value">${module.resource_count}</div>
                             </div>
                             <div class="component-metric">
-                                <div class="metric-label">Density</div>
-                                <div class="metric-value">${component.density.toFixed(3)}</div>
+                                <div class="metric-label">Cohesion</div>
+                                <div class="metric-value">${module.cohesion.toFixed(3)}</div>
                             </div>
                             <div class="component-metric">
-                                <div class="metric-label">Edges</div>
-                                <div class="metric-value">${component.edge_count}</div>
+                                <div class="metric-label">Coupling</div>
+                                <div class="metric-value">${module.coupling.toFixed(3)}</div>
                             </div>
                             <div class="component-metric">
-                                <div class="metric-label">Diameter</div>
-                                <div class="metric-value">${component.diameter}</div>
+                                <div class="metric-label">Reusability</div>
+                                <div class="metric-value">${(module.reusability_score * 100).toFixed(1)}%</div>
                             </div>
                         </div>
-                        <div style="margin-top: 16px;">
-                            <div class="metric-label">Node Types</div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;">
-                                ${Object.entries(component.node_type_distribution)
-                                    .map(([type, count]) => `
-                                        <span class="node-tag">${type}: ${count}</span>
-                                    `).join('')}
-                            </div>
-                        </div>
-                        ${component.articulation_points && component.articulation_points.length > 0 ? `
-                            <div style="margin-top: 16px;">
-                                <div class="metric-label">Critical Points</div>
-                                <div style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 8px;">
-                                    ${component.articulation_points.slice(0, 3).map(p => this.formatNodeName(p)).join(', ')}
-                                    ${component.articulation_points.length > 3 ? `... and ${component.articulation_points.length - 3} more` : ''}
-                                </div>
-                            </div>
-                        ` : ''}
                     </div>
                 `).join('');
+
+                this.createModuleQualityChart();
             }
 
-            createNetworkGraph() {
-                const canvas = document.getElementById('networkCanvas');
-                const ctx = canvas.getContext('2d');
-                const container = document.getElementById('networkGraph');
+            createModuleQualityChart() {
+                const ctx = document.getElementById('moduleQualityChart').getContext('2d');
+                const modules = Object.values(this.data.module_analysis);
+
+                const moduleData = {
+                    labels: modules.map(m => m.module_name),
+                    datasets: [
+                        {
+                            label: 'Cohesion',
+                            data: modules.map(m => m.cohesion * 100),
+                            backgroundColor: this.currentTheme.success
+                        },
+                        {
+                            label: 'Reusability',
+                            data: modules.map(m => m.reusability_score * 100),
+                            backgroundColor: this.currentTheme.accent
+                        }
+                    ]
+                };
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: moduleData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { color: this.currentTheme.textPrimary }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textPrimary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            }
+                        }
+                    }
+                });
+            }
+
+            renderOptimizationInsights() {
+                const container = document.getElementById('optimizationInsights');
                 
-                // Set canvas size
-                canvas.width = container.clientWidth;
-                canvas.height = container.clientHeight;
+                const insights = this.data.optimization_opportunities.map(opp => `
+                    <div class="insight-card">
+                        <div class="insight-header">
+                            <div class="insight-icon" style="background: ${this.getSeverityColor(opp.severity)}">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                            <div class="insight-title">${opp.type.replace(/_/g, ' ').toUpperCase()}</div>
+                        </div>
+                        <div class="insight-content">
+                            <strong>${opp.description}</strong><br>
+                            ${opp.suggestion}
+                        </div>
+                        <div class="insight-actions">
+                            <span class="node-tag">${opp.severity}</span>
+                        </div>
+                    </div>
+                `).join('');
 
-                // Simple network visualization
-                this.drawSimpleNetwork(ctx, canvas.width, canvas.height);
+                const refactoring = this.data.refactoring_suggestions.map(suggestion => `
+                    <div class="insight-card">
+                        <div class="insight-header">
+                            <div class="insight-icon" style="background: ${this.getPriorityColor(suggestion.priority)}">
+                                <i class="fas fa-hammer"></i>
+                            </div>
+                            <div class="insight-title">${suggestion.type.replace(/_/g, ' ').toUpperCase()}</div>
+                        </div>
+                        <div class="insight-content">
+                            <strong>${suggestion.description}</strong><br>
+                            ${suggestion.suggestion}
+                        </div>
+                        <div class="insight-actions">
+                            <span class="node-tag">${suggestion.priority}</span>
+                            <span class="node-tag">${suggestion.estimated_effort}</span>
+                        </div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = insights + refactoring;
+
+                this.createArchitectureQualityChart();
             }
 
-            drawSimpleNetwork(ctx, width, height) {
-                // Clear canvas
-                ctx.fillStyle = this.currentTheme.bgSecondary;
-                ctx.fillRect(0, 0, width, height);
-
-                // Draw a simplified network representation
-                const centerX = width / 2;
-                const centerY = height / 2;
-                const radius = Math.min(width, height) * 0.4;
-
-                // Draw main component
-                this.drawComponent(ctx, centerX, centerY, radius, 'Main Component', this.data.largest_component_size);
-
-                // Draw smaller component
-                this.drawComponent(ctx, centerX - 200, centerY - 150, radius * 0.3, 'Component 0', 2);
-
-                // Draw connections
-                ctx.strokeStyle = this.currentTheme.accent + '80';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(centerX - radius * 0.8, centerY);
-                ctx.lineTo(centerX - 200 + radius * 0.3, centerY - 150);
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                // Add statistics text
-                ctx.fillStyle = this.currentTheme.textPrimary;
-                ctx.font = '16px "Segoe UI"';
-                ctx.textAlign = 'center';
-                ctx.fillText(`Total Nodes: ${this.data.total_nodes} | Edges: ${this.data.total_edges} | Components: ${this.data.total_components}`, centerX, height - 30);
+            getPriorityColor(priority) {
+                const colors = {
+                    high: this.currentTheme.danger,
+                    medium: this.currentTheme.warning,
+                    low: this.currentTheme.info
+                };
+                return colors[priority] || this.currentTheme.info;
             }
 
-            drawComponent(ctx, x, y, radius, label, size) {
-                // Draw component circle
-                ctx.fillStyle = this.currentTheme.bgTertiary + '80';
-                ctx.strokeStyle = this.currentTheme.accent;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(x, y, radius, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.stroke();
+            createArchitectureQualityChart() {
+                const ctx = document.getElementById('architectureQualityChart').getContext('2d');
+                
+                const qualityData = {
+                    labels: ['Architecture Quality'],
+                    datasets: [
+                        {
+                            label: 'Current Score',
+                            data: [this.data.architecture_quality_score],
+                            backgroundColor: this.currentTheme.accent,
+                            borderColor: this.currentTheme.bgSecondary,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Target Score',
+                            data: [90],
+                            backgroundColor: this.currentTheme.success + '80',
+                            borderColor: this.currentTheme.success,
+                            borderWidth: 2
+                        }
+                    ]
+                };
 
-                // Draw inner nodes
-                const nodeCount = Math.min(size, 12);
-                for (let i = 0; i < nodeCount; i++) {
-                    const angle = (i / nodeCount) * 2 * Math.PI;
-                    const nodeX = x + Math.cos(angle) * (radius * 0.6);
-                    const nodeY = y + Math.sin(angle) * (radius * 0.6);
-                    
-                    // Determine node color based on type/risk
-                    let nodeColor = this.currentTheme.success;
-                    if (i % 4 === 0) nodeColor = this.currentTheme.accent;
-                    if (i % 4 === 1) nodeColor = this.currentTheme.warning;
-                    if (i % 4 === 2) nodeColor = this.currentTheme.danger;
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: qualityData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                                labels: { color: this.currentTheme.textPrimary }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                min: 0,
+                                max: 100,
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textSecondary }
+                            },
+                            y: {
+                                grid: { color: this.currentTheme.border + '50' },
+                                ticks: { color: this.currentTheme.textPrimary }
+                            }
+                        }
+                    }
+                });
+            }
 
-                    ctx.fillStyle = nodeColor;
-                    ctx.beginPath();
-                    ctx.arc(nodeX, nodeY, 8, 0, 2 * Math.PI);
-                    ctx.fill();
-                    ctx.strokeStyle = this.currentTheme.bgSecondary;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
+            zoomNetwork(factor) {
+                if (this.networkInstance) {
+                    this.networkInstance.zoom *= factor;
+                    console.log(`Zoom level: ${this.networkInstance.zoom}`);
                 }
-
-                // Draw label
-                ctx.fillStyle = this.currentTheme.textPrimary;
-                ctx.font = 'bold 14px "Segoe UI"';
-                ctx.textAlign = 'center';
-                ctx.fillText(`${label} (${size} nodes)`, x, y + radius + 25);
             }
 
-            // Cleanup method to prevent memory leaks
+            resetNetworkView() {
+                if (this.networkInstance) {
+                    this.networkInstance.zoom = 1;
+                    console.log('View reset');
+                }
+            }
+
+            toggleFullscreen() {
+                const container = document.querySelector('.network-container');
+                if (!document.fullscreenElement) {
+                    container.requestFullscreen().catch(err => {
+                        console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+
+            exportData() {
+                const dataStr = JSON.stringify(this.data, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'terraform-analytics.json';
+                link.click();
+                URL.revokeObjectURL(url);
+            }
+
+            refreshData() {
+                document.body.classList.add('loading');
+                
+                setTimeout(() => {
+                    document.body.classList.remove('loading');
+                    console.log('Data refreshed');
+                }, 1000);
+            }
+
+            handleResize() {
+                this.charts.forEach(chart => {
+                    chart.resize();
+                });
+            }
+
             destroy() {
                 this.charts.forEach(chart => chart.destroy());
                 this.charts.clear();
+                this.debounceTimers.clear();
+                
+                if (this.networkInstance) {
+                    this.networkInstance = null;
+                }
             }
         }
 
-        function switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('active');
-            });
-            event.target.classList.add('active');
+        // Initialize the dashboard with your complete dataset
+        document.addEventListener('DOMContentLoaded', () => {
+            // Replace with your complete dataset
+            const analyticsData = {}; // Your complete JSON data here
+            
+            window.analyticsManager = new AnalyticsManager(analyticsData);
+        });
 
-            // Update tab content
-            document.querySelectorAll('.tab-pane').forEach(pane => {
-                pane.classList.remove('active');
-            });
-            document.getElementById(tabName).classList.add('active');
-        }
+        window.addEventListener('beforeunload', () => {
+            if (window.analyticsManager) {
+                window.analyticsManager.destroy();
+            }
+        });
     </script>
     <script>
-
-
         document.addEventListener('DOMContentLoaded', function () {
             try {
                 const analyticsData = {{ analytics_data| safe }}

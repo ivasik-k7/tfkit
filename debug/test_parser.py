@@ -48,7 +48,7 @@ def main():
     try:
         output_path = Path("./out/analytics.json")
 
-        analytics_json = json.dumps(analytics.to_graph_template_data())
+        analytics_json = json.dumps(analytics.to_dict())
 
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(analytics_json)

@@ -5987,7 +5987,7 @@
                 const icon = this.getStateIcon(state);
 
                 return `
-                    <div class="state-item state-${state}" onclick="analyticsDashboard.filterByState('${state}')">
+                    <div class="state-item state-${state}">
                         <div class="state-header">
                             <div class="state-name">
                                 <div class="state-icon" style="background: ${color}20; color: ${color};">
@@ -6045,7 +6045,7 @@
                 const percentage = this.metrics.riskPercentage[riskLevel] || '0';
 
                 return `
-                    <div class="analysis-row" onclick="analyticsDashboard.filterByRisk('${riskLevel}')">
+                    <div class="analysis-row">
                         <div class="analysis-icon" style="background: ${color}20; color: ${color};">
                             <i class="${icon}"></i>
                         </div>
@@ -6223,7 +6223,7 @@
 
             _createComponentCard(component) {
                 return `
-                    <div class="component-card" onclick="analyticsDashboard.filterByComponent('${component.id}')">
+                    <div class="component-card">
                         <div class="component-header">
                             <span class="component-id">${component.id}</span>
                             <span class="component-risk risk-${component.riskLevel}">${component.riskLevel}</span>
