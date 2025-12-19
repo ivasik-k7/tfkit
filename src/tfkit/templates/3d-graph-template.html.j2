@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1.70.0/dist/3d-force-graph.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: {{ theme_colors.bg_primary }};
+            --bg-secondary: {{ theme_colors.bg_secondary }};
+            --bg-tertiary: {{ theme_colors.bg_tertiary }};
+            --text-primary: {{ theme_colors.text_primary }};
+            --text-secondary: {{ theme_colors.text_secondary }};
+            --border: {{ theme_colors.border }};
+            --accent: {{ theme_colors.accent }};
+            --accent-secondary: {{ theme_colors.accent_secondary }};
+            --success: {{ theme_colors.success }};
+            --warning: {{ theme_colors.warning }};
+            --danger: {{ theme_colors.danger }};
+            --info: {{ theme_colors.info }};
+            --critical: {{ theme_colors.critical | default('#ff4db0') }};
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Exo 2', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+        }
+
+        /* Dashboard HUD */
+        .dashboard-hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            font-family: 'Exo 2', sans-serif;
+            width: 320px;
+            opacity: 0.95;
+            transition: opacity 0.3s ease;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .info-card {
+            background: var(--bg-secondary);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            padding: 16px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .info-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .info-value {
+            font-size: 1.8em;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-family: 'Orbitron', sans-serif;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+
+        .info-label {
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Enhanced Controls Panel */
+        .controls-panel {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-secondary);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 90vw;
+            width: 600px;
+        }
+
+        .control-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .control-title {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 600;
+            font-size: 1em;
+            color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-sections {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .control-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group input[type="range"] {
+            flex: 1;
+            height: 4px;
+            border-radius: 2px;
+            background: var(--bg-tertiary);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--accent-secondary);
+            transform: scale(1.2);
+        }
+
+        .control-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.85em;
+            min-width: 40px;
+            text-align: center;
+            color: var(--accent);
+            font-weight: 600;
+            background: var(--bg-primary);
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+        }
+
+        .control-group select {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .control-group select:hover {
+            border-color: var(--accent);
+        }
+
+        .control-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(var(--accent), 0.1);
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            flex: 1;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-weight: 500;
+            min-width: 100px;
+        }
+
+        .control-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg-primary);
+            transform: translateY(-1px);
+        }
+
+        .control-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 1px solid var(--border);
+        }
+
+        .toggle-switch.active {
+            background: var(--accent);
+        }
+
+        .toggle-slider {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 18px;
+            height: 18px;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .toggle-switch.active .toggle-slider {
+            transform: translateX(24px);
+        }
+
+        /* Legend */
+        .legend {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-secondary);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            z-index: 1000;
+            width: 280px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .legend-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-primary);
+            font-size: 1em;
+            font-weight: 600;
+            margin-bottom: 16px;
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .legend-header i {
+            color: var(--accent);
+        }
+
+        .legend-section {
+            margin-bottom: 16px;
+        }
+
+        .legend-section-title {
+            font-size: 0.75em;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--bg-primary);
+        }
+
+        .legend-item:hover {
+            background: var(--bg-tertiary);
+            transform: translateX(4px);
+        }
+
+        .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .legend-label {
+            flex: 1;
+            font-size: 0.85em;
+            color: var(--text-primary);
+        }
+
+        .legend-count {
+            font-size: 0.8em;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-family: 'Orbitron', monospace;
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 8px;
+        }
+
+        /* Tooltip */
+        .node-tooltip {
+            position: fixed;
+            background: var(--bg-secondary);
+            border: 1px solid var(--accent);
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 16px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 10000;
+            max-width: 350px;
+        }
+
+        .node-tooltip.show {
+            opacity: 1;
+        }
+
+        .tooltip-title {
+            font-weight: 600;
+            font-size: 1em;
+            margin-bottom: 8px;
+            color: var(--accent);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .tooltip-section {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+
+        .tooltip-section:first-child {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.85em;
+        }
+
+        .tooltip-label {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .tooltip-value {
+            color: var(--text-primary);
+            font-weight: 600;
+            font-family: 'Exo 2', monospace;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--bg-tertiary);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 20px;
+            font-size: 1.2em;
+            color: var(--text-secondary);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--accent);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-hud {
+                width: calc(100% - 40px);
+            }
+
+            .controls-panel {
+                width: calc(100% - 40px);
+            }
+
+            .control-sections {
+                grid-template-columns: 1fr;
+            }
+
+            .legend {
+                width: calc(100% - 40px);
+                left: 20px;
+                right: auto;
+                top: auto;
+                bottom: 200px;
+            }
+        }
+
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent);
+            color: var(--text-primary);
+            padding: 12px 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transform: translateX(150%);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 10000;
+            max-width: 350px;
+            backdrop-filter: blur(10px);
+        }
+        .notification.show {
+            transform: translateX(0);
+        }
+        .notification-success { border-left-color: var(--success); }
+        .notification-warning { border-left-color: var(--warning); }
+        .notification-danger { border-left-color: var(--danger); }
+        .notification-info { border-left-color: var(--info); }
+        .notification i { font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <div class="loading-overlay" id="loading">
+        <div class="loader"></div>
+        <div class="loading-text">Loading Graph...</div>
+    </div>
+
+    <div id="graph-container"></div>
+
+    <div class="dashboard-hud">
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-value" id="total-nodes">0</div>
+                <div class="info-label">Nodes</div>
+            </div>
+            <div class="info-card">
+                <div class="info-value" id="total-links">0</div>
+                <div class="info-label">Links</div>
+            </div>
+            <div class="info-card">
+                <div class="info-value" id="fps-counter">60</div>
+                <div class="info-label">FPS</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-panel">
+        <div class="control-header">
+            <div class="control-title">
+                <i class="fas fa-sliders-h"></i>
+                Graph Controls
+            </div>
+        </div>
+
+        <div class="control-sections">
+            <div class="control-section">
+                <div class="control-group">
+                    <label><i class="fas fa-filter"></i> Node Type</label>
+                    <select id="filter-type">
+                        <option value="all">All Types</option>
+                        <option value="resource">Resources</option>
+                        <option value="variable">Variables</option>
+                        <option value="local">Locals</option>
+                        <option value="data">Data Sources</option>
+                        <option value="output">Outputs</option>
+                        <option value="provider">Providers</option>
+                        <option value="module">Modules</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label><i class="fas fa-circle"></i> Node Size</label>
+                    <div class="control-input-wrapper">
+                        <input type="range" id="node-size" min="1" max="10" value="5" step="0.5">
+                        <span class="control-value" id="node-size-value">5</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label><i class="fas fa-arrows-alt-h"></i> Link Distance</label>
+                    <div class="control-input-wrapper">
+                        <input type="range" id="link-distance" min="20" max="300" value="80" step="10">
+                        <span class="control-value" id="link-distance-value">80</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <div class="control-group">
+                    <label><i class="fas fa-atom"></i> Charge Strength</label>
+                    <div class="control-input-wrapper">
+                        <input type="range" id="charge-strength" min="-500" max="-50" value="-120" step="10">
+                        <span class="control-value" id="charge-value">-120</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label><i class="fas fa-tachometer-alt"></i> Particle Speed</label>
+                    <div class="control-input-wrapper">
+                        <input type="range" id="particle-speed" min="0" max="0.01" value="0.003" step="0.001">
+                        <span class="control-value" id="particle-speed-value">0.003</span>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label><i class="fas fa-crosshairs"></i> DAG Mode</label>
+                    <select id="dag-mode">
+                        <option value="">None (3D)</option>
+                        <option value="td">Top-Down</option>
+                        <option value="bu">Bottom-Up</option>
+                        <option value="lr">Left-Right</option>
+                        <option value="rl">Right-Left</option>
+                        <option value="radialout">Radial Out</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-buttons">
+            <button class="control-btn" id="reset-camera">
+                <i class="fas fa-sync-alt"></i> Reset View
+            </button>
+            <button class="control-btn" id="toggle-particles">
+                <i class="fas fa-radiation"></i> Particles
+            </button>
+            <button class="control-btn" id="toggle-labels">
+                <i class="fas fa-tag"></i> Labels
+            </button>
+            <button class="control-btn" id="center-graph">
+                <i class="fas fa-compress"></i> Center
+            </button>
+        </div>
+    </div>
+
+    <div class="legend">
+        <div class="legend-header">
+            <i class="fas fa-palette"></i>
+            Node Types
+        </div>
+        <div class="legend-section">
+            <div class="legend-items" id="legend-items"></div>
+        </div>
+    </div>
+
+    <div class="node-tooltip" id="tooltip"></div>
+
+    <script>
+        // Performance optimization: Parse data once
+        const graphData = {{ dataset | safe }};
+        
+        // Type colors
+        const typeColors = {
+            'resource': '{{ theme_colors.accent }}',
+            'variable': '{{ theme_colors.info }}',
+            'local': '{{ theme_colors.success }}',
+            'data': '{{ theme_colors.warning }}',
+            'output': '{{ theme_colors.accent_secondary }}',
+            'provider': '{{ theme_colors.danger }}',
+            'module': '{{ theme_colors.critical }}',
+            'terraform': '#9b59b6'
+        };
+
+        // Performance settings
+        let particlesEnabled = true;
+        let labelsEnabled = true;
+        let graphInstance = null;
+
+        // Initialize graph with performance optimizations
+        function initGraph() {
+            const elem = document.getElementById('graph-container');
+            
+            graphInstance = ForceGraph3D({
+                controlType: 'orbit',
+                rendererConfig: { 
+                    antialias: false,
+                    alpha: true,
+                    powerPreference: 'high-performance'
+                }
+            })(elem)
+                .graphData(graphData)
+                .backgroundColor('{{ theme_colors.bg_primary }}')
+                .nodeLabel(node => `
+                    <div style="
+                        padding: 8px;
+                        background: rgba(20, 20, 30, 0.95);
+                        border: 2px solid ${typeColors[node.type] || '{{ theme_colors.accent }}'};
+                        border-radius: 6px;
+                        color: white;
+                        font-family: 'Exo 2', sans-serif;
+                        font-size: 12px;
+                        max-width: 250px;
+                    ">
+                        <strong>${node.name}</strong><br/>
+                        Type: ${node.type}<br/>
+                        Weight: ${(node.weight || 0).toFixed(1)}<br/>
+                        Dependencies: ${node.data?.dependency_count || 0}
+                    </div>
+                `)
+                .nodeAutoColorBy('type')
+                .nodeColor(node => typeColors[node.type] || '{{ theme_colors.text_secondary }}')
+                .nodeVal(node => (node.weight || 1) * 5)
+                .nodeOpacity(0.9)
+                .nodeResolution(12)
+                .linkDirectionalParticles(particlesEnabled ? 1 : 0)
+                .linkDirectionalParticleSpeed(0.003)
+                .linkColor(link => {
+                    const colors = {
+                        'explicit': '{{ theme_colors.danger }}',
+                        'direct': '{{ theme_colors.accent }}',
+                        'implicit': '{{ theme_colors.text_secondary }}',
+                        'export': '{{ theme_colors.success }}',
+                        'provider_relationship': '{{ theme_colors.warning }}'
+                    };
+                    return colors[link.link_type] || '{{ theme_colors.border }}';
+                })
+                .linkWidth(link => link.strength || 0.5)
+                .linkOpacity(0.3)
+                .linkDirectionalParticleWidth(1.5)
+                .onNodeClick(handleNodeClick)
+                .onNodeHover(handleNodeHover)
+                .warmupTicks(30)
+                .cooldownTicks(100)
+                .cooldownTime(15000);
+
+            // Configure forces
+            graphInstance
+                .d3Force('charge')
+                .strength(-120);
+                
+            graphInstance
+                .d3Force('link')
+                .distance(80);
+
+            // Hide loading
+            setTimeout(() => {
+                document.getElementById('loading').classList.add('hidden');
+                graphInstance.zoomToFit(1500);
+            }, 1000);
+
+            return graphInstance;
+        }
+
+        // Optimized node click handler
+        function handleNodeClick(node) {
+            if (!node) return;
+            
+            const distance = 200;
+            const distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+            
+            graphInstance.cameraPosition(
+                { 
+                    x: node.x * distRatio, 
+                    y: node.y * distRatio, 
+                    z: node.z * distRatio 
+                },
+                node,
+                800
+            );
+        }
+
+        // Handle node hover
+        let hoverTimeout;
+        function handleNodeHover(node) {
+            clearTimeout(hoverTimeout);
+            
+            const tooltip = document.getElementById('tooltip');
+            
+            if (!node) {
+                tooltip.classList.remove('show');
+                return;
+            }
+
+            hoverTimeout = setTimeout(() => {
+                // Get mouse position from the event
+                const event = window.event || arguments[0];
+                const html = `
+                    <div class="tooltip-title">${node.name}</div>
+                    <div class="tooltip-section">
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Type:</span>
+                            <span class="tooltip-value" style="color: ${typeColors[node.type]}">${node.type}</span>
+                        </div>
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Weight:</span>
+                            <span class="tooltip-value">${(node.weight || 0).toFixed(1)}</span>
+                        </div>
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Dependencies:</span>
+                            <span class="tooltip-value">${node.data?.dependency_count || 0}</span>
+                        </div>
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">References:</span>
+                            <span class="tooltip-value">${node.data?.reference_count || 0}</span>
+                        </div>
+                    </div>
+                    ${node.data?.description ? `
+                    <div class="tooltip-section">
+                        <div class="tooltip-row">
+                            <span class="tooltip-label">Description:</span>
+                        </div>
+                        <div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 4px;">
+                            ${node.data.description}
+                        </div>
+                    </div>` : ''}
+                `;
+                
+                tooltip.innerHTML = html;
+                tooltip.classList.add('show');
+                
+                // Position tooltip
+                const x = event.clientX + 15;
+                const y = event.clientY + 15;
+                const windowWidth = window.innerWidth;
+                const windowHeight = window.innerHeight;
+                const tooltipWidth = tooltip.offsetWidth;
+                const tooltipHeight = tooltip.offsetHeight;
+                
+                tooltip.style.left = (x + tooltipWidth > windowWidth ? x - tooltipWidth - 30 : x) + 'px';
+                tooltip.style.top = (y + tooltipHeight > windowHeight ? y - tooltipHeight - 30 : y) + 'px';
+            }, 100);
+        }
+
+        // Update statistics
+        function updateStats() {
+            document.getElementById('total-nodes').textContent = graphData.nodes.length.toLocaleString();
+            document.getElementById('total-links').textContent = graphData.links.length.toLocaleString();
+            
+            // Update legend with counts
+            document.querySelectorAll('.legend-item').forEach(item => {
+                const type = item.querySelector('.legend-label').textContent.toLowerCase();
+                const count = graphData.nodes.filter(n => n.type === type).length;
+                item.querySelector('.legend-count').textContent = count.toLocaleString();
+            });
+        }
+
+        // Generate legend
+        function generateLegend() {
+            const container = document.getElementById('legend-items');
+            const typeCounts = {};
+            
+            graphData.nodes.forEach(node => {
+                typeCounts[node.type] = (typeCounts[node.type] || 0) + 1;
+            });
+
+            Object.keys(typeColors).forEach(type => {
+                if (typeCounts[type]) {
+                    const item = document.createElement('div');
+                    item.className = 'legend-item';
+                    item.dataset.type = type;
+                    item.innerHTML = `
+                        <div class="legend-color" style="background: ${typeColors[type]}"></div>
+                        <span class="legend-label">${type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                        <span class="legend-count">${typeCounts[type].toLocaleString()}</span>
+                    `;
+                    
+                    // Add click to filter functionality
+                    item.addEventListener('click', () => {
+                        filterByType(type);
+                    });
+                    
+                    container.appendChild(item);
+                }
+            });
+        }
+
+        function filterByType(type) {
+            if (type === 'all') {
+                graphInstance.graphData(graphData);
+                showNotification('Showing all node types', 'info');
+            } else {
+                const filtered = {
+                    nodes: graphData.nodes.filter(n => n.type === type),
+                    links: graphData.links.filter(l => {
+                        const source = graphData.nodes.find(n => n.id === (l.source.id || l.source));
+                        const target = graphData.nodes.find(n => n.id === (l.target.id || l.target));
+                        return source?.type === type || target?.type === type;
+                    })
+                };
+                graphInstance.graphData(filtered);
+                document.getElementById('filter-type').value = type;
+                showNotification(`Showing only ${type} nodes (${filtered.nodes.length} nodes)`, 'info');
+            }
+            updateStats();
+        }
+
+        // FPS Counter
+        let lastTime = performance.now();
+        let frames = 0;
+        let fps = 60;
+        
+        function updateFPS() {
+            frames++;
+            const currentTime = performance.now();
+            if (currentTime >= lastTime + 1000) {
+                fps = frames;
+                document.getElementById('fps-counter').textContent = fps;
+                frames = 0;
+                lastTime = currentTime;
+                
+                // Color code FPS
+                const fpsElement = document.getElementById('fps-counter');
+                fpsElement.style.color = fps < 30 ? 'var(--danger)' : 
+                                       fps < 50 ? 'var(--warning)' : 'var(--success)';
+            }
+            requestAnimationFrame(updateFPS);
+        }
+
+        // Create label canvas
+        const labelCache = new Map();
+        function createLabelCanvas(text, type) {
+            const cacheKey = `${text}-${type}`;
+            if (labelCache.has(cacheKey)) {
+                return labelCache.get(cacheKey);
+            }
+            
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const fontSize = 11;
+            ctx.font = `500 ${fontSize}px 'Exo 2'`;
+            const textWidth = ctx.measureText(text).width;
+            
+            canvas.width = Math.min(textWidth + 24, 200);
+            canvas.height = fontSize + 14;
+            
+            // Background with gradient
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+            gradient.addColorStop(0, 'rgba(30, 30, 40, 0.95)');
+            gradient.addColorStop(1, 'rgba(20, 20, 30, 0.95)');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Border
+            ctx.strokeStyle = typeColors[type] || '{{ theme_colors.accent }}';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, canvas.width - 2, canvas.height - 2);
+            
+            // Text with shadow
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 2;
+            ctx.shadowOffsetX = 1;
+            ctx.shadowOffsetY = 1;
+            
+            ctx.fillStyle = 'white';
+            ctx.font = `500 ${fontSize}px 'Exo 2'`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            // Reset shadow
+            ctx.shadowColor = 'transparent';
+            
+            labelCache.set(cacheKey, canvas);
+            return canvas;
+        }
+
+        // Notification system
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : type === 'danger' ? 'exclamation-circle' : 'info-circle'}"></i>
+                <span>${message}</span>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 3000);
+        }
+
+        // WebGL detection
+        function detectWebGL() {
+            try {
+                const canvas = document.createElement('canvas');
+                return !!(window.WebGLRenderingContext && 
+                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Initialize everything when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Check WebGL support
+            if (!detectWebGL()) {
+                document.getElementById('loading').innerHTML = `
+                    <div style="text-align: center;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: var(--warning); margin-bottom: 20px;"></i>
+                        <div class="loading-text">WebGL not supported</div>
+                        <p style="margin-top: 10px; color: var(--text-secondary); max-width: 400px;">
+                            Your browser or device does not support WebGL, which is required for 3D visualization.
+                            Please try using a modern browser like Chrome, Firefox, or Edge.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Setup control handlers
+            const setupControls = () => {
+                document.getElementById('filter-type').addEventListener('change', (e) => {
+                    filterByType(e.target.value);
+                });
+
+                document.getElementById('node-size').addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    document.getElementById('node-size-value').textContent = value;
+                    graphInstance.nodeVal(node => (node.weight || 1) * value);
+                });
+
+                document.getElementById('link-distance').addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value);
+                    document.getElementById('link-distance-value').textContent = value;
+                    graphInstance.d3Force('link').distance(value);
+                });
+
+                document.getElementById('charge-strength').addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value);
+                    document.getElementById('charge-value').textContent = value;
+                    graphInstance.d3Force('charge').strength(value);
+                });
+
+                document.getElementById('particle-speed').addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    document.getElementById('particle-speed-value').textContent = value.toFixed(3);
+                    graphInstance.linkDirectionalParticleSpeed(value);
+                });
+
+                document.getElementById('dag-mode').addEventListener('change', (e) => {
+                    graphInstance.dagMode(e.target.value || null);
+                    if (e.target.value) {
+                        showNotification(`DAG mode: ${e.target.value}`, 'info');
+                    }
+                });
+
+                document.getElementById('reset-camera').addEventListener('click', () => {
+                    graphInstance.zoomToFit(800);
+                    showNotification('Camera view reset', 'info');
+                });
+
+                document.getElementById('toggle-particles').addEventListener('click', (e) => {
+                    particlesEnabled = !particlesEnabled;
+                    graphInstance.linkDirectionalParticles(particlesEnabled ? 1 : 0);
+                    e.currentTarget.classList.toggle('active');
+                    showNotification(`Particles ${particlesEnabled ? 'enabled' : 'disabled'}`, 'info');
+                });
+
+                document.getElementById('toggle-labels').addEventListener('click', (e) => {
+                    labelsEnabled = !labelsEnabled;
+                    graphInstance.nodeThreeObject(node => {
+                        if (!labelsEnabled) return null;
+                        const sprite = new THREE.Sprite(
+                            new THREE.SpriteMaterial({
+                                map: new THREE.CanvasTexture(createLabelCanvas(node.name, node.type)),
+                                transparent: true,
+                                depthTest: false
+                            })
+                        );
+                        sprite.scale.set(40, 20, 1);
+                        return sprite;
+                    });
+                    e.currentTarget.classList.toggle('active');
+                    showNotification(`Labels ${labelsEnabled ? 'enabled' : 'disabled'}`, 'info');
+                });
+
+                document.getElementById('center-graph').addEventListener('click', () => {
+                    graphInstance.centerAt([0, 0, 0], 800);
+                    showNotification('Graph centered', 'info');
+                });
+            };
+
+            // Initialize graph and controls
+            const graph = initGraph();
+            updateStats();
+            generateLegend();
+            updateFPS();
+            setupControls();
+            
+            // Auto-zoom after load
+            setTimeout(() => {
+                graph.zoomToFit(2000, 100);
+            }, 500);
+            
+            // Handle window resize with debouncing
+            let resizeTimeout;
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimeout);
+                resizeTimeout = setTimeout(() => {
+                    if (graphInstance) {
+                        const elem = document.getElementById('graph-container');
+                        graphInstance.width(elem.offsetWidth);
+                        graphInstance.height(elem.offsetHeight);
+                        graphInstance.zoomToFit(500);
+                    }
+                }, 250);
+            });
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+                
+                switch(e.key.toLowerCase()) {
+                    case ' ':
+                        e.preventDefault();
+                        graphInstance.zoomToFit(500);
+                        showNotification('View reset', 'info');
+                        break;
+                    case 'p':
+                        document.getElementById('toggle-particles').click();
+                        break;
+                    case 'l':
+                        document.getElementById('toggle-labels').click();
+                        break;
+                    case 'r':
+                        document.getElementById('reset-camera').click();
+                        break;
+                    case 'escape':
+                        filterByType('all');
+                        break;
+                }
+            });
+            
+            // Show keyboard shortcut hint
+            setTimeout(() => {
+                showNotification('Press SPACE to reset view, P for particles, L for labels, ESC for all types', 'info');
+            }, 3000);
+
+            // Performance optimization for mobile
+            if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                // Adjust UI for touch
+                document.querySelector('.controls-panel').style.padding = '16px';
+                document.querySelectorAll('.control-btn').forEach(btn => {
+                    btn.style.padding = '14px 12px';
+                    btn.style.fontSize = '0.9em';
+                });
+                
+                // Disable particles for better performance on mobile
+                setTimeout(() => {
+                    if (particlesEnabled) {
+                        particlesEnabled = false;
+                        graphInstance.linkDirectionalParticles(0);
+                        document.getElementById('toggle-particles').classList.remove('active');
+                        showNotification('Optimized for touch devices', 'info');
+                    }
+                }, 1000);
+            }
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (graphInstance) {
+                graphInstance._destructor();
+            }
+        });
+    </script>
+</body>
+</html>

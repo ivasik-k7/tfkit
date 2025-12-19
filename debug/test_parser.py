@@ -30,7 +30,7 @@ def main():
         __version__ = "Unknown"
 
     theme = "github-dark"
-    layout = "dashboard"
+    layout = "graph"
 
     output_path = Path("./out/data.json")
 

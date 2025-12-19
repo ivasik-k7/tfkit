@@ -21,6 +21,9 @@
             --warning: {{ theme_colors.warning }};
             --danger: {{ theme_colors.danger }};
             --info: {{ theme_colors.info }};
+            /* Hi-tech critical accent */
+            --critical: {{ theme_colors.critical | default('#ff4db0') }};
+            --critical-glow: rgba(255, 77, 176, 0.12);
             --accent-rgb: 59, 130, 246;
         }
 
@@ -1394,37 +1397,36 @@
         }
 
         .stat-card {
-            background: linear-gradient(135deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+            background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.00));
             padding: var(--space-lg);
             border-radius: var(--radius-lg);
-            border: 1px solid var(--color-border);
+            border: 1px solid rgba(255,255,255,0.04);
             text-align: center;
-            transition: var(--transition-default);
+            transition: transform 240ms cubic-bezier(.2,.8,.2,1), box-shadow 240ms cubic-bezier(.2,.8,.2,1);
             position: relative;
             overflow: hidden;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+            will-change: transform;
+            backdrop-filter: blur(6px);
         }
 
         .stat-card::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, var(--color-accent), var(--color-accent-secondary));
-            transform: scaleX(0);
-            transition: transform 0.5s ease-in-out;
-            transform-origin: left;
+            top: -40%;
+            right: -40%;
+            width: 120%;
+            height: 120%;
+            background: radial-gradient(circle at 20% 20%, var(--color-accent) 0%, transparent 20%),
+                        radial-gradient(circle at 80% 80%, var(--color-accent-secondary) 0%, transparent 18%);
+            opacity: 0.04;
+            transform: rotate(12deg);
+            pointer-events: none;
         }
 
         .stat-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
-        }
-
-        .stat-card:hover::before {
-            transform: scaleX(1);
+            transform: translateY(-6px) translateZ(0);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
         }
 
         .stat-icon {
@@ -1516,11 +1518,518 @@
 
         /* Nodes Grid */
 
+        /* ===== CRITICAL NODES - SPECIALIZED INSIGHTS ===== */
         #criticalNodes {
-            display: masonry;
-            column-gap: 1.75rem;
-            padding: var(--space-md);
-            margin-top: var(--space-md);
+            padding: 0;
+            margin-top: 0;
+        }
+
+        .critical-insights-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-lg);
+            padding: var(--space-lg);
+            background: linear-gradient(135deg, 
+                rgba(var(--rgb-accent), 0.08), 
+                rgba(var(--rgb-accent), 0.03));
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .insights-title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .insights-title {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--color-text-primary);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            letter-spacing: -0.5px;
+        }
+
+        .insights-icon {
+            font-size: 1.5em;
+            background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 3px rgba(var(--rgb-accent), 0.3));
+        }
+
+        .insights-subtitle {
+            font-size: 0.95rem;
+            color: var(--color-text-secondary);
+            margin: 0;
+            opacity: 0.8;
+            font-weight: 500;
+        }
+
+        .insights-summary {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 0 var(--space-lg);
+        }
+
+        .summary-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .summary-label {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            color: var(--color-text-secondary);
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-value {
+            font-size: 1.8rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--color-text-primary), var(--color-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .summary-value.summary-danger {
+            background: linear-gradient(135deg, var(--color-danger), #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .summary-divider {
+            width: 1px;
+            height: 50px;
+            background: linear-gradient(180deg, transparent, var(--color-border), transparent);
+        }
+
+        /* Critical Nodes Container - Grid Layout */
+        .critical-nodes-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(620px, 2fr));
+            gap: var(--space-lg);
+            padding: 0;
+        }
+
+        /* Individual Critical Node Card */
+        .critical-node-card {
+            background: linear-gradient(135deg, 
+                var(--color-bg-secondary), 
+                color-mix(in srgb, var(--color-bg-secondary) 90%, var(--color-accent-secondary) 10%));
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .critical-node-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, 
+                var(--accent-color, var(--color-accent)), 
+                var(--accent-color, var(--color-accent-secondary)));
+            opacity: 0.8;
+        }
+
+        .critical-node-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+            border-color: var(--accent-color, var(--color-accent));
+        }
+
+        /* Card Header */
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: var(--space-lg);
+            gap: var(--space-md);
+            position: relative;
+        }
+
+        .card-title-group {
+            display: flex;
+            gap: var(--space-md);
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card-icon-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, 
+                rgba(var(--rgb-accent), 0.1),
+                rgba(var(--rgb-accent), 0.05));
+            border: 1px solid var(--accent-color, var(--color-accent));
+            flex-shrink: 0;
+            font-size: 1.5rem;
+            color: var(--accent-color, var(--color-accent));
+            box-shadow: 0 0 12px rgba(var(--rgb-accent), 0.2);
+        }
+
+        .card-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--color-text-primary);
+            margin: 0 0 0.35rem 0;
+            line-height: 1.3;
+            letter-spacing: -0.5px;
+        }
+
+        .card-description {
+            font-size: 0.9rem;
+            color: var(--color-text-secondary);
+            margin: 0;
+            line-height: 1.4;
+            opacity: 0.85;
+        }
+
+        .card-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.3rem;
+            background: linear-gradient(135deg, var(--accent-color, var(--color-accent)), rgba(var(--rgb-accent), 0.6));
+            color: white;
+            padding: 0.6rem 1.1rem;
+            border-radius: 10px;
+            min-width: 70px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(var(--rgb-accent), 0.3);
+            flex-shrink: 0;
+        }
+
+        .badge-count {
+            font-size: 1.6rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .badge-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            opacity: 0.9;
+        }
+
+        /* Card Divider */
+        .card-divider {
+            height: 1px;
+            background: linear-gradient(90deg, 
+                transparent, 
+                var(--color-border), 
+                transparent);
+            opacity: 0.6;
+        }
+
+        /* Card Content */
+        .card-content {
+            padding: var(--space-lg);
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-lg);
+            gap: var(--space-sm);
+            color: var(--color-text-secondary);
+            text-align: center;
+        }
+
+        .card-empty i {
+            font-size: 2.5rem;
+            opacity: 0.3;
+        }
+
+        .card-empty p {
+            margin: 0;
+            font-size: 0.95rem;
+            opacity: 0.7;
+        }
+
+        /* Node Items Compact */
+        .node-items-compact {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            overflow-y: auto;
+            max-height: 320px;
+            padding-right: 0.5rem;
+        }
+
+        .node-items-compact::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .node-items-compact::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .node-items-compact::-webkit-scrollbar-thumb {
+            background: var(--color-border);
+            border-radius: 3px;
+        }
+
+        .node-items-compact::-webkit-scrollbar-thumb:hover {
+            background: var(--color-accent);
+        }
+
+        /* Compact Node Item */
+        .node-compact-item {
+            min-height: 130px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.85rem;
+            background: var(--color-bg-primary);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            transition: all 0.25s 
+        cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .node-compact-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--color-accent);
+            opacity: 0.5;
+            transition: opacity 0.2s ease;
+        }
+
+        .node-compact-item:hover {
+            background: color-mix(in srgb, var(--color-bg-primary) 90%, var(--color-accent) 10%);
+            border-color: var(--color-accent);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .node-compact-item:hover::before {
+            opacity: 1;
+        }
+
+        .node-compact-item[data-risk="critical"]::before { background: var(--color-danger); }
+        .node-compact-item[data-risk="high"]::before { background: var(--color-warning); }
+        .node-compact-item[data-risk="moderate"]::before { background: var(--color-info); }
+
+        .node-compact-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: rgba(var(--rgb-accent), 0.08);
+            color: var(--color-accent);
+            font-size: 0.95rem;
+            flex-shrink: 0;
+            border: 1px solid rgba(var(--rgb-accent), 0.2);
+        }
+
+        .node-compact-details {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .node-compact-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--color-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.2;
+        }
+
+        .node-compact-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            font-size: 0.8rem;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            color: var(--color-text-secondary);
+            background: var(--color-bg-tertiary);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .meta-item i {
+            font-size: 0.75rem;
+            opacity: 0.6;
+        }
+
+        .meta-badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+
+        .bottleneck-badge {
+            background: linear-gradient(135deg, var(--color-warning), rgba(var(--rgb-accent), 0.3));
+            color: white;
+        }
+
+        .hub-badge {
+            background: linear-gradient(135deg, var(--color-accent), rgba(var(--rgb-accent), 0.5));
+            color: white;
+        }
+
+        .node-risk-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.2rem;
+            padding: 0.5rem 0.7rem;
+            border-radius: 8px;
+            background: var(--color-bg-tertiary);
+            flex-shrink: 0;
+            min-width: 50px;
+        }
+
+        .node-risk-indicator[data-risk="danger"] {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.08));
+            color: var(--color-danger);
+        }
+
+        .node-risk-indicator[data-risk="warning"] {
+            background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(251, 146, 60, 0.08));
+            color: var(--color-warning);
+        }
+
+        .node-risk-indicator[data-risk="info"] {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(6, 182, 212, 0.08));
+            color: var(--color-info);
+        }
+
+        .risk-label {
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            opacity: 0.8;
+        }
+
+        .risk-score {
+            font-size: 1.2rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        /* Card Footer */
+        .card-footer {
+            padding: var(--space-md) var(--space-lg);
+            border-top: 1px solid var(--color-border);
+            display: flex;
+            justify-content: center;
+        }
+
+        .btn-view-more {
+            background: linear-gradient(135deg, var(--color-accent), var(--color-accent-secondary));
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 4px 12px rgba(var(--rgb-accent), 0.3);
+        }
+
+        .btn-view-more:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(var(--rgb-accent), 0.5);
+        }
+
+        .btn-view-more:active {
+            transform: translateY(0);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .critical-nodes-container {
+                grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .insights-summary {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .critical-nodes-container {
+                grid-template-columns: 1fr;
+            }
+
+            .insights-title {
+                font-size: 1.4rem;
+            }
+
+            .card-header {
+                flex-direction: column;
+                gap: var(--space-sm);
+            }
+
+            .card-badge {
+                align-self: flex-start;
+            }
         }
 
         .nodes-grid {
@@ -3975,117 +4484,173 @@
             }
 
 
-        // --- REWORKED renderCriticalNodes ---
             renderCriticalNodes() {
                 const container = document.getElementById('criticalNodes');
 
-                // Mapped fas icons to replace emojis
                 const sections = [
                     {
-                        title: 'High Risk Nodes',
-                        icon: 'fas fa-exclamation-triangle', // Replaced 🚨
+                        title: 'Critical Risk Nodes',
+                        icon: 'fas fa-skull-crossbones',
+                        iconColor: 'danger',
+                        description: 'Highest impact nodes that pose significant risk',
                         nodes: this.data.high_risk_nodes || [],
-                        getRiskClass: (risk) => risk > 15 ? 'risk-high' : risk > 10 ? 'risk-moderate' : 'risk-low'
+                        category: 'critical',
+                        limit: 8
                     },
                     {
-                        title: 'Hub Nodes (High Degree)',
-                        icon: 'fas fa-share-alt', // Replaced 🎯
-                        nodes: this.data.hub_nodes || []
+                        title: 'Hub Nodes',
+                        icon: 'fas fa-share-alt',
+                        iconColor: 'accent',
+                        description: 'Central nodes with many connections (high degree)',
+                        nodes: this.data.hub_nodes || [],
+                        category: 'hub',
+                        limit: 6
                     },
                     {
-                        title: 'Bottleneck Nodes (High Betweenness)',
-                        icon: 'fas fa-compress-alt', // Replaced ⚠️
-                        nodes: this.data.bottleneck_nodes || []
+                        title: 'Bottlenecks',
+                        icon: 'fas fa-hourglass-end',
+                        iconColor: 'warning',
+                        description: 'Critical path nodes that constrain flow',
+                        nodes: this.data.bottleneck_nodes || [],
+                        category: 'bottleneck',
+                        limit: 6
                     },
                     {
-                        title: 'Bridge Nodes (Key Connectors)',
-                        icon: 'fas fa-route', // Replaced 🌉
-                        nodes: this.data.bridge_nodes || []
+                        title: 'Authority Nodes',
+                        icon: 'fas fa-crown',
+                        iconColor: 'info',
+                        description: 'Influential nodes with high in-degree',
+                        nodes: this.data.authority_nodes || [],
+                        category: 'authority',
+                        limit: 5
                     },
                     {
-                        title: 'Authority Nodes (High In-Degree)',
-                        icon: 'fas fa-star', // Replaced 📊/👑
-                        nodes: this.data.authority_nodes || []
-                    },
-                    {
-                        title: 'Leaf Nodes (No Dependencies)',
-                        icon: 'fas fa-terminal', // Replaced 🍃
-                        nodes: this.data.leaf_nodes || []
+                        title: 'Bridge Nodes',
+                        icon: 'fas fa-project-diagram',
+                        iconColor: 'success',
+                        description: 'Key connectors between different components',
+                        nodes: this.data.bridge_nodes || [],
+                        category: 'bridge',
+                        limit: 4
                     }
                 ];
 
-                container.innerHTML = sections.map(section => {
-                    // Skip sections with no nodes unless it's a critical category
-                    if (section.nodes.length === 0 && section.title !== 'High Risk Nodes') {
-                        return '';
-                    }
+                const activeSections = sections.filter(s => 
+                    s.nodes.length > 0 || s.category === 'critical'
+                );
 
-                    return `
-                        <div class="nodes-section">
-                            <div class="section-header">
-                                <div class="section-title">
-                                    <i class="${section.icon} section-icon"></i>
-                                    ${section.title}
-                                </div>
-                                <div class="section-count">${section.nodes.length}</div>
-                            </div>
-                            <div class="nodes-list">
-                                ${this.renderNodeList(section.nodes, section.getRiskClass)}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+                container.innerHTML = `
+                    <div class="critical-nodes-container">
+                        ${activeSections.map((section, idx) => 
+                            this.renderCriticalNodeCard(section, idx)
+                        ).join('')}
+                    </div>
+                `;
             }
 
-            renderNodeList(nodes, riskClassFn) {
-                if (!nodes || nodes.length === 0) {
-                    return '<div class="node-item node-empty">No critical nodes in this category.</div>';
-                }
+            renderCriticalNodeCard(section, sectionIdx) {
+                const displayNodes = section.nodes
+                const hasMore = false;
+                const colorVar = `--color-${section.iconColor}`;
 
-                const displayNodes = nodes.slice(0, 10); // Display slightly more, up to 10
-
-                return displayNodes.map(node => {
-                    const nodeName = Array.isArray(node) ? node[0] : node;
-                    const riskScore = Array.isArray(node) ? node[1] : null;
-
-                    let riskBadge = '';
-                    let nodeRiskClass = '';
-                    
-                    if (riskScore !== null) {
-                        // Determine risk class for coloring
-                        if (riskScore > 15) {
-                            nodeRiskClass = 'risk-high';
-                            riskBadge = `<div class="risk-badge risk-high" title="Risk Score">${Math.round(riskScore)}</div>`;
-                        } else if (riskScore > 10) {
-                            nodeRiskClass = 'risk-moderate';
-                            riskBadge = `<div class="risk-badge risk-moderate" title="Risk Score">${Math.round(riskScore)}</div>`;
-                        } else if (riskScore > 5) {
-                            nodeRiskClass = 'risk-low';
-                            riskBadge = `<div class="risk-badge risk-low" title="Risk Score">${Math.round(riskScore)}</div>`;
-                        } else {
-                            nodeRiskClass = 'risk-safe';
-                        }
-                    }
-                    
-                    const nodeType = this.getNodeType(nodeName);
-                    const nodeTags = this.getNodeTags(nodeName, nodeType);
-                    const typeIcon = this.getNodeTypeIcon(nodeType);
-
-                    return `
-                        <div class="node-item ${nodeRiskClass}" title="${nodeName}">
-                            <i class="${typeIcon} node-type-icon"></i>
-                            <div class="node-content">
-                                <div class="node-info">
-                                    <div class="node-name">${this.formatNodeName(nodeName)}</div>
-                                    <div class="node-meta">
-                                        ${nodeTags.map(tag => `<span class="node-tag">${tag}</span>`).join('')}
-                                    </div>
+                return `
+                    <div class="critical-node-card" data-category="${section.category}">
+                        <div class="card-header" style="--accent-color: var(${colorVar})">
+                            <div class="card-title-group">
+                                <div class="card-icon-wrapper">
+                                    <i class="${section.icon}"></i>
                                 </div>
-                                ${riskBadge}
+                                <div class="card-text">
+                                    <h3 class="card-title">${section.title}</h3>
+                                    <p class="card-description">${section.description}</p>
+                                </div>
+                            </div>
+                            <div class="card-badge">
+                                <span class="badge-count">${section.nodes.length}</span>
+                                <span class="badge-label">nodes</span>
                             </div>
                         </div>
-                    `;
-                }).join('');
+
+                        <div class="card-divider"></div>
+
+                        <div class="card-content">
+                            ${displayNodes.length === 0 ? 
+                                `<div class="card-empty">
+                                    <i class="fas fa-inbox"></i>
+                                    <p>No nodes in this category</p>
+                                </div>` :
+                                `<div class="node-items-compact">
+                                    ${displayNodes.map((node, idx) => 
+                                        this.renderCriticalNodeItem(node, section.category)
+                                    ).join('')}
+                                </div>`
+                            }
+                        </div>
+
+                        ${hasMore ? 
+                            `<div class="card-footer">
+                                <button class="btn-view-more" onclick="dashboard.showNodeCategory('${section.category}')">
+                                    View ${section.nodes.length - section.limit} more <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>` : ''}
+                    </div>
+                `;
+            }
+
+            renderCriticalNodeItem(node, category) {
+                const nodeName = Array.isArray(node) ? node[0] : node;
+                const riskScore = Array.isArray(node) ? node[1] : null;
+                const nodeType = this.getNodeType(nodeName);
+                const typeIcon = this.getNodeTypeIcon(nodeType);
+
+                let riskLevel = 'safe';
+                let riskColor = 'success';
+                if (riskScore !== null) {
+                    if (riskScore > 15) { riskLevel = 'critical'; riskColor = 'danger'; }
+                    else if (riskScore > 10) { riskLevel = 'high'; riskColor = 'warning'; }
+                    else if (riskScore > 5) { riskLevel = 'moderate'; riskColor = 'info'; }
+                }
+
+                // Get node metrics if available
+                const nodeMetrics = this.data.node_metrics?.[nodeName] || {};
+                const degrees = nodeMetrics.in_degree || 0;
+                const outDegrees = nodeMetrics.out_degree || 0;
+
+                return `
+                    <div class="node-compact-item" data-risk="${riskLevel}">
+                        <div class="node-compact-icon" title="${nodeType}">
+                            <i class="${typeIcon}"></i>
+                        </div>
+                        <div class="node-compact-details">
+                            <div class="node-compact-name" title="${nodeName}">
+                                ${this.formatNodeName(nodeName)}
+                            </div>
+                            <div class="node-compact-meta">
+                                <span class="meta-item">
+                                    <i class="fas fa-arrow-down"></i>
+                                    <span>${degrees}</span>
+                                </span>
+                                <span class="meta-item">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>${outDegrees}</span>
+                                </span>
+                                ${nodeMetrics.is_bottleneck ? '<span class="meta-badge bottleneck-badge">Bottleneck</span>' : ''}
+                                ${nodeMetrics.is_hub ? '<span class="meta-badge hub-badge">Hub</span>' : ''}
+                            </div>
+                        </div>
+                        ${riskScore !== null ? 
+                            `<div class="node-risk-indicator" data-risk="${riskColor}">
+                                <span class="risk-label">${riskLevel}</span>
+                                <div class="risk-score">${Math.round(riskScore)}</div>
+                            </div>` : ''}
+                    </div>
+                `;
+            }
+
+            showNodeCategory(category) {
+                console.log('Showing category:', category);
+                // This can be extended to show a modal or expand view
+                alert(`Expanding ${category} nodes view - implementation pending`);
             }
 
             getNodeType(nodeName) {

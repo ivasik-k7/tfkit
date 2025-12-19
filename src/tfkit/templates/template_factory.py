@@ -12,6 +12,7 @@ class TemplateFactory:
         "classic": "classic-template.html.j2",
         "graph": "graph-template.html.j2",
         "dashboard": "dashboard-template.html.j2",
+        "3d-graph": "3d-graph-template.html.j2",
     }
 
     def __init__(self):
